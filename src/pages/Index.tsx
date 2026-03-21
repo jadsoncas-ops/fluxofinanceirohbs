@@ -9,7 +9,8 @@ import { Settings } from '@/components/Settings';
 import { getTransactions } from '@/lib/storage';
 import { generateMonthlyReport } from '@/lib/pdf';
 import { Transaction } from '@/lib/types';
-import { LayoutDashboard, List, Settings as SettingsIcon, Plus, FileDown } from 'lucide-react';
+import { LayoutDashboard, List, Settings as SettingsIcon, Plus, FileDown, Building } from 'lucide-react';
+import hbsLogo from '@/assets/hbs-logo.png';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
