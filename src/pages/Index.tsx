@@ -109,6 +109,7 @@ export default function Index() {
             transactions={monthTransactions}
             onEdit={handleEdit}
             onComplete={tx => setCompleteItem(tx)}
+            onDelete={refresh}
           />
         )}
         {tab === 'settings' && <Settings onDataChange={refresh} />}
