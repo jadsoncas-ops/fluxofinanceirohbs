@@ -35,20 +35,23 @@ export default function Index() {
   useEffect(() => {
     setLoading(true);
     getTransactions().then(txs => {
-      setAllTransactions(txs);
+      setAllTransactions(txs || []);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch(() => {
+      setAllTransactions([]);
+      setLoading(false);
+    });
   }, [txKey]);
 
   const monthTransactions = useMemo(() => {
-    return allTransactions.filter(t => {
+    return (allTransactions || []).filter(t => {
       const d = new Date(t.data + 'T12:00:00');
       return d.getMonth() === month && d.getFullYear() === year;
     });
   }, [allTransactions, month, year]);
 
   const years = useMemo(() => {
-    const set = new Set(allTransactions.map(t => new Date(t.data + 'T12:00:00').getFullYear()));
+    const set = new Set((allTransactions || []).map(t => new Date(t.data + 'T12:00:00').getFullYear()));
     set.add(now.getFullYear());
     return Array.from(set).sort();
   }, [allTransactions]);
