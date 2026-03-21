@@ -5,7 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { exportBackup, importBackup } from '@/lib/storage';
 import { toast } from 'sonner';
-import { Download, Upload, Database, Shield, Moon } from 'lucide-react';
+import { Download, Upload, Shield, Moon, Cloud } from 'lucide-react';
 
 interface Props {
   onDataChange: () => void;
@@ -25,27 +25,31 @@ export function Settings({ onDataChange }: Props) {
     }
   }, [dark]);
 
-  function handleExport() {
-    const data = exportBackup();
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `backup_financeiro_${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('Backup exportado com sucesso.');
+  async function handleExport() {
+    try {
+      const data = await exportBackup();
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `backup_financeiro_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Backup exportado com sucesso.');
+    } catch {
+      toast.error('Erro ao exportar backup.');
+    }
   }
 
   function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
-        importBackup(reader.result as string);
-        toast.success('Backup importado. Recarregando...');
-        setTimeout(() => window.location.reload(), 1000);
+        await importBackup(reader.result as string);
+        toast.success('Backup importado com sucesso.');
+        onDataChange();
       } catch {
         toast.error('Ficheiro inválido. Verifique o formato JSON.');
       }
@@ -76,7 +80,7 @@ export function Settings({ onDataChange }: Props) {
             <h3 className="text-sm font-semibold">Segurança dos Dados</h3>
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Os seus dados são armazenados localmente no navegador. Faça backups regulares para garantir a segurança das suas informações financeiras.
+            Os seus dados são armazenados de forma segura na cloud com encriptação e controlo de acesso.
           </p>
 
           <div className="grid gap-3">
@@ -103,13 +107,13 @@ export function Settings({ onDataChange }: Props) {
       <Card className="border-border/50">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Database className="w-4 h-4 text-muted-foreground" />
+            <Cloud className="w-4 h-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold">Informações</h3>
           </div>
           <div className="space-y-1 text-xs text-muted-foreground">
-            <p>Armazenamento: localStorage do navegador</p>
-            <p>Limite: ~5MB de dados</p>
-            <p>Versão: 1.0.0</p>
+            <p>Armazenamento: Cloud segura</p>
+            <p>Autenticação: Sessão protegida</p>
+            <p>Versão: 2.0.0</p>
           </div>
         </CardContent>
       </Card>

@@ -18,6 +18,7 @@ interface Props {
 export function PartialPaymentModal({ open, onClose, onSave, transaction }: Props) {
   const [valorRecebido, setValorRecebido] = useState('');
   const [dataRestante, setDataRestante] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (transaction) {
@@ -32,53 +33,55 @@ export function PartialPaymentModal({ open, onClose, onSave, transaction }: Prop
   const diferenca = transaction.valor - recebido;
   const isParcial = recebido > 0 && recebido < transaction.valor;
 
-  // Determinar tipos resultantes ao concluir
   const tipoConcluido = transaction.tipo === 'A Receber' ? 'Entrada' : transaction.tipo === 'A Pagar' ? 'Saída' : transaction.tipo;
   const tipoRestante = transaction.tipo === 'A Receber' ? 'A Receber' : transaction.tipo === 'A Pagar' ? 'A Pagar' : transaction.tipo;
 
-  function handleConfirm() {
+  async function handleConfirm() {
     if (recebido <= 0) {
       toast.error('Informe um valor válido.');
       return;
     }
-
     if (recebido > transaction!.valor) {
       toast.error('O valor recebido não pode ser maior que o total.');
       return;
     }
-
     if (isParcial && !dataRestante) {
       toast.error('Selecione a data de vencimento do restante.');
       return;
     }
 
-    // Atualiza o item atual: valor = recebido, status = Concluído, tipo muda se era pendente
-    updateTransaction({
-      ...transaction!,
-      valor: recebido,
-      status: 'Concluído',
-      tipo: tipoConcluido,
-    });
-
-    if (isParcial) {
-      // Cria novo item com o restante, mantém pendente
-      addTransaction({
-        id: crypto.randomUUID(),
-        data: dataRestante,
-        tipo: tipoRestante,
-        categoria: transaction!.categoria,
-        descricao: `${transaction!.descricao.replace(/ - Restante$/, '')} - Restante`,
-        valor: diferenca,
-        status: 'Pendente',
-        isRepasse: transaction!.isRepasse,
+    setSaving(true);
+    try {
+      await updateTransaction({
+        ...transaction!,
+        valor: recebido,
+        status: 'Concluído',
+        tipo: tipoConcluido,
       });
-      toast.success(`Baixa parcial registada. Restante de R$ ${diferenca.toFixed(2)} gerado como pendente.`);
-    } else {
-      toast.success('Lançamento concluído com sucesso.');
-    }
 
-    onSave();
-    onClose();
+      if (isParcial) {
+        await addTransaction({
+          id: crypto.randomUUID(),
+          data: dataRestante,
+          tipo: tipoRestante,
+          categoria: transaction!.categoria,
+          descricao: `${transaction!.descricao.replace(/ - Restante$/, '')} - Restante`,
+          valor: diferenca,
+          status: 'Pendente',
+          isRepasse: transaction!.isRepasse,
+        });
+        toast.success(`Baixa parcial registada. Restante de R$ ${diferenca.toFixed(2)} gerado como pendente.`);
+      } else {
+        toast.success('Lançamento concluído com sucesso.');
+      }
+
+      onSave();
+      onClose();
+    } catch {
+      toast.error('Erro ao processar. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -115,7 +118,9 @@ export function PartialPaymentModal({ open, onClose, onSave, transaction }: Prop
             </div>
           )}
 
-          <Button onClick={handleConfirm} className="w-full">Confirmar</Button>
+          <Button onClick={handleConfirm} className="w-full" disabled={saving}>
+            {saving ? 'A processar...' : 'Confirmar'}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

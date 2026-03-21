@@ -9,7 +9,6 @@ import { toast } from 'sonner';
 
 const FILTERS = ['Tudo', 'Entradas', 'Saídas', 'Pendentes'] as const;
 
-// Extract emoji from category string (first char or two if emoji)
 function getCategoryEmoji(categoria: string): string {
   const match = categoria.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u);
   return match ? match[0] : '📄';
@@ -33,12 +32,16 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete 
     return true;
   }).sort((a, b) => b.data.localeCompare(a.data));
 
-  function handleConfirmDelete() {
+  async function handleConfirmDelete() {
     if (!deleteTarget) return;
-    deleteTransaction(deleteTarget.id);
-    toast.success('Lançamento excluído com sucesso.');
-    setDeleteTarget(null);
-    onDelete();
+    try {
+      await deleteTransaction(deleteTarget.id);
+      toast.success('Lançamento excluído com sucesso.');
+      setDeleteTarget(null);
+      onDelete();
+    } catch {
+      toast.error('Erro ao excluir.');
+    }
   }
 
   return (
