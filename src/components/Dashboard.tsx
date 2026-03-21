@@ -191,12 +191,12 @@ export function Dashboard({ transactions, month, year }: Props) {
       )}
 
       {/* Daily Tip */}
-      <Card className="border-primary/10 bg-primary/[0.03]">
+      <Card className="border-yellow-500/20 bg-yellow-500/[0.04]">
         <CardContent className="p-3">
           <div className="flex items-start gap-2">
-            <Lightbulb className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+            <span className="text-lg leading-none mt-0.5">💡</span>
             <div>
-              <p className="text-[10px] text-primary font-semibold uppercase tracking-wider mb-1">Dica do Dia</p>
+              <p className="text-[10px] text-yellow-600 dark:text-yellow-400 font-semibold uppercase tracking-wider mb-1">Dica do Dia</p>
               <p className="text-xs text-foreground/80 leading-relaxed">{getTipOfDay()}</p>
             </div>
           </div>

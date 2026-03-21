@@ -13,23 +13,23 @@ export interface Transaction {
 }
 
 export const CATEGORIAS_ENTRADA = [
-  'Elaboração de Projeto',
-  'Vistoria',
-  'Regularização Parcial',
-  'Regularização Total',
-  'Administração de Obra',
+  '📐 Elaboração de Projeto',
+  '📋 Vistoria',
+  '🏠 Regularização Parcial',
+  '🏢 Regularização Total',
+  '👷 Administração de Obra',
 ];
 
 export const CATEGORIAS_SAIDA = [
-  'Projetista',
-  'Despachante',
-  'Comissão',
-  'Taxas e Emolumentos',
-  'Deslocamento/Combustível',
-  'Outros',
+  '💻 Projetista',
+  '🏃 Despachante',
+  '🤝 Comissão',
+  '🏛️ Taxas e Emolumentos',
+  '⛽ Deslocamento/Combustível',
+  '🔄 Outros',
 ];
 
-export const CATEGORIAS_REPASSE = ['Projetista', 'Despachante', 'Comissão'];
+export const CATEGORIAS_REPASSE = ['💻 Projetista', '🏃 Despachante', '🤝 Comissão'];
 
 export function getCategorias(tipo: TransactionType): string[] {
   if (tipo === 'Entrada' || tipo === 'A Receber') return CATEGORIAS_ENTRADA;

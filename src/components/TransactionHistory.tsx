@@ -77,7 +77,7 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete 
             return (
               <div key={tx.id} className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border/50 hover:border-border transition-colors">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
-                  <Icon className="w-4 h-4" />
+                  <span className="text-base leading-none">{emoji}</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{tx.descricao}</p>
