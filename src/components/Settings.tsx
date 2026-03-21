@@ -1,9 +1,11 @@
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { exportBackup, importBackup } from '@/lib/storage';
 import { toast } from 'sonner';
-import { Download, Upload, Database, Shield } from 'lucide-react';
+import { Download, Upload, Database, Shield, Moon } from 'lucide-react';
 
 interface Props {
   onDataChange: () => void;
@@ -11,6 +13,17 @@ interface Props {
 
 export function Settings({ onDataChange }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
+
+  useEffect(() => {
+    if (dark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [dark]);
 
   function handleExport() {
     const data = exportBackup();
@@ -43,6 +56,19 @@ export function Settings({ onDataChange }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* Dark Mode */}
+      <Card className="border-border/50">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Moon className="w-4 h-4 text-muted-foreground" />
+              <Label htmlFor="dark-mode" className="text-sm font-semibold cursor-pointer">Modo Escuro</Label>
+            </div>
+            <Switch id="dark-mode" checked={dark} onCheckedChange={setDark} />
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="border-border/50">
         <CardContent className="p-4 space-y-4">
           <div className="flex items-center gap-2 mb-2">
