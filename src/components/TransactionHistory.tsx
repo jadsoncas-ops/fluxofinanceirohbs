@@ -62,7 +62,7 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete 
       ) : (
         <div className="space-y-1.5">
           {filtered.map(tx => {
-            const Icon = ICON_MAP[tx.categoria] || FileText;
+            const emoji = getCategoryEmoji(tx.categoria);
             const isIncome = tx.tipo === 'Entrada' || tx.tipo === 'A Receber';
             const isPending = tx.status === 'Pendente';
 
