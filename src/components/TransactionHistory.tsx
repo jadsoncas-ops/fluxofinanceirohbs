@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { Transaction } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Pencil, CheckCircle2, Clock, Banknote, FileText, Car, Users, Briefcase, Building2, ClipboardCheck } from 'lucide-react';
+import { Pencil, CheckCircle2, Clock, Banknote, FileText, Car, Users, Briefcase, Building2, ClipboardCheck, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { deleteTransaction } from '@/lib/storage';
+import { toast } from 'sonner';
 
 const FILTERS = ['Tudo', 'Entradas', 'Saídas', 'Pendentes'] as const;
 
@@ -24,10 +27,12 @@ interface Props {
   transactions: Transaction[];
   onEdit: (tx: Transaction) => void;
   onComplete: (tx: Transaction) => void;
+  onDelete: () => void;
 }
 
-export function TransactionHistory({ transactions, onEdit, onComplete }: Props) {
+export function TransactionHistory({ transactions, onEdit, onComplete, onDelete }: Props) {
   const [filter, setFilter] = useState<typeof FILTERS[number]>('Tudo');
+  const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
 
   const filtered = transactions.filter(tx => {
     if (filter === 'Entradas') return tx.tipo === 'Entrada' || tx.tipo === 'A Receber';
@@ -35,6 +40,14 @@ export function TransactionHistory({ transactions, onEdit, onComplete }: Props) 
     if (filter === 'Pendentes') return tx.status === 'Pendente';
     return true;
   }).sort((a, b) => b.data.localeCompare(a.data));
+
+  function handleConfirmDelete() {
+    if (!deleteTarget) return;
+    deleteTransaction(deleteTarget.id);
+    toast.success('Lançamento excluído com sucesso.');
+    setDeleteTarget(null);
+    onDelete();
+  }
 
   return (
     <div className="space-y-3">
@@ -101,6 +114,9 @@ export function TransactionHistory({ transactions, onEdit, onComplete }: Props) 
                         <CheckCircle2 className="w-3.5 h-3.5" />
                       </Button>
                     )}
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={() => setDeleteTarget(tx)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -108,6 +124,23 @@ export function TransactionHistory({ transactions, onEdit, onComplete }: Props) 
           })}
         </div>
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={v => !v && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir lançamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
