@@ -44,7 +44,7 @@ export default function Index() {
   }, [txKey]);
 
   const monthTransactions = useMemo(() => {
-    return allTransactions.filter(t => {
+    return (allTransactions || []).filter(t => {
       const d = new Date(t.data + 'T12:00:00');
       return d.getMonth() === month && d.getFullYear() === year;
     });
