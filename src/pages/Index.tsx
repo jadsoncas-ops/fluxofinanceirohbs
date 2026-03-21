@@ -51,7 +51,7 @@ export default function Index() {
   }, [allTransactions, month, year]);
 
   const years = useMemo(() => {
-    const set = new Set(allTransactions.map(t => new Date(t.data + 'T12:00:00').getFullYear()));
+    const set = new Set((allTransactions || []).map(t => new Date(t.data + 'T12:00:00').getFullYear()));
     set.add(now.getFullYear());
     return Array.from(set).sort();
   }, [allTransactions]);
