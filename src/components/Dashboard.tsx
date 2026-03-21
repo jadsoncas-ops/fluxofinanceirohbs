@@ -72,11 +72,11 @@ export function Dashboard({ transactions, month, year }: Props) {
   }, [transactions, month, year, today]);
 
   const cards = [
-    { label: 'Saldo do Mês', value: stats.saldo, icon: Wallet, color: stats.saldo >= 0 ? 'text-success' : 'text-destructive' },
-    { label: 'Entradas', value: stats.entradas, icon: TrendingUp, color: 'text-success' },
-    { label: 'Saídas', value: stats.saidas, icon: TrendingDown, color: 'text-destructive' },
-    { label: 'A Receber', value: stats.aReceber, icon: ArrowDownLeft, color: 'text-primary' },
-    { label: 'A Pagar', value: stats.aPagar, icon: ArrowUpRight, color: 'text-warning' },
+    { label: 'Saldo do Mês', value: stats.saldo, icon: Wallet, color: stats.saldo >= 0 ? 'text-success' : 'text-destructive', emoji: '💰' },
+    { label: 'Entradas', value: stats.entradas, icon: ArrowUpCircle, color: 'text-success', emoji: '📈' },
+    { label: 'Saídas', value: stats.saidas, icon: ArrowDownCircle, color: 'text-destructive', emoji: '📉' },
+    { label: 'A Receber', value: stats.aReceber, icon: ArrowDownLeft, color: 'text-primary', emoji: '🔜' },
+    { label: 'A Pagar', value: stats.aPagar, icon: ArrowUpRight, color: 'text-warning', emoji: '⏳' },
   ];
 
   return (
