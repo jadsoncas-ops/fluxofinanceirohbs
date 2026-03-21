@@ -2,26 +2,18 @@ import { useState } from 'react';
 import { Transaction } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Pencil, CheckCircle2, Clock, Banknote, FileText, Car, Users, Briefcase, Building2, ClipboardCheck, Trash2 } from 'lucide-react';
+import { Pencil, CheckCircle2, Clock, Trash2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { deleteTransaction } from '@/lib/storage';
 import { toast } from 'sonner';
 
 const FILTERS = ['Tudo', 'Entradas', 'Saídas', 'Pendentes'] as const;
 
-const ICON_MAP: Record<string, React.ElementType> = {
-  'Elaboração de Projeto': FileText,
-  'Vistoria': ClipboardCheck,
-  'Regularização Parcial': Building2,
-  'Regularização Total': Building2,
-  'Administração de Obra': Briefcase,
-  'Projetista': Users,
-  'Despachante': Users,
-  'Comissão': Banknote,
-  'Taxas e Emolumentos': Banknote,
-  'Deslocamento/Combustível': Car,
-  'Outros': FileText,
-};
+// Extract emoji from category string (first char or two if emoji)
+function getCategoryEmoji(categoria: string): string {
+  const match = categoria.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u);
+  return match ? match[0] : '📄';
+}
 
 interface Props {
   transactions: Transaction[];
