@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { getTipOfDay } from '@/lib/tips';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { TrendingUp, TrendingDown, Wallet, ArrowDownLeft, ArrowUpRight, Lightbulb, AlertTriangle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, ArrowDownLeft, ArrowUpRight, Lightbulb, AlertTriangle, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 
 interface Props {
   transactions: Transaction[];
