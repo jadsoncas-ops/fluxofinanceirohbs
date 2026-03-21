@@ -5,7 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { exportBackup, importBackup } from '@/lib/storage';
 import { toast } from 'sonner';
-import { Download, Upload, Shield, Moon, Cloud } from 'lucide-react';
+import { Download, Upload, Shield, Moon, Smartphone } from 'lucide-react';
 
 interface Props {
   onDataChange: () => void;
@@ -25,9 +25,9 @@ export function Settings({ onDataChange }: Props) {
     }
   }, [dark]);
 
-  async function handleExport() {
+  function handleExport() {
     try {
-      const data = await exportBackup();
+      const data = exportBackup();
       const blob = new Blob([data], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -45,9 +45,9 @@ export function Settings({ onDataChange }: Props) {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = async () => {
+    reader.onload = () => {
       try {
-        await importBackup(reader.result as string);
+        importBackup(reader.result as string);
         toast.success('Backup importado com sucesso.');
         onDataChange();
       } catch {
@@ -80,7 +80,7 @@ export function Settings({ onDataChange }: Props) {
             <h3 className="text-sm font-semibold">Segurança dos Dados</h3>
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Os seus dados são armazenados de forma segura na cloud com encriptação e controlo de acesso.
+            Os seus dados são armazenados localmente no navegador. Faça backups regulares para segurança.
           </p>
 
           <div className="grid gap-3">
@@ -107,13 +107,12 @@ export function Settings({ onDataChange }: Props) {
       <Card className="border-border/50">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Cloud className="w-4 h-4 text-muted-foreground" />
+            <Smartphone className="w-4 h-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold">Informações</h3>
           </div>
           <div className="space-y-1 text-xs text-muted-foreground">
-            <p>Armazenamento: Cloud segura</p>
-            <p>Autenticação: Sessão protegida</p>
-            <p>Versão: 2.0.0</p>
+            <p>Armazenamento: Local (navegador)</p>
+            <p>Versão: 1.0.0</p>
           </div>
         </CardContent>
       </Card>

@@ -32,16 +32,12 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete 
     return true;
   }).sort((a, b) => b.data.localeCompare(a.data));
 
-  async function handleConfirmDelete() {
+  function handleConfirmDelete() {
     if (!deleteTarget) return;
-    try {
-      await deleteTransaction(deleteTarget.id);
-      toast.success('Lançamento excluído com sucesso.');
-      setDeleteTarget(null);
-      onDelete();
-    } catch {
-      toast.error('Erro ao excluir.');
-    }
+    deleteTransaction(deleteTarget.id);
+    toast.success('Lançamento excluído com sucesso.');
+    setDeleteTarget(null);
+    onDelete();
   }
 
   return (

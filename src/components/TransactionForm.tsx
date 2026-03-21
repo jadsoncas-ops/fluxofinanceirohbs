@@ -26,7 +26,6 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
   const [valorRecebido, setValorRecebido] = useState('');
   const [data, setData] = useState(new Date().toISOString().slice(0, 10));
   const [dataRestante, setDataRestante] = useState('');
-  const [saving, setSaving] = useState(false);
 
   const [hasRepasse, setHasRepasse] = useState(false);
   const [repasseValor, setRepasseValor] = useState('');
@@ -84,7 +83,7 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
     return t;
   }
 
-  async function handleSave() {
+  function handleSave() {
     if (!categoria || !descricao || !valorTotal || !data) {
       toast.error('Preencha todos os campos obrigatórios.');
       return;
@@ -102,121 +101,110 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
       return;
     }
 
-    setSaving(true);
-    try {
-      if (editItem) {
-        if (hasSplit) {
-          await updateTransaction({
-            ...editItem,
-            tipo: getCompletedType(editItem.tipo),
-            categoria,
-            descricao,
-            valor: numRecebido,
-            data,
-            status: 'Concluído',
-          });
-          await addTransaction({
-            id: crypto.randomUUID(),
-            data: dataRestante,
-            tipo: getPendingType(editItem.tipo),
-            categoria,
-            descricao: `${descricao.replace(/ \(Restante\)$/, '')} (Restante)`,
-            valor: diferenca,
-            status: 'Pendente',
-            isRepasse: editItem.isRepasse,
-          });
-          toast.success(`Atualizado. Restante de R$ ${diferenca.toFixed(2)} gerado como pendente.`);
-        } else {
-          await updateTransaction({
-            ...editItem,
-            tipo: numRecebido === numTotal ? getCompletedType(editItem.tipo) : editItem.tipo,
-            categoria,
-            descricao,
-            valor: numRecebido,
-            data,
-            status: numRecebido === numTotal ? 'Concluído' : editItem.status,
-          });
-          toast.success('Lançamento atualizado com sucesso.');
-        }
+    if (editItem) {
+      if (hasSplit) {
+        updateTransaction({
+          ...editItem,
+          tipo: getCompletedType(editItem.tipo),
+          categoria,
+          descricao,
+          valor: numRecebido,
+          data,
+          status: 'Concluído',
+        });
+        addTransaction({
+          id: crypto.randomUUID(),
+          data: dataRestante,
+          tipo: getPendingType(editItem.tipo),
+          categoria,
+          descricao: `${descricao.replace(/ \(Restante\)$/, '')} (Restante)`,
+          valor: diferenca,
+          status: 'Pendente',
+          isRepasse: editItem.isRepasse,
+        });
+        toast.success(`Atualizado. Restante de R$ ${diferenca.toFixed(2)} gerado como pendente.`);
       } else {
-        const txs: Transaction[] = [];
+        updateTransaction({
+          ...editItem,
+          tipo: numRecebido === numTotal ? getCompletedType(editItem.tipo) : editItem.tipo,
+          categoria,
+          descricao,
+          valor: numRecebido,
+          data,
+          status: numRecebido === numTotal ? 'Concluído' : editItem.status,
+        });
+        toast.success('Lançamento atualizado com sucesso.');
+      }
+    } else {
+      const txs: Transaction[] = [];
 
-        if (hasSplit) {
-          txs.push({
-            id: crypto.randomUUID(),
-            data,
-            tipo: getCompletedType(tipo),
-            categoria,
-            descricao,
-            valor: numRecebido,
-            status: 'Concluído',
-            isRepasse: false,
-          });
-          txs.push({
-            id: crypto.randomUUID(),
-            data: dataRestante,
-            tipo: getPendingType(tipo),
-            categoria,
-            descricao: `${descricao} (Restante)`,
-            valor: diferenca,
-            status: 'Pendente',
-            isRepasse: false,
-          });
-        } else {
-          const isConcluido = tipo === 'Entrada' || tipo === 'Saída';
-          txs.push({
-            id: crypto.randomUUID(),
-            data,
-            tipo,
-            categoria,
-            descricao,
-            valor: numTotal,
-            status: isConcluido ? 'Concluído' : 'Pendente',
-            isRepasse: false,
-          });
-        }
-
-        if (hasRepasse && repasseValor) {
-          const rv = parseFloat(repasseValor);
-          if (!isNaN(rv) && rv > 0) {
-            const mainTipo = hasSplit ? getCompletedType(tipo) : tipo;
-            txs.push({
-              id: crypto.randomUUID(),
-              data,
-              tipo: mainTipo === 'Entrada' ? 'Saída' : 'A Pagar',
-              categoria: repasseCategoria,
-              descricao: repasseDescricao || `Repasse - ${descricao}`,
-              valor: rv,
-              status: mainTipo === 'Entrada' ? 'Concluído' : 'Pendente',
-              isRepasse: true,
-            });
-          }
-        }
-
-        await addTransactions(txs);
-        toast.success(txs.length > 1 ? 'Lançamentos registados com sucesso.' : 'Lançamento registado.');
+      if (hasSplit) {
+        txs.push({
+          id: crypto.randomUUID(),
+          data,
+          tipo: getCompletedType(tipo),
+          categoria,
+          descricao,
+          valor: numRecebido,
+          status: 'Concluído',
+          isRepasse: false,
+        });
+        txs.push({
+          id: crypto.randomUUID(),
+          data: dataRestante,
+          tipo: getPendingType(tipo),
+          categoria,
+          descricao: `${descricao} (Restante)`,
+          valor: diferenca,
+          status: 'Pendente',
+          isRepasse: false,
+        });
+      } else {
+        const isConcluido = tipo === 'Entrada' || tipo === 'Saída';
+        txs.push({
+          id: crypto.randomUUID(),
+          data,
+          tipo,
+          categoria,
+          descricao,
+          valor: numTotal,
+          status: isConcluido ? 'Concluído' : 'Pendente',
+          isRepasse: false,
+        });
       }
 
-      onSave();
-      onClose();
-    } catch (err) {
-      toast.error('Erro ao guardar. Tente novamente.');
-    } finally {
-      setSaving(false);
+      if (hasRepasse && repasseValor) {
+        const rv = parseFloat(repasseValor);
+        if (!isNaN(rv) && rv > 0) {
+          const mainTipo = hasSplit ? getCompletedType(tipo) : tipo;
+          txs.push({
+            id: crypto.randomUUID(),
+            data,
+            tipo: mainTipo === 'Entrada' ? 'Saída' : 'A Pagar',
+            categoria: repasseCategoria,
+            descricao: repasseDescricao || `Repasse - ${descricao}`,
+            valor: rv,
+            status: mainTipo === 'Entrada' ? 'Concluído' : 'Pendente',
+            isRepasse: true,
+          });
+        }
+      }
+
+      addTransactions(txs);
+      toast.success(txs.length > 1 ? 'Lançamentos registados com sucesso.' : 'Lançamento registado.');
     }
+
+    onSave();
+    onClose();
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!editItem) return;
-    try {
-      await deleteTransaction(editItem.id);
-      toast.success('Lançamento excluído com sucesso.');
-      setShowDeleteConfirm(false);
-      onSave();
-      onClose();
-    } catch {
-      toast.error('Erro ao excluir.');
-    }
+    deleteTransaction(editItem.id);
+    toast.success('Lançamento excluído com sucesso.');
+    setShowDeleteConfirm(false);
+    onSave();
+    onClose();
   }
 
   return (
@@ -331,8 +319,8 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
               </div>
             )}
 
-            <Button onClick={handleSave} className="w-full" disabled={saving}>
-              {saving ? 'A guardar...' : editItem ? 'Guardar Alterações' : 'Registar Lançamento'}
+            <Button onClick={handleSave} className="w-full">
+              {editItem ? 'Guardar Alterações' : 'Registar Lançamento'}
             </Button>
           </div>
         </DialogContent>
