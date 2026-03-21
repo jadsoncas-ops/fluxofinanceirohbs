@@ -84,8 +84,9 @@ export function Dashboard({ transactions, month, year }: Props) {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
         {cards.map(c => (
-          <Card key={c.label} className="border-border/50">
+          <Card key={c.label} className="border-border/50 relative overflow-hidden">
             <CardContent className="p-3">
+              <span className="absolute top-1.5 right-2 text-2xl opacity-15 select-none">{c.emoji}</span>
               <div className="flex items-center gap-1.5 mb-1">
                 <c.icon className={`w-3.5 h-3.5 ${c.color}`} />
                 <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{c.label}</span>
