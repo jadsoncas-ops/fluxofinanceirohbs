@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dashboard } from '@/components/Dashboard';
@@ -9,8 +9,7 @@ import { Settings } from '@/components/Settings';
 import { getTransactions } from '@/lib/storage';
 import { generateMonthlyReport } from '@/lib/pdf';
 import { Transaction } from '@/lib/types';
-import { useAuth } from '@/contexts/AuthContext';
-import { LayoutDashboard, List, Settings as SettingsIcon, Plus, FileDown, Building, LogOut } from 'lucide-react';
+import { LayoutDashboard, List, Settings as SettingsIcon, Plus, FileDown, Building } from 'lucide-react';
 import hbsLogo from '@/assets/hbs-logo.png';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -18,7 +17,6 @@ const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Jul
 type Tab = 'dashboard' | 'history' | 'settings';
 
 export default function Index() {
-  const { signOut } = useAuth();
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth());
   const [year, setYear] = useState(now.getFullYear());
@@ -27,20 +25,12 @@ export default function Index() {
   const [formOpen, setFormOpen] = useState(false);
   const [editItem, setEditItem] = useState<Transaction | null>(null);
   const [completeItem, setCompleteItem] = useState<Transaction | null>(null);
-  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(() => setTxKey(k => k + 1), []);
 
-  useEffect(() => {
-    setLoading(true);
-    getTransactions().then(txs => {
-      setAllTransactions(txs || []);
-      setLoading(false);
-    }).catch(() => {
-      setAllTransactions([]);
-      setLoading(false);
-    });
+  const allTransactions = useMemo(() => {
+    void txKey; // dependency trigger
+    return getTransactions();
   }, [txKey]);
 
   const monthTransactions = useMemo(() => {
@@ -81,10 +71,6 @@ export default function Index() {
             <Building className="w-3.5 h-3.5 text-muted-foreground/60" />
             <span className="text-xs text-muted-foreground/70 font-medium tracking-wide">Gestão Financeira</span>
           </div>
-          <div className="flex-1" />
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={signOut} title="Sair">
-            <LogOut className="w-4 h-4" />
-          </Button>
         </div>
       </header>
 
@@ -123,24 +109,16 @@ export default function Index() {
 
       {/* Content */}
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 pb-20">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-          </div>
-        ) : (
-          <>
-            {tab === 'dashboard' && <Dashboard transactions={monthTransactions} month={month} year={year} />}
-            {tab === 'history' && (
-              <TransactionHistory
-                transactions={monthTransactions}
-                onEdit={handleEdit}
-                onComplete={tx => setCompleteItem(tx)}
-                onDelete={refresh}
-              />
-            )}
-            {tab === 'settings' && <Settings onDataChange={refresh} />}
-          </>
+        {tab === 'dashboard' && <Dashboard transactions={monthTransactions} month={month} year={year} />}
+        {tab === 'history' && (
+          <TransactionHistory
+            transactions={monthTransactions}
+            onEdit={handleEdit}
+            onComplete={tx => setCompleteItem(tx)}
+            onDelete={refresh}
+          />
         )}
+        {tab === 'settings' && <Settings onDataChange={refresh} />}
       </main>
 
       {/* Bottom Nav */}
