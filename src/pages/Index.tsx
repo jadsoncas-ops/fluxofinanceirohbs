@@ -35,9 +35,12 @@ export default function Index() {
   useEffect(() => {
     setLoading(true);
     getTransactions().then(txs => {
-      setAllTransactions(txs);
+      setAllTransactions(txs || []);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch(() => {
+      setAllTransactions([]);
+      setLoading(false);
+    });
   }, [txKey]);
 
   const monthTransactions = useMemo(() => {
