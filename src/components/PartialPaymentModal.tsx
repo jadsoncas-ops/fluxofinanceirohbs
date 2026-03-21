@@ -3,10 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Transaction } from '@/lib/types';
 import { updateTransaction, addTransaction } from '@/lib/storage';
 import { toast } from 'sonner';
+import { AlertTriangle } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -16,49 +16,63 @@ interface Props {
 }
 
 export function PartialPaymentModal({ open, onClose, onSave, transaction }: Props) {
-  const [valorPago, setValorPago] = useState('');
-  const [gerarRestante, setGerarRestante] = useState(false);
+  const [valorRecebido, setValorRecebido] = useState('');
   const [dataRestante, setDataRestante] = useState('');
 
   useEffect(() => {
     if (transaction) {
-      setValorPago(String(transaction.valor));
-      setGerarRestante(false);
+      setValorRecebido(String(transaction.valor));
       setDataRestante('');
     }
   }, [transaction]);
 
   if (!transaction) return null;
 
-  const pago = parseFloat(valorPago) || 0;
-  const diferenca = transaction.valor - pago;
-  const isParcial = pago > 0 && pago < transaction.valor;
+  const recebido = parseFloat(valorRecebido) || 0;
+  const diferenca = transaction.valor - recebido;
+  const isParcial = recebido > 0 && recebido < transaction.valor;
+
+  // Determinar tipos resultantes ao concluir
+  const tipoConcluido = transaction.tipo === 'A Receber' ? 'Entrada' : transaction.tipo === 'A Pagar' ? 'Saída' : transaction.tipo;
+  const tipoRestante = transaction.tipo === 'A Receber' ? 'A Receber' : transaction.tipo === 'A Pagar' ? 'A Pagar' : transaction.tipo;
 
   function handleConfirm() {
-    if (pago <= 0) {
+    if (recebido <= 0) {
       toast.error('Informe um valor válido.');
       return;
     }
 
-    if (isParcial && gerarRestante && !dataRestante) {
+    if (recebido > transaction!.valor) {
+      toast.error('O valor recebido não pode ser maior que o total.');
+      return;
+    }
+
+    if (isParcial && !dataRestante) {
       toast.error('Selecione a data de vencimento do restante.');
       return;
     }
 
-    updateTransaction({ ...transaction!, valor: pago, status: 'Concluído' });
+    // Atualiza o item atual: valor = recebido, status = Concluído, tipo muda se era pendente
+    updateTransaction({
+      ...transaction!,
+      valor: recebido,
+      status: 'Concluído',
+      tipo: tipoConcluido,
+    });
 
-    if (isParcial && gerarRestante) {
+    if (isParcial) {
+      // Cria novo item com o restante, mantém pendente
       addTransaction({
         id: crypto.randomUUID(),
         data: dataRestante,
-        tipo: transaction!.tipo,
+        tipo: tipoRestante,
         categoria: transaction!.categoria,
-        descricao: `${transaction!.descricao} - Restante`,
+        descricao: `${transaction!.descricao.replace(/ - Restante$/, '')} - Restante`,
         valor: diferenca,
         status: 'Pendente',
         isRepasse: transaction!.isRepasse,
       });
-      toast.success(`Baixa parcial registada. Saldo restante de R$ ${diferenca.toFixed(2)} gerado.`);
+      toast.success(`Baixa parcial registada. Restante de R$ ${diferenca.toFixed(2)} gerado como pendente.`);
     } else {
       toast.success('Lançamento concluído com sucesso.');
     }
@@ -75,27 +89,29 @@ export function PartialPaymentModal({ open, onClose, onSave, transaction }: Prop
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <p className="text-xs text-muted-foreground">{transaction.descricao}</p>
-          <p className="text-sm font-medium">Valor original: R$ {transaction.valor.toFixed(2)}</p>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Valor Total</Label>
+            <Input type="number" value={transaction.valor.toFixed(2)} disabled className="bg-muted" />
+          </div>
 
           <div className="space-y-1.5">
             <Label className="text-xs">Valor Recebido/Pago</Label>
-            <Input type="number" min="0" step="0.01" value={valorPago} onChange={e => setValorPago(e.target.value)} />
+            <Input type="number" min="0" step="0.01" value={valorRecebido} onChange={e => setValorRecebido(e.target.value)} />
           </div>
 
           {isParcial && (
             <div className="border border-warning/30 bg-warning/5 rounded-lg p-3 space-y-3">
-              <div className="flex items-center gap-2">
-                <Checkbox checked={gerarRestante} onCheckedChange={v => setGerarRestante(!!v)} id="restante" />
-                <Label htmlFor="restante" className="text-xs cursor-pointer">
-                  Gerar saldo remanescente (R$ {diferenca.toFixed(2)})?
-                </Label>
+              <div className="flex items-center gap-2 text-warning">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span className="text-xs font-medium">
+                  Gerar novo lançamento com o restante de R$ {diferenca.toFixed(2)}
+                </span>
               </div>
-              {gerarRestante && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Data de vencimento do restante</Label>
-                  <Input type="date" value={dataRestante} onChange={e => setDataRestante(e.target.value)} />
-                </div>
-              )}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Qual a data para receber o restante?</Label>
+                <Input type="date" value={dataRestante} onChange={e => setDataRestante(e.target.value)} />
+              </div>
             </div>
           )}
 

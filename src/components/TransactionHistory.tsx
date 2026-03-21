@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Transaction } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Pencil, CheckCircle2, ArrowDownLeft, ArrowUpRight, Clock, Banknote, FileText, Car, Users, Briefcase, Building2, ClipboardCheck } from 'lucide-react';
+import { Pencil, CheckCircle2, Clock, Banknote, FileText, Car, Users, Briefcase, Building2, ClipboardCheck } from 'lucide-react';
 
 const FILTERS = ['Tudo', 'Entradas', 'Saídas', 'Pendentes'] as const;
 
@@ -59,10 +59,19 @@ export function TransactionHistory({ transactions, onEdit, onComplete }: Props) 
           {filtered.map(tx => {
             const Icon = ICON_MAP[tx.categoria] || FileText;
             const isIncome = tx.tipo === 'Entrada' || tx.tipo === 'A Receber';
+            const isPending = tx.status === 'Pendente';
+
+            const iconBg = isPending
+              ? 'bg-muted text-muted-foreground'
+              : isIncome ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive';
+
+            const valorColor = isPending
+              ? 'text-muted-foreground'
+              : isIncome ? 'text-success' : 'text-destructive';
 
             return (
               <div key={tx.id} className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border/50 hover:border-border transition-colors">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isIncome ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
                   <Icon className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -75,7 +84,7 @@ export function TransactionHistory({ transactions, onEdit, onComplete }: Props) 
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <div className="text-right">
-                    <p className={`text-sm font-semibold tabular-nums ${isIncome ? 'text-success' : 'text-destructive'}`}>
+                    <p className={`text-sm font-semibold tabular-nums ${valorColor}`}>
                       {isIncome ? '+' : '-'} R$ {tx.valor.toFixed(2)}
                     </p>
                     <Badge variant={tx.status === 'Concluído' ? 'default' : 'secondary'} className={`text-[10px] h-4 ${tx.status === 'Concluído' ? 'bg-success/15 text-success border-0' : 'bg-warning/15 text-warning border-0'}`}>
