@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { getTipOfDay } from '@/lib/tips';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { TrendingUp, TrendingDown, Wallet, ArrowDownLeft, ArrowUpRight, Lightbulb, AlertTriangle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, ArrowDownLeft, ArrowUpRight, Lightbulb, AlertTriangle, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 
 interface Props {
   transactions: Transaction[];
@@ -72,11 +72,11 @@ export function Dashboard({ transactions, month, year }: Props) {
   }, [transactions, month, year, today]);
 
   const cards = [
-    { label: 'Saldo do Mês', value: stats.saldo, icon: Wallet, color: stats.saldo >= 0 ? 'text-success' : 'text-destructive' },
-    { label: 'Entradas', value: stats.entradas, icon: TrendingUp, color: 'text-success' },
-    { label: 'Saídas', value: stats.saidas, icon: TrendingDown, color: 'text-destructive' },
-    { label: 'A Receber', value: stats.aReceber, icon: ArrowDownLeft, color: 'text-primary' },
-    { label: 'A Pagar', value: stats.aPagar, icon: ArrowUpRight, color: 'text-warning' },
+    { label: 'Saldo do Mês', value: stats.saldo, icon: Wallet, color: stats.saldo >= 0 ? 'text-success' : 'text-destructive', emoji: '💰' },
+    { label: 'Entradas', value: stats.entradas, icon: ArrowUpCircle, color: 'text-success', emoji: '📈' },
+    { label: 'Saídas', value: stats.saidas, icon: ArrowDownCircle, color: 'text-destructive', emoji: '📉' },
+    { label: 'A Receber', value: stats.aReceber, icon: ArrowDownLeft, color: 'text-primary', emoji: '🔜' },
+    { label: 'A Pagar', value: stats.aPagar, icon: ArrowUpRight, color: 'text-warning', emoji: '⏳' },
   ];
 
   return (
@@ -84,8 +84,9 @@ export function Dashboard({ transactions, month, year }: Props) {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
         {cards.map(c => (
-          <Card key={c.label} className="border-border/50">
+          <Card key={c.label} className="border-border/50 relative overflow-hidden">
             <CardContent className="p-3">
+              <span className="absolute top-1.5 right-2 text-2xl opacity-15 select-none">{c.emoji}</span>
               <div className="flex items-center gap-1.5 mb-1">
                 <c.icon className={`w-3.5 h-3.5 ${c.color}`} />
                 <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{c.label}</span>
@@ -190,12 +191,12 @@ export function Dashboard({ transactions, month, year }: Props) {
       )}
 
       {/* Daily Tip */}
-      <Card className="border-primary/10 bg-primary/[0.03]">
+      <Card className="border-yellow-500/20 bg-yellow-500/[0.04]">
         <CardContent className="p-3">
           <div className="flex items-start gap-2">
-            <Lightbulb className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+            <span className="text-lg leading-none mt-0.5">💡</span>
             <div>
-              <p className="text-[10px] text-primary font-semibold uppercase tracking-wider mb-1">Dica do Dia</p>
+              <p className="text-[10px] text-yellow-600 dark:text-yellow-400 font-semibold uppercase tracking-wider mb-1">Dica do Dia</p>
               <p className="text-xs text-foreground/80 leading-relaxed">{getTipOfDay()}</p>
             </div>
           </div>

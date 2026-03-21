@@ -9,7 +9,8 @@ import { Settings } from '@/components/Settings';
 import { getTransactions } from '@/lib/storage';
 import { generateMonthlyReport } from '@/lib/pdf';
 import { Transaction } from '@/lib/types';
-import { LayoutDashboard, List, Settings as SettingsIcon, Plus, FileDown } from 'lucide-react';
+import { LayoutDashboard, List, Settings as SettingsIcon, Plus, FileDown, Building } from 'lucide-react';
+import hbsLogo from '@/assets/hbs-logo.png';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -60,11 +61,12 @@ export default function Index() {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-30">
-        <div className="max-w-2xl mx-auto px-4 py-3">
-          <p className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground/70 font-medium">
-            Eng. Jádson Castro
-          </p>
-          <h1 className="text-sm font-semibold text-foreground -mt-0.5">Gestão Financeira</h1>
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
+          <img src={hbsLogo} alt="HBS Engenharia" className="h-8 w-auto" />
+          <div className="flex items-center gap-1.5">
+            <Building className="w-3.5 h-3.5 text-muted-foreground/60" />
+            <span className="text-xs text-muted-foreground/70 font-medium tracking-wide">Gestão Financeira</span>
+          </div>
         </div>
       </header>
 
