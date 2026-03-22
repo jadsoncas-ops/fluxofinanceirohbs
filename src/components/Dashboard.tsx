@@ -78,6 +78,7 @@ export function Dashboard({ transactions, month, year }: Props) {
     { label: 'Saídas', value: stats.saidas, icon: ArrowDownCircle, color: 'text-destructive', emoji: '📉' },
     { label: 'A Receber', value: stats.aReceber, icon: ArrowDownLeft, color: 'text-primary', emoji: '🔜' },
     { label: 'A Pagar', value: stats.aPagar, icon: ArrowUpRight, color: 'text-warning', emoji: '⏳' },
+    { label: 'Saldo Pendente', value: stats.saldoPendente, icon: Scale, color: stats.saldoPendente >= 0 ? 'text-primary' : 'text-destructive', emoji: '⚖️', legend: 'Resultado líquido das contas pendentes' },
   ];
 
   return (
