@@ -19,9 +19,10 @@ export function Dashboard({ transactions, month, year }: Props) {
     const aReceber = transactions.filter(t => t.tipo === 'A Receber').reduce((s, t) => s + t.valor, 0);
     const aPagar = transactions.filter(t => t.tipo === 'A Pagar').reduce((s, t) => s + t.valor, 0);
     const saldo = entradas - saidas;
+    const saldoPendente = aReceber - aPagar;
     const totalPrevisto = entradas + aReceber;
     const percentRecebido = totalPrevisto > 0 ? (entradas / totalPrevisto) * 100 : 0;
-    return { entradas, saidas, aReceber, aPagar, saldo, percentRecebido };
+    return { entradas, saidas, aReceber, aPagar, saldo, saldoPendente, percentRecebido };
   }, [transactions]);
 
   const today = new Date().toISOString().slice(0, 10);
