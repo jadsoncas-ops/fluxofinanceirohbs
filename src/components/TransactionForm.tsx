@@ -150,14 +150,15 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
       const txs: Transaction[] = [];
 
       if (hasSplit) {
+        const paidNow = numRecebido > 0;
         txs.push({
           id: crypto.randomUUID(),
           data,
-          tipo: getCompletedType(tipo),
+          tipo: paidNow ? getCompletedType(tipo) : getPendingType(tipo),
           categoria,
           descricao,
-          valor: numRecebido,
-          status: 'Concluído',
+          valor: paidNow ? numRecebido : numTotal,
+          status: paidNow ? 'Concluído' : 'Pendente',
           isRepasse: false,
         });
         txs.push({
