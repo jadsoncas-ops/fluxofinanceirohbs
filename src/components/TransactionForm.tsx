@@ -102,36 +102,47 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
     }
 
     if (editItem) {
+      const isFullyPaid = numRecebido > 0 && numRecebido === numTotal;
+
       if (hasSplit) {
+        // Item paid now: only Concluído if numRecebido > 0
+        const paidStatus = numRecebido > 0 ? 'Concluído' : 'Pendente';
+        const paidTipo = numRecebido > 0 ? getCompletedType(editItem.tipo) : getPendingType(editItem.tipo);
+
         updateTransaction({
           ...editItem,
-          tipo: getCompletedType(editItem.tipo),
+          tipo: paidTipo,
           categoria,
           descricao,
-          valor: numRecebido,
+          valor: numRecebido > 0 ? numRecebido : numTotal,
           data,
-          status: 'Concluído',
+          status: numRecebido > 0 ? 'Concluído' : 'Pendente',
         });
-        addTransaction({
-          id: crypto.randomUUID(),
-          data: dataRestante,
-          tipo: getPendingType(editItem.tipo),
-          categoria,
-          descricao: `${descricao.replace(/ \(Restante\)$/, '')} (Restante)`,
-          valor: diferenca,
-          status: 'Pendente',
-          isRepasse: editItem.isRepasse,
-        });
-        toast.success(`Atualizado. Restante de R$ ${diferenca.toFixed(2)} gerado como pendente.`);
+
+        if (numRecebido > 0) {
+          addTransaction({
+            id: crypto.randomUUID(),
+            data: dataRestante,
+            tipo: getPendingType(editItem.tipo),
+            categoria,
+            descricao: `${descricao.replace(/ \(Restante\)$/, '')} (Restante)`,
+            valor: diferenca,
+            status: 'Pendente',
+            isRepasse: editItem.isRepasse,
+          });
+          toast.success(`Atualizado. Restante de R$ ${diferenca.toFixed(2)} gerado como pendente.`);
+        } else {
+          toast.success('Lançamento atualizado como pendente.');
+        }
       } else {
         updateTransaction({
           ...editItem,
-          tipo: numRecebido === numTotal ? getCompletedType(editItem.tipo) : editItem.tipo,
+          tipo: isFullyPaid ? getCompletedType(editItem.tipo) : getPendingType(editItem.tipo),
           categoria,
           descricao,
-          valor: numRecebido,
+          valor: numRecebido > 0 ? numRecebido : numTotal,
           data,
-          status: numRecebido === numTotal ? 'Concluído' : editItem.status,
+          status: isFullyPaid ? 'Concluído' : 'Pendente',
         });
         toast.success('Lançamento atualizado com sucesso.');
       }
