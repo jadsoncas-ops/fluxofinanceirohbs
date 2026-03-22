@@ -36,7 +36,7 @@ export function PartialPaymentModal({ open, onClose, onSave, transaction }: Prop
   const tipoRestante = transaction.tipo === 'A Receber' ? 'A Receber' : transaction.tipo === 'A Pagar' ? 'A Pagar' : transaction.tipo;
 
   function handleConfirm() {
-    if (recebido <= 0) {
+    if (recebido < 0) {
       toast.error('Informe um valor válido.');
       return;
     }

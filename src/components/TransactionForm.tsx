@@ -92,7 +92,7 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
       toast.error('Valor total inválido.');
       return;
     }
-    if (numRecebido <= 0 || numRecebido > numTotal) {
+    if (numRecebido < 0 || numRecebido > numTotal) {
       toast.error('Valor recebido/pago inválido.');
       return;
     }
