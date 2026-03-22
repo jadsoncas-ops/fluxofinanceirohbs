@@ -66,7 +66,7 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
 
   const numTotal = parseFloat(valorTotal) || 0;
   const numRecebido = parseFloat(valorRecebido) || 0;
-  const hasSplit = numRecebido > 0 && numRecebido < numTotal;
+  const hasSplit = numRecebido >= 0 && numRecebido < numTotal;
   const diferenca = numTotal - numRecebido;
 
   const showRepasse = tipo === 'Entrada' || tipo === 'A Receber';
