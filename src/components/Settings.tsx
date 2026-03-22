@@ -32,7 +32,7 @@ export function Settings({ onDataChange }: Props) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `backup_financeiro_${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = 'backup_hbs_data.json';
       a.click();
       URL.revokeObjectURL(url);
       toast.success('Backup exportado com sucesso.');
@@ -100,6 +100,13 @@ export function Settings({ onDataChange }: Props) {
               </div>
             </Button>
             <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
+          </div>
+
+          <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/20">
+            <Shield className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
+            <p className="text-[11px] text-destructive leading-relaxed">
+              <strong>Atenção:</strong> A importação substituirá os dados atuais deste aparelho pelos dados do arquivo de backup.
+            </p>
           </div>
         </CardContent>
       </Card>
