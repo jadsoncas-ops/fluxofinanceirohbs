@@ -84,7 +84,7 @@ export function Dashboard({ transactions, month, year }: Props) {
   return (
     <div className="space-y-4">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
         {cards.map(c => (
           <Card key={c.label} className="border-border/50 relative overflow-hidden">
             <CardContent className="p-3">
@@ -96,6 +96,9 @@ export function Dashboard({ transactions, month, year }: Props) {
               <p className={`text-lg font-bold tabular-nums ${c.color}`}>
                 R$ {c.value.toFixed(2)}
               </p>
+              {'legend' in c && (c as any).legend && (
+                <p className="text-[9px] text-muted-foreground mt-1 leading-tight">{(c as any).legend}</p>
+              )}
             </CardContent>
           </Card>
         ))}
