@@ -32,7 +32,7 @@ export function Settings({ onDataChange }: Props) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `backup_financeiro_${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = 'backup_hbs_data.json';
       a.click();
       URL.revokeObjectURL(url);
       toast.success('Backup exportado com sucesso.');
