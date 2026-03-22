@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { getTipOfDay } from '@/lib/tips';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { TrendingUp, TrendingDown, Wallet, ArrowDownLeft, ArrowUpRight, Lightbulb, AlertTriangle, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, ArrowDownLeft, ArrowUpRight, Lightbulb, AlertTriangle, ArrowUpCircle, ArrowDownCircle, Scale } from 'lucide-react';
 
 interface Props {
   transactions: Transaction[];
@@ -19,9 +19,10 @@ export function Dashboard({ transactions, month, year }: Props) {
     const aReceber = transactions.filter(t => t.tipo === 'A Receber').reduce((s, t) => s + t.valor, 0);
     const aPagar = transactions.filter(t => t.tipo === 'A Pagar').reduce((s, t) => s + t.valor, 0);
     const saldo = entradas - saidas;
+    const saldoPendente = aReceber - aPagar;
     const totalPrevisto = entradas + aReceber;
     const percentRecebido = totalPrevisto > 0 ? (entradas / totalPrevisto) * 100 : 0;
-    return { entradas, saidas, aReceber, aPagar, saldo, percentRecebido };
+    return { entradas, saidas, aReceber, aPagar, saldo, saldoPendente, percentRecebido };
   }, [transactions]);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -77,12 +78,13 @@ export function Dashboard({ transactions, month, year }: Props) {
     { label: 'Saídas', value: stats.saidas, icon: ArrowDownCircle, color: 'text-destructive', emoji: '📉' },
     { label: 'A Receber', value: stats.aReceber, icon: ArrowDownLeft, color: 'text-primary', emoji: '🔜' },
     { label: 'A Pagar', value: stats.aPagar, icon: ArrowUpRight, color: 'text-warning', emoji: '⏳' },
+    { label: 'Saldo Pendente', value: stats.saldoPendente, icon: Scale, color: stats.saldoPendente >= 0 ? 'text-primary' : 'text-destructive', emoji: '⚖️', legend: 'Resultado líquido das contas pendentes' },
   ];
 
   return (
     <div className="space-y-4">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
         {cards.map(c => (
           <Card key={c.label} className="border-border/50 relative overflow-hidden">
             <CardContent className="p-3">
@@ -94,6 +96,9 @@ export function Dashboard({ transactions, month, year }: Props) {
               <p className={`text-lg font-bold tabular-nums ${c.color}`}>
                 R$ {c.value.toFixed(2)}
               </p>
+              {'legend' in c && (c as any).legend && (
+                <p className="text-[9px] text-muted-foreground mt-1 leading-tight">{(c as any).legend}</p>
+              )}
             </CardContent>
           </Card>
         ))}
