@@ -3,7 +3,7 @@ import { Transaction } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Pencil, CheckCircle2, Clock, Trash2, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Pencil, CheckCircle2, Clock, Trash2, ArrowUpRight, ArrowDownRight, CornerDownRight } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { deleteTransaction } from '@/lib/storage';
 import { toast } from 'sonner';
@@ -32,6 +32,21 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete 
     return true;
   }).sort((a, b) => b.data.localeCompare(a.data));
 
+  // Build parent → children map
+  const childrenMap = new Map<string, Transaction[]>();
+  const childIds = new Set<string>();
+  filtered.forEach(tx => {
+    if (tx.parentId) {
+      childIds.add(tx.id);
+      const existing = childrenMap.get(tx.parentId) || [];
+      existing.push(tx);
+      childrenMap.set(tx.parentId, existing);
+    }
+  });
+
+  // Only render top-level items (non-children)
+  const topLevel = filtered.filter(tx => !childIds.has(tx.id));
+
   const totalFiltered = filtered.reduce((sum, tx) => sum + tx.valor, 0);
 
   function handleConfirmDelete() {
@@ -40,6 +55,94 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete 
     toast.success('Lançamento excluído com sucesso.');
     setDeleteTarget(null);
     onDelete();
+  }
+
+  function renderRow(tx: Transaction, isChild = false) {
+    const emoji = getCategoryEmoji(tx.categoria);
+    const isIncome = tx.tipo === 'Entrada' || tx.tipo === 'A Receber';
+    const isPending = tx.status === 'Pendente';
+
+    const iconBg = isPending
+      ? 'bg-muted text-muted-foreground'
+      : isIncome ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive';
+
+    const valorColor = isPending
+      ? 'text-muted-foreground'
+      : isIncome ? 'text-success' : 'text-destructive';
+
+    if (isChild) {
+      return (
+        <div key={tx.id} className="flex items-center gap-2.5 px-3 py-2 ml-4 border-l-2 border-border/50 bg-muted/20 rounded-r-lg">
+          <CornerDownRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <div className={`w-6 h-6 rounded flex items-center justify-center shrink-0 ${iconBg}`}>
+            <span className="text-xs leading-none">{emoji}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium truncate text-muted-foreground">{tx.descricao}</p>
+            <span className="text-[10px] text-muted-foreground">{tx.categoria}</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <p className={`text-xs font-semibold tabular-nums ${valorColor}`}>
+              {isIncome ? '+' : '-'} R$ {tx.valor.toFixed(2)}
+            </p>
+            <div className="flex gap-0.5">
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEdit(tx)}>
+                <Pencil className="w-3 h-3" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/70 hover:text-destructive" onClick={() => setDeleteTarget(tx)}>
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div key={tx.id} className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border/50 hover:border-border transition-colors">
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
+          <span className="text-base leading-none">{emoji}</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            {isIncome
+              ? <ArrowUpRight className="w-3 h-3 text-success shrink-0" />
+              : <ArrowDownRight className="w-3 h-3 text-destructive shrink-0" />
+            }
+            <p className="text-sm font-medium truncate">{tx.descricao}</p>
+          </div>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-xs text-muted-foreground">{new Date(tx.data + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+            <span className="text-xs text-muted-foreground">·</span>
+            <span className="text-xs text-muted-foreground">{tx.categoria}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="text-right">
+            <p className={`text-sm font-semibold tabular-nums ${valorColor}`}>
+              {isIncome ? '+' : '-'} R$ {tx.valor.toFixed(2)}
+            </p>
+            <Badge variant={tx.status === 'Concluído' ? 'default' : 'secondary'} className={`text-[10px] h-4 ${tx.status === 'Concluído' ? 'bg-success/15 text-success border-0' : 'bg-warning/15 text-warning border-0'}`}>
+              {tx.status === 'Concluído' ? <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" /> : <Clock className="w-2.5 h-2.5 mr-0.5" />}
+              {tx.status}
+            </Badge>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(tx)}>
+              <Pencil className="w-3.5 h-3.5" />
+            </Button>
+            {tx.status === 'Pendente' && (
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-success" onClick={() => onComplete(tx)}>
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={() => setDeleteTarget(tx)}>
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -71,62 +174,16 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete 
         <p className="text-center text-muted-foreground text-sm py-8">Nenhum lançamento encontrado.</p>
       ) : (
         <div className="space-y-1.5">
-          {filtered.map(tx => {
-            const emoji = getCategoryEmoji(tx.categoria);
-            const isIncome = tx.tipo === 'Entrada' || tx.tipo === 'A Receber';
-            const isPending = tx.status === 'Pendente';
-
-            const iconBg = isPending
-              ? 'bg-muted text-muted-foreground'
-              : isIncome ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive';
-
-            const valorColor = isPending
-              ? 'text-muted-foreground'
-              : isIncome ? 'text-success' : 'text-destructive';
-
+          {topLevel.map(tx => {
+            const children = childrenMap.get(tx.id) || [];
             return (
-              <div key={tx.id} className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border/50 hover:border-border transition-colors">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
-                  <span className="text-base leading-none">{emoji}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    {isIncome
-                      ? <ArrowUpRight className="w-3 h-3 text-success shrink-0" />
-                      : <ArrowDownRight className="w-3 h-3 text-destructive shrink-0" />
-                    }
-                    <p className="text-sm font-medium truncate">{tx.descricao}</p>
+              <div key={tx.id}>
+                {renderRow(tx)}
+                {children.length > 0 && (
+                  <div className="space-y-0.5 mt-0.5">
+                    {children.map(child => renderRow(child, true))}
                   </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs text-muted-foreground">{new Date(tx.data + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
-                    <span className="text-xs text-muted-foreground">·</span>
-                    <span className="text-xs text-muted-foreground">{tx.categoria}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <div className="text-right">
-                    <p className={`text-sm font-semibold tabular-nums ${valorColor}`}>
-                      {isIncome ? '+' : '-'} R$ {tx.valor.toFixed(2)}
-                    </p>
-                    <Badge variant={tx.status === 'Concluído' ? 'default' : 'secondary'} className={`text-[10px] h-4 ${tx.status === 'Concluído' ? 'bg-success/15 text-success border-0' : 'bg-warning/15 text-warning border-0'}`}>
-                      {tx.status === 'Concluído' ? <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" /> : <Clock className="w-2.5 h-2.5 mr-0.5" />}
-                      {tx.status}
-                    </Badge>
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(tx)}>
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-                    {tx.status === 'Pendente' && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-success" onClick={() => onComplete(tx)}>
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={() => setDeleteTarget(tx)}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </div>
+                )}
               </div>
             );
           })}
