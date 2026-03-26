@@ -9,7 +9,15 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Transaction, TransactionType, getCategorias, CATEGORIAS_REPASSE } from '@/lib/types';
 import { addTransactions, updateTransaction, addTransaction, deleteTransaction } from '@/lib/storage';
 import { toast } from 'sonner';
-import { AlertTriangle, Trash2 } from 'lucide-react';
+import { AlertTriangle, Trash2, Plus, X } from 'lucide-react';
+
+interface RepasseItem {
+  valor: string;
+  categoria: string;
+  descricao: string;
+}
+
+const emptyRepasse = (): RepasseItem => ({ valor: '', categoria: '💻 Projetista', descricao: '' });
 
 interface Props {
   open: boolean;
@@ -28,9 +36,7 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
   const [dataRestante, setDataRestante] = useState('');
 
   const [hasRepasse, setHasRepasse] = useState(false);
-  const [repasseValor, setRepasseValor] = useState('');
-  const [repasseCategoria, setRepasseCategoria] = useState('Projetista');
-  const [repasseDescricao, setRepasseDescricao] = useState('');
+  const [repasses, setRepasses] = useState<RepasseItem[]>([emptyRepasse()]);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -44,6 +50,7 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
       setData(editItem.data);
       setDataRestante('');
       setHasRepasse(false);
+      setRepasses([emptyRepasse()]);
     } else {
       setTipo('Entrada');
       setCategoria('');
@@ -53,8 +60,7 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
       setData(new Date().toISOString().slice(0, 10));
       setDataRestante('');
       setHasRepasse(false);
-      setRepasseValor('');
-      setRepasseDescricao('');
+      setRepasses([emptyRepasse()]);
     }
   }, [editItem, open]);
 
@@ -71,6 +77,20 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
 
   const showRepasse = tipo === 'Entrada' || tipo === 'A Receber';
   const categorias = getCategorias(tipo);
+
+  function updateRepasse(index: number, field: keyof RepasseItem, value: string) {
+    setRepasses(prev => prev.map((r, i) => i === index ? { ...r, [field]: value } : r));
+  }
+
+  function addRepasse() {
+    setRepasses(prev => [...prev, emptyRepasse()]);
+  }
+
+  function removeRepasse(index: number) {
+    setRepasses(prev => prev.length <= 1 ? prev : prev.filter((_, i) => i !== index));
+  }
+
+  const totalRepasses = repasses.reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0);
 
   function getCompletedType(t: TransactionType): TransactionType {
     if (t === 'A Receber') return 'Entrada';
@@ -105,13 +125,9 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
       const isFullyPaid = numRecebido > 0 && numRecebido === numTotal;
 
       if (hasSplit) {
-        // Item paid now: only Concluído if numRecebido > 0
-        const paidStatus = numRecebido > 0 ? 'Concluído' : 'Pendente';
-        const paidTipo = numRecebido > 0 ? getCompletedType(editItem.tipo) : getPendingType(editItem.tipo);
-
         updateTransaction({
           ...editItem,
-          tipo: paidTipo,
+          tipo: numRecebido > 0 ? getCompletedType(editItem.tipo) : getPendingType(editItem.tipo),
           categoria,
           descricao,
           valor: numRecebido > 0 ? numRecebido : numTotal,
@@ -129,6 +145,7 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
             valor: diferenca,
             status: 'Pendente',
             isRepasse: editItem.isRepasse,
+            parentId: editItem.parentId,
           });
           toast.success(`Atualizado. Restante de R$ ${diferenca.toFixed(2)} gerado como pendente.`);
         } else {
@@ -148,11 +165,12 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
       }
     } else {
       const txs: Transaction[] = [];
+      const parentId = crypto.randomUUID();
 
       if (hasSplit) {
         const paidNow = numRecebido > 0;
         txs.push({
-          id: crypto.randomUUID(),
+          id: parentId,
           data,
           tipo: paidNow ? getCompletedType(tipo) : getPendingType(tipo),
           categoria,
@@ -170,11 +188,12 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
           valor: diferenca,
           status: 'Pendente',
           isRepasse: false,
+          parentId,
         });
       } else {
         const isConcluido = tipo === 'Entrada' || tipo === 'Saída';
         txs.push({
-          id: crypto.randomUUID(),
+          id: parentId,
           data,
           tipo,
           categoria,
@@ -185,21 +204,24 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
         });
       }
 
-      if (hasRepasse && repasseValor) {
-        const rv = parseFloat(repasseValor);
-        if (!isNaN(rv) && rv > 0) {
-          const mainTipo = hasSplit ? getCompletedType(tipo) : tipo;
-          txs.push({
-            id: crypto.randomUUID(),
-            data,
-            tipo: mainTipo === 'Entrada' ? 'Saída' : 'A Pagar',
-            categoria: repasseCategoria,
-            descricao: repasseDescricao || `Repasse - ${descricao}`,
-            valor: rv,
-            status: mainTipo === 'Entrada' ? 'Concluído' : 'Pendente',
-            isRepasse: true,
-          });
-        }
+      if (hasRepasse) {
+        const mainTipo = hasSplit ? getCompletedType(tipo) : tipo;
+        repasses.forEach(rep => {
+          const rv = parseFloat(rep.valor);
+          if (!isNaN(rv) && rv > 0) {
+            txs.push({
+              id: crypto.randomUUID(),
+              data,
+              tipo: mainTipo === 'Entrada' ? 'Saída' : 'A Pagar',
+              categoria: rep.categoria,
+              descricao: rep.descricao || `Repasse - ${descricao}`,
+              valor: rv,
+              status: mainTipo === 'Entrada' ? 'Concluído' : 'Pendente',
+              isRepasse: true,
+              parentId,
+            });
+          }
+        });
       }
 
       addTransactions(txs);
@@ -301,32 +323,56 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
               <div className="border border-border rounded-lg p-3 space-y-3 bg-muted/30">
                 <div className="flex items-center gap-2">
                   <Checkbox checked={hasRepasse} onCheckedChange={v => setHasRepasse(!!v)} id="repasse" />
-                  <Label htmlFor="repasse" className="text-xs font-medium cursor-pointer">Adicionar repasse a parceiro</Label>
+                  <Label htmlFor="repasse" className="text-xs font-medium cursor-pointer">Adicionar repasse a parceiro(s)</Label>
                 </div>
                 {hasRepasse && (
-                  <>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Valor Repasse</Label>
-                        <Input type="number" min="0" step="0.01" value={repasseValor} onChange={e => setRepasseValor(e.target.value)} />
+                  <div className="space-y-3">
+                    {repasses.map((rep, idx) => (
+                      <div key={idx} className="space-y-2 border border-border/50 rounded-md p-2.5 bg-background/50 relative">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-medium text-muted-foreground">Parceiro {idx + 1}</span>
+                          {repasses.length > 1 && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/60 hover:text-destructive" onClick={() => removeRepasse(idx)}>
+                              <X className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-[11px]">Valor (R$)</Label>
+                            <Input type="number" min="0" step="0.01" value={rep.valor} onChange={e => updateRepasse(idx, 'valor', e.target.value)} className="h-8 text-xs" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px]">Categoria</Label>
+                            <Select value={rep.categoria} onValueChange={v => updateRepasse(idx, 'categoria', v)}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {CATEGORIAS_REPASSE.map(c => (
+                                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">Descrição do Repasse</Label>
+                          <Input value={rep.descricao} onChange={e => updateRepasse(idx, 'descricao', e.target.value)} placeholder="Ex: Pagamento ao projetista" className="h-8 text-xs" />
+                        </div>
                       </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Categoria</Label>
-                        <Select value={repasseCategoria} onValueChange={setRepasseCategoria}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {CATEGORIAS_REPASSE.map(c => (
-                              <SelectItem key={c} value={c}>{c}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                    ))}
+
+                    <Button type="button" variant="outline" size="sm" className="w-full text-xs gap-1.5" onClick={addRepasse}>
+                      <Plus className="w-3.5 h-3.5" />
+                      Adicionar outro parceiro
+                    </Button>
+
+                    {totalRepasses > 0 && (
+                      <div className="flex justify-between text-xs text-muted-foreground px-1">
+                        <span>Total repasses:</span>
+                        <span className="font-medium tabular-nums">R$ {totalRepasses.toFixed(2)}</span>
                       </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Descrição do Repasse</Label>
-                      <Input value={repasseDescricao} onChange={e => setRepasseDescricao(e.target.value)} placeholder="Opcional" />
-                    </div>
-                  </>
+                    )}
+                  </div>
                 )}
               </div>
             )}
