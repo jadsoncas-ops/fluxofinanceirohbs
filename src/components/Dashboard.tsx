@@ -84,20 +84,20 @@ export function Dashboard({ transactions, month, year }: Props) {
   return (
     <div className="space-y-4">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6 gap-2.5 lg:gap-4">
         {cards.map(c => (
           <Card key={c.label} className="border-border/50 relative overflow-hidden">
-            <CardContent className="p-3">
-              <span className="absolute top-1.5 right-2 text-2xl opacity-15 select-none">{c.emoji}</span>
-              <div className="flex items-center gap-1.5 mb-1">
-                <c.icon className={`w-3.5 h-3.5 ${c.color}`} />
-                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{c.label}</span>
+            <CardContent className="p-3 lg:p-4">
+              <span className="absolute top-1.5 right-2 text-2xl lg:text-3xl opacity-15 select-none">{c.emoji}</span>
+              <div className="flex items-center gap-1.5 mb-1 lg:mb-2">
+                <c.icon className={`w-3.5 h-3.5 lg:w-5 lg:h-5 ${c.color} shrink-0`} />
+                <span className="text-[10px] lg:text-xs text-muted-foreground uppercase tracking-wider truncate">{c.label}</span>
               </div>
-              <p className={`text-lg font-bold tabular-nums ${c.color}`}>
+              <p className={`text-lg lg:text-xl font-bold tabular-nums ${c.color}`}>
                 R$ {c.value.toFixed(2)}
               </p>
               {'legend' in c && (c as any).legend && (
-                <p className="text-[9px] text-muted-foreground mt-1 leading-tight">{(c as any).legend}</p>
+                <p className="text-[9px] lg:text-[11px] text-muted-foreground mt-1 leading-tight">{(c as any).legend}</p>
               )}
             </CardContent>
           </Card>
