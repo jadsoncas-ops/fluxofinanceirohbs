@@ -10,6 +10,7 @@ export interface Transaction {
   valor: number;
   status: TransactionStatus;
   isRepasse: boolean;
+  parentId?: string; // Links repasse to parent transaction
 }
 
 export const CATEGORIAS_ENTRADA = [
