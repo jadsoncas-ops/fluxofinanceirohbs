@@ -22,15 +22,16 @@ export const CATEGORIAS_ENTRADA = [
 ];
 
 export const CATEGORIAS_SAIDA = [
-  '💻 Projetista',
+  '🖨️ Impressão de projetos',
+  '📄 Pagamento de ART',
   '🏃 Despachante',
   '🤝 Comissão',
-  '🏛️ Taxas e Emolumentos',
+  '⚙️ Custos operacionais',
   '⛽ Deslocamento/Combustível',
   '🔄 Outros',
 ];
 
-export const CATEGORIAS_REPASSE = ['💻 Projetista', '🏃 Despachante', '🤝 Comissão'];
+export const CATEGORIAS_REPASSE = ['🖨️ Impressão de projetos', '📄 Pagamento de ART', '🏃 Despachante', '🤝 Comissão', '⚙️ Custos operacionais'];
 
 export function getCategorias(tipo: TransactionType): string[] {
   if (tipo === 'Entrada' || tipo === 'A Receber') return CATEGORIAS_ENTRADA;

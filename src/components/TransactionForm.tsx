@@ -17,7 +17,7 @@ interface RepasseItem {
   descricao: string;
 }
 
-const emptyRepasse = (): RepasseItem => ({ valor: '', categoria: '💻 Projetista', descricao: '' });
+const emptyRepasse = (): RepasseItem => ({ valor: '', categoria: '🖨️ Impressão de projetos', descricao: '' });
 
 interface Props {
   open: boolean;

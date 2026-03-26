@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 import { Transaction } from '@/lib/types';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { getTipOfDay } from '@/lib/tips';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { TrendingUp, TrendingDown, Wallet, ArrowDownLeft, ArrowUpRight, Lightbulb, AlertTriangle, ArrowUpCircle, ArrowDownCircle, Scale } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
+import { TrendingUp, Wallet, ArrowDownLeft, ArrowUpRight, AlertTriangle, ArrowUpCircle, ArrowDownCircle, Target, Activity, CheckCircle2, BadgeAlert } from 'lucide-react';
 
 interface Props {
   transactions: Transaction[];
@@ -13,187 +13,206 @@ interface Props {
 }
 
 export function Dashboard({ transactions, month, year }: Props) {
-  const stats = useMemo(() => {
-    const entradas = transactions.filter(t => t.tipo === 'Entrada' && t.status === 'Concluído').reduce((s, t) => s + t.valor, 0);
-    const saidas = transactions.filter(t => t.tipo === 'Saída' && t.status === 'Concluído').reduce((s, t) => s + t.valor, 0);
-    const aReceber = transactions.filter(t => t.tipo === 'A Receber').reduce((s, t) => s + t.valor, 0);
-    const aPagar = transactions.filter(t => t.tipo === 'A Pagar').reduce((s, t) => s + t.valor, 0);
-    const saldo = entradas - saidas;
-    const saldoPendente = aReceber - aPagar;
+  const { stats, projectProfits, cashFlowPoints, negativeAlert, saldoAtual, saldoProjetadoFuturo } = useMemo(() => {
+    // 1. LUCRO POR PROJETO
+    const projMap = new Map<string, { receita: number; custo: number }>();
+    transactions.forEach(t => {
+      let projName = t.descricao.replace(/ \(Restante\)$/, '').replace(/^Repasse\s*-\s*/, '').trim();
+      if (!projMap.has(projName)) projMap.set(projName, { receita: 0, custo: 0 });
+      const p = projMap.get(projName)!;
+      
+      const isReceita = t.tipo === 'Entrada' || t.tipo === 'A Receber';
+      const isCusto = (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.isRepasse;
+      
+      if (isReceita) p.receita += t.valor;
+      if (isCusto) p.custo += t.valor;
+    });
+
+    const projectProfits = Array.from(projMap.entries())
+      .map(([name, data]) => ({ name, ...data, lucro: data.receita - data.custo }))
+      .filter(p => p.receita > 0 || p.custo > 0)
+      .sort((a, b) => b.lucro - a.lucro);
+
+    // 2. FLUXO DE CAIXA PROJETADO E ALERTAS
+    const today = new Date().toISOString().slice(0, 10);
+    const sorted = [...transactions].sort((a, b) => a.data.localeCompare(b.data));
+    
+    let runningTotal = 0;
+    let actualBalance = 0;
+    const dateMap = new Map<string, number>();
+    
+    // Calcular a variação por dia e o saldo de itens já concluídos
+    sorted.forEach(t => {
+      const isReceita = t.tipo === 'Entrada' || t.tipo === 'A Receber';
+      const isDespesa = t.tipo === 'Saída' || t.tipo === 'A Pagar';
+      const val = isReceita ? t.valor : (isDespesa ? -t.valor : 0);
+      
+      dateMap.set(t.data, (dateMap.get(t.data) || 0) + val);
+
+      if (t.status === 'Concluído') {
+         actualBalance += isReceita ? t.valor : (isDespesa ? -t.valor : 0);
+      }
+    });
+
+    const uniqueDates = Array.from(dateMap.keys()).sort();
+    const cashFlowPoints: { date: string; balance: number }[] = [];
+    let negativeAlert: { date: string; balance: number } | null = null;
+
+    uniqueDates.forEach(d => {
+      runningTotal += dateMap.get(d)!;
+      const [y, m, day] = d.split('-');
+      cashFlowPoints.push({ date: `${day}/${m}`, balance: runningTotal });
+      
+      if (runningTotal < 0 && d >= today && !negativeAlert) {
+         negativeAlert = { date: `${day}/${m}/${y}`, balance: runningTotal };
+      }
+    });
+
+    // 3. ESTATÍSTICAS MENSAIS
+    const monthTxs = transactions.filter(t => {
+      const d = new Date(t.data + 'T12:00:00');
+      return d.getMonth() === month && d.getFullYear() === year;
+    });
+    const entradas = monthTxs.filter(t => t.tipo === 'Entrada' && t.status === 'Concluído').reduce((s, t) => s + t.valor, 0);
+    const saidas = monthTxs.filter(t => t.tipo === 'Saída' && t.status === 'Concluído').reduce((s, t) => s + t.valor, 0);
+    const aReceber = monthTxs.filter(t => t.tipo === 'A Receber').reduce((s, t) => s + t.valor, 0);
+    const aPagar = monthTxs.filter(t => t.tipo === 'A Pagar').reduce((s, t) => s + t.valor, 0);
     const totalPrevisto = entradas + aReceber;
     const percentRecebido = totalPrevisto > 0 ? (entradas / totalPrevisto) * 100 : 0;
-    return { entradas, saidas, aReceber, aPagar, saldo, saldoPendente, percentRecebido };
-  }, [transactions]);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const todayParsed = new Date(today + 'T12:00:00');
-
-  const alerts = useMemo(() => {
-    const threeDays = new Date(todayParsed);
-    threeDays.setDate(threeDays.getDate() + 3);
-    return transactions.filter(t => {
-      if (t.status !== 'Pendente') return false;
-      const d = new Date(t.data + 'T12:00:00');
-      return d <= threeDays;
-    });
-  }, [transactions, today]);
-
-  const chartData = [
-    { name: 'Receitas', value: stats.entradas },
-    { name: 'Despesas', value: stats.saidas },
-  ];
-
-  // Calendar data
-  const calendarDays = useMemo(() => {
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const startPad = firstDay.getDay();
-    const days: { date: number; status: 'none' | 'green' | 'yellow' | 'red' }[] = [];
-
-    for (let d = 1; d <= lastDay.getDate(); d++) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      const dayTxs = transactions.filter(t => t.data === dateStr);
-      if (dayTxs.length === 0) {
-        days.push({ date: d, status: 'none' });
-      } else {
-        const hasOverdue = dayTxs.some(t => t.status === 'Pendente' && dateStr < today);
-        const hasUpcoming = dayTxs.some(t => {
-          if (t.status !== 'Pendente') return false;
-          const diff = (new Date(dateStr + 'T12:00:00').getTime() - todayParsed.getTime()) / 86400000;
-          return diff >= 0 && diff <= 3;
-        });
-        const allDone = dayTxs.every(t => t.status === 'Concluído');
-        if (hasOverdue) days.push({ date: d, status: 'red' });
-        else if (hasUpcoming) days.push({ date: d, status: 'yellow' });
-        else if (allDone) days.push({ date: d, status: 'green' });
-        else days.push({ date: d, status: 'none' });
-      }
-    }
-    return { days, startPad };
-  }, [transactions, month, year, today]);
+    return { 
+      stats: { entradas, saidas, aReceber, aPagar, percentRecebido }, 
+      projectProfits, 
+      cashFlowPoints, 
+      negativeAlert,
+      saldoAtual: actualBalance,
+      saldoProjetadoFuturo: runningTotal
+    };
+  }, [transactions, month, year]);
 
   const cards = [
-    { label: 'Saldo do Mês', value: stats.saldo, icon: Wallet, color: stats.saldo >= 0 ? 'text-success' : 'text-destructive', emoji: '💰' },
-    { label: 'Entradas', value: stats.entradas, icon: ArrowUpCircle, color: 'text-success', emoji: '📈' },
-    { label: 'Saídas', value: stats.saidas, icon: ArrowDownCircle, color: 'text-destructive', emoji: '📉' },
-    { label: 'A Receber', value: stats.aReceber, icon: ArrowDownLeft, color: 'text-primary', emoji: '🔜' },
-    { label: 'A Pagar', value: stats.aPagar, icon: ArrowUpRight, color: 'text-warning', emoji: '⏳' },
-    { label: 'Saldo Pendente', value: stats.saldoPendente, icon: Scale, color: stats.saldoPendente >= 0 ? 'text-primary' : 'text-destructive', emoji: '⚖️', legend: 'Resultado líquido das contas pendentes' },
+    { label: 'Saldo Atual (Realizado)', value: saldoAtual, icon: Wallet, color: saldoAtual >= 0 ? 'text-success' : 'text-destructive', bg: 'bg-success/10' },
+    { label: 'Saldo Projetado (Futuro)', value: saldoProjetadoFuturo, icon: Target, color: saldoProjetadoFuturo >= 0 ? 'text-primary' : 'text-destructive', bg: 'bg-primary/10' },
+    { label: 'Mês - Entradas', value: stats.entradas, icon: ArrowUpCircle, color: 'text-success', bg: 'bg-success/10' },
+    { label: 'Mês - Saídas', value: stats.saidas, icon: ArrowDownCircle, color: 'text-destructive', bg: 'bg-destructive/10' },
+    { label: 'Mês - A Receber', value: stats.aReceber, icon: ArrowDownLeft, color: 'text-primary', bg: 'bg-primary/10' },
+    { label: 'Mês - A Pagar', value: stats.aPagar, icon: ArrowUpRight, color: 'text-warning', bg: 'bg-warning/10' },
   ];
 
   return (
-    <div className="space-y-4">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6 gap-2.5 lg:gap-4">
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      
+      {/* Alerta de Risco (Caixa Negativo) */}
+      {negativeAlert && (
+        <Card className="border-destructive/50 bg-destructive/5 shadow-sm">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="bg-destructive/20 p-2 rounded-full hidden sm:block">
+              <BadgeAlert className="w-8 h-8 text-destructive" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-destructive text-sm uppercase tracking-tight flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 sm:hidden" />Atenção: Risco de Caixa Negativo</h3>
+              <p className="text-sm text-foreground/80 mt-1">
+                Seu caixa ficará negativo em <strong>R$ {Math.abs(negativeAlert.balance).toFixed(2)}</strong> na data de <strong>{negativeAlert.date}</strong> de acordo com os lançamentos pendentes.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Resumo de Caixa (Cards) */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         {cards.map(c => (
-          <Card key={c.label} className="border-border/50 relative overflow-hidden">
-            <CardContent className="p-3 lg:p-4">
-              <span className="absolute top-1.5 right-2 text-2xl lg:text-3xl opacity-15 select-none">{c.emoji}</span>
-              <div className="flex items-center gap-1.5 mb-1 lg:mb-2">
-                <c.icon className={`w-3.5 h-3.5 lg:w-5 lg:h-5 ${c.color} shrink-0`} />
-                <span className="text-[10px] lg:text-xs text-muted-foreground uppercase tracking-wider truncate">{c.label}</span>
+          <Card key={c.label} className="border-border/50 hover:border-border transition-colors">
+            <CardContent className="p-4 flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-md ${c.bg}`}>
+                  <c.icon className={`w-4 h-4 ${c.color}`} />
+                </div>
+                <span className="text-xs text-muted-foreground font-medium">{c.label}</span>
               </div>
-              <p className={`text-lg lg:text-xl font-bold tabular-nums ${c.color}`}>
+              <p className={`text-lg sm:text-2xl font-bold tabular-nums tracking-tight ${c.color}`}>
                 R$ {c.value.toFixed(2)}
               </p>
-              {'legend' in c && (c as any).legend && (
-                <p className="text-[9px] lg:text-[11px] text-muted-foreground mt-1 leading-tight">{(c as any).legend}</p>
-              )}
             </CardContent>
           </Card>
         ))}
       </div>
 
       {/* Thermometer */}
-      <Card className="border-border/50">
-        <CardContent className="p-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-muted-foreground">Termómetro do Mês</span>
-            <span className="text-xs font-medium tabular-nums">{stats.percentRecebido.toFixed(0)}%</span>
+      <Card className="border-border/50 shadow-sm">
+        <CardContent className="p-4">
+          <div className="flex justify-between items-end mb-2">
+            <div>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest block mb-1">Meta de Recebimentos</span>
+              <span className="text-sm font-semibold">{stats.percentRecebido.toFixed(0)}% Concluído</span>
+            </div>
           </div>
-          <Progress value={stats.percentRecebido} className="h-2" />
-          <p className="text-[10px] text-muted-foreground mt-1">Recebido vs Total Previsto (Entradas + A Receber)</p>
+          <Progress value={stats.percentRecebido} className="h-2.5 rounded-full" />
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* Chart */}
-        <Card className="border-border/50">
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground mb-3">Receitas vs Despesas</p>
-            <div className="h-40">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Fluxo de Caixa Projetado */}
+        <Card className="border-border/50 shadow-sm col-span-1 md:col-span-2 lg:col-span-1">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2"><Activity className="w-4 h-4 text-primary" /> Fluxo de Caixa Projetado</CardTitle>
+            <CardDescription className="text-xs">Evolução do saldo (Realizado + Futuro)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-48 w-full mt-2">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} barSize={32}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip formatter={(v: number) => `R$ ${v.toFixed(2)}`} />
-                  <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                    <Cell fill="hsl(160, 50%, 38%)" />
-                    <Cell fill="hsl(0, 45%, 55%)" />
-                  </Bar>
-                </BarChart>
+                <AreaChart data={cashFlowPoints} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} dy={5} />
+                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <Tooltip 
+                    formatter={(val: number) => [`R$ ${val.toFixed(2)}`, 'Saldo']}
+                    contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', fontSize: '12px' }}
+                  />
+                  <Area type="monotone" dataKey="balance" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorBalance)" />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
 
-        {/* Calendar */}
-        <Card className="border-border/50">
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground mb-2">Calendário do Mês</p>
-            <div className="grid grid-cols-7 gap-0.5 text-center">
-              {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
-                <span key={i} className="text-[9px] text-muted-foreground font-medium py-1">{d}</span>
-              ))}
-              {Array.from({ length: calendarDays.startPad }).map((_, i) => (
-                <div key={`pad-${i}`} />
-              ))}
-              {calendarDays.days.map(d => (
-                <div
-                  key={d.date}
-                  className={`text-[10px] py-1 rounded ${
-                    d.status === 'green' ? 'bg-success/15 text-success font-medium' :
-                    d.status === 'yellow' ? 'bg-warning/15 text-warning font-medium' :
-                    d.status === 'red' ? 'bg-destructive/15 text-destructive font-medium' :
-                    'text-foreground/70'
-                  }`}
-                >
-                  {d.date}
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-3 mt-2">
-              {[{ c: 'bg-success', l: 'Concluído' }, { c: 'bg-warning', l: 'Próximo' }, { c: 'bg-destructive', l: 'Atrasado' }].map(x => (
-                <div key={x.l} className="flex items-center gap-1">
-                  <div className={`w-2 h-2 rounded-full ${x.c}`} />
-                  <span className="text-[9px] text-muted-foreground">{x.l}</span>
-                </div>
-              ))}
+        {/* Lucros por Projeto */}
+        <Card className="border-border/50 shadow-sm col-span-1 md:col-span-2 lg:col-span-1">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2"><TrendingUp className="w-4 h-4 text-success" /> Lucro por Projeto</CardTitle>
+            <CardDescription className="text-xs">Desempenho dos projetos (Receitas - Repasses)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 mt-2 pr-1 max-h-48 overflow-y-auto scrollbar-thin">
+              {projectProfits.length === 0 ? (
+                <div className="text-sm text-muted-foreground text-center py-6">Nenhum dado de projeto disponível.</div>
+              ) : (
+                projectProfits.slice(0, 10).map((p, idx) => (
+                  <div key={idx} className="flex flex-col gap-1 border-b border-border/40 pb-2 last:border-0">
+                    <div className="flex justify-between items-start">
+                      <span className="font-medium text-sm truncate pr-2 max-w-[65%] leading-tight" title={p.name}>{p.name}</span>
+                      <span className={`font-semibold text-sm tabular-nums shrink-0 ${p.lucro >= 0 ? 'text-success' : 'text-destructive'}`}>
+                        R$ {p.lucro.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Receita: R$ {p.receita.toFixed(2)}</span>
+                      <span>Repasses: R$ {p.custo.toFixed(2)}</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/80 italic mt-0.5">Esse projeto gerou R$ {p.lucro.toFixed(2)} de lucro.</p>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Alerts */}
-      {alerts.length > 0 && (
-        <Card className="border-warning/30 bg-warning/5">
-          <CardContent className="p-3">
-            <div className="flex items-center gap-1.5 mb-2">
-              <AlertTriangle className="w-3.5 h-3.5 text-warning" />
-              <span className="text-xs font-semibold text-warning">Ações Pendentes</span>
-            </div>
-            <div className="space-y-1">
-              {alerts.slice(0, 5).map(t => (
-                <div key={t.id} className="flex items-center justify-between text-xs">
-                  <span className="truncate mr-2">{t.descricao}</span>
-                  <span className="shrink-0 font-medium tabular-nums">R$ {t.valor.toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Daily Tip */}
       <Card className="border-yellow-500/20 bg-yellow-500/[0.04]">
