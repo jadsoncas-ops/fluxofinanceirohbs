@@ -17,8 +17,36 @@ function saveAll(txs: Transaction[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(txs));
 }
 
+/** Migrate old repasses that have no parentId by matching description patterns */
+function migrateOrphanRepasses(txs: Transaction[]): boolean {
+  let changed = false;
+  const nonRepasses = txs.filter(t => !t.isRepasse);
+
+  txs.forEach(tx => {
+    if (tx.isRepasse && !tx.parentId) {
+      // Try to match "Repasse - <description>" to a parent
+      const descMatch = tx.descricao.replace(/^Repasse\s*-\s*/i, '');
+      // Find a non-repasse on the same date with matching description
+      const parent = nonRepasses.find(p =>
+        p.data === tx.data &&
+        (p.descricao === descMatch || p.descricao.includes(descMatch) || descMatch.includes(p.descricao))
+      );
+      if (parent) {
+        tx.parentId = parent.id;
+        changed = true;
+      }
+    }
+  });
+
+  return changed;
+}
+
 export function getTransactions(): Transaction[] {
-  return loadAll();
+  const all = loadAll();
+  if (migrateOrphanRepasses(all)) {
+    saveAll(all);
+  }
+  return all;
 }
 
 export function addTransaction(tx: Transaction): void {
