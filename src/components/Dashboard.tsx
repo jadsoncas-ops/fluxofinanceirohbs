@@ -136,13 +136,16 @@ export function Dashboard({ transactions, month, year }: Props) {
     };
   }, [transactions, month, year, empresaPercent]);
 
-  const cards = [
+  const hojeCards = [
     { label: 'Saldo Atual (Realizado)', value: saldoAtual, icon: Wallet, color: saldoAtual >= 0 ? 'text-success' : 'text-destructive', bg: 'bg-success/10' },
-    { label: 'Saldo Projetado (Futuro)', value: saldoProjetadoFuturo, icon: Target, color: saldoProjetadoFuturo >= 0 ? 'text-primary' : 'text-destructive', bg: 'bg-primary/10' },
     { label: 'Mês - Entradas', value: stats.entradas, icon: ArrowUpCircle, color: 'text-success', bg: 'bg-success/10' },
     { label: 'Mês - Saídas', value: stats.saidas, icon: ArrowDownCircle, color: 'text-destructive', bg: 'bg-destructive/10' },
-    { label: 'Mês - A Receber', value: stats.aReceber, icon: ArrowDownLeft, color: 'text-primary', bg: 'bg-primary/10' },
-    { label: 'Mês - A Pagar', value: stats.aPagar, icon: ArrowUpRight, color: 'text-warning', bg: 'bg-warning/10' },
+  ];
+
+  const futuroCards = [
+    { label: 'Mês - A Receber', value: stats.aReceber, icon: ArrowDownLeft, color: 'text-primary/70', bg: 'bg-primary/5' },
+    { label: 'Mês - A Pagar', value: stats.aPagar, icon: ArrowUpRight, color: 'text-warning/70', bg: 'bg-warning/5' },
+    { label: 'Saldo Futuro (Previsto)', value: saldoProjetadoFuturo, icon: Target, color: saldoProjetadoFuturo >= 0 ? 'text-muted-foreground' : 'text-destructive/70', bg: 'bg-muted/40' },
   ];
 
   return (
@@ -165,23 +168,57 @@ export function Dashboard({ transactions, month, year }: Props) {
         </Card>
       )}
 
-      {/* Resumo de Caixa (Cards) */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-        {cards.map(c => (
-          <Card key={c.label} className="border-border/50 hover:border-border transition-colors">
-            <CardContent className="p-4 flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <div className={`p-1.5 rounded-md ${c.bg}`}>
-                  <c.icon className={`w-4 h-4 ${c.color}`} />
+      {/* Seção 1: HOJE (Realizado) */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 px-1">
+          <div className="w-1 h-4 bg-success rounded-full"></div>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Hoje (Realizado)</h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {hojeCards.map(c => (
+            <Card key={c.label} className="border-border/50 hover:border-border transition-colors shadow-sm">
+              <CardContent className="p-4 flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <div className={`p-1.5 rounded-md ${c.bg}`}>
+                    <c.icon className={`w-4 h-4 ${c.color}`} />
+                  </div>
+                  <span className="text-xs text-muted-foreground font-medium">{c.label}</span>
                 </div>
-                <span className="text-xs text-muted-foreground font-medium">{c.label}</span>
-              </div>
-              <p className={`text-lg sm:text-2xl font-bold tabular-nums tracking-tight ${c.color}`}>
-                R$ {c.value.toFixed(2)}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+                <p className={`text-xl sm:text-2xl font-black tabular-nums tracking-tight ${c.color}`}>
+                  R$ {c.value.toFixed(2)}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Seção 2: FUTURO (Previsto) */}
+      <div className="space-y-3 pt-2">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-4 bg-muted-foreground/30 rounded-full"></div>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Futuro (Previsto)</h2>
+          </div>
+          <span className="text-[10px] text-muted-foreground italic">Baseado em valores ainda não realizados</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {futuroCards.map(c => (
+            <Card key={c.label} className="border-border/40 bg-muted/[0.02] hover:bg-muted/[0.05] transition-colors">
+              <CardContent className="p-4 flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <div className={`p-1.5 rounded-md ${c.bg}`}>
+                    <c.icon className={`w-4 h-4 ${c.color}`} />
+                  </div>
+                  <span className="text-xs text-muted-foreground/80 font-medium">{c.label}</span>
+                </div>
+                <p className={`text-lg sm:text-xl font-bold tabular-nums tracking-tight ${c.color}`}>
+                  R$ {c.value.toFixed(2)}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
 
       {/* Thermometer */}
