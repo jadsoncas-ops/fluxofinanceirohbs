@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Transaction } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { getTipOfDay } from '@/lib/tips';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import { TrendingUp, Wallet, ArrowDownLeft, ArrowUpRight, AlertTriangle, ArrowUpCircle, ArrowDownCircle, Target, Activity, CheckCircle2, BadgeAlert } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface Props {
   transactions: Transaction[];
@@ -13,7 +14,9 @@ interface Props {
 }
 
 export function Dashboard({ transactions, month, year }: Props) {
-  const { stats, projectProfits, cashFlowPoints, negativeAlert, saldoAtual, saldoProjetadoFuturo } = useMemo(() => {
+  const [empresaPercent, setEmpresaPercent] = useState(20);
+
+  const { stats, projectProfits, cashFlowPoints, negativeAlert, saldoAtual, saldoProjetadoFuturo, bussola } = useMemo(() => {
     // 1. LUCRO POR PROJETO
     const projMap = new Map<string, { receita: number; custo: number }>();
     const txIdToName = new Map<string, string>();
@@ -100,15 +103,38 @@ export function Dashboard({ transactions, month, year }: Props) {
     const totalPrevisto = entradas + aReceber;
     const percentRecebido = totalPrevisto > 0 ? (entradas / totalPrevisto) * 100 : 0;
 
+    // 4. BÚSSOLA FINANCEIRA (Lógica de Retirada Segura)
+    const ratio = empresaPercent / 100;
+    const reservaEmpresaTeorica = entradas * ratio;
+    const disponivelPessoalTeorico = Math.max(0, entradas - reservaEmpresaTeorica);
+    
+    const margemSeguranca = saidas * 1.2;
+    const caixaDisponivelReal = entradas - saidas;
+    const saldoSegurancaExcedente = Math.max(0, caixaDisponivelReal - margemSeguranca);
+    
+    // O valor real disponível é o menor entre o planejado (80%) e o que sobra após a margem de segurança
+    const disponivelPessoalReal = Math.min(disponivelPessoalTeorico, saldoSegurancaExcedente);
+    const isAdjusted = disponivelPessoalReal < disponivelPessoalTeorico && disponivelPessoalTeorico > 0;
+    
+    const bussola = {
+      recebido: entradas,
+      empresa: entradas - disponivelPessoalReal,
+      pessoal: disponivelPessoalReal,
+      isAdjusted,
+      statusColor: disponivelPessoalReal <= 0 ? 'text-destructive' : (isAdjusted ? 'text-warning' : 'text-success'),
+      statusBg: disponivelPessoalReal <= 0 ? 'bg-destructive/10' : (isAdjusted ? 'bg-warning/10' : 'bg-success/10')
+    };
+
     return { 
-      stats: { entradas, saidas, aReceber, aPagar, percentRecebido }, 
+      stats, 
       projectProfits, 
       cashFlowPoints, 
       negativeAlert,
-      saldoAtual: actualBalance,
-      saldoProjetadoFuturo: runningTotal
+      saldoAtual,
+      saldoProjetadoFuturo,
+      bussola
     };
-  }, [transactions, month, year]);
+  }, [transactions, month, year, empresaPercent]);
 
   const cards = [
     { label: 'Saldo Atual (Realizado)', value: saldoAtual, icon: Wallet, color: saldoAtual >= 0 ? 'text-success' : 'text-destructive', bg: 'bg-success/10' },
@@ -202,34 +228,81 @@ export function Dashboard({ transactions, month, year }: Props) {
           </CardContent>
         </Card>
 
-        {/* Lucros por Projeto */}
-        <Card className="border-border/50 shadow-sm col-span-1 md:col-span-2 lg:col-span-1">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2"><TrendingUp className="w-4 h-4 text-success" /> Lucro por Projeto</CardTitle>
-            <CardDescription className="text-xs">Desempenho dos projetos (Receitas - Repasses)</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3 mt-2 pr-1 max-h-48 overflow-y-auto scrollbar-thin">
-              {projectProfits.length === 0 ? (
-                <div className="text-sm text-muted-foreground text-center py-6">Nenhum dado de projeto disponível.</div>
-              ) : (
-                projectProfits.slice(0, 10).map((p, idx) => (
-                  <div key={idx} className="flex flex-col gap-1 border-b border-border/40 pb-2 last:border-0">
-                    <div className="flex justify-between items-start">
-                      <span className="font-medium text-sm truncate pr-2 max-w-[65%] leading-tight" title={p.name}>{p.name}</span>
-                      <span className={`font-semibold text-sm tabular-nums shrink-0 ${p.lucro >= 0 ? 'text-success' : 'text-destructive'}`}>
-                        R$ {p.lucro.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Receita: R$ {p.receita.toFixed(2)}</span>
-                      <span>Repasses: R$ {p.custo.toFixed(2)}</span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground/80 italic mt-0.5">Esse projeto gerou R$ {p.lucro.toFixed(2)} de lucro.</p>
-                  </div>
-                ))
-              )}
+        {/* Bússola Financeira */}
+        <Card className="border-border/50 shadow-sm col-span-1 md:col-span-2 lg:col-span-1 overflow-hidden">
+          <CardHeader className="pb-2 bg-muted/20 border-b border-border/40">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-sm flex items-center gap-2">🧭 Bússola Financeira</CardTitle>
+                <CardDescription className="text-[10px] mt-0.5">Sugestão de divisão de retiradas</CardDescription>
+              </div>
+              <div className="flex gap-1">
+                {[10, 15, 20, 30].map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setEmpresaPercent(p)}
+                    className={`text-[9px] px-1.5 py-0.5 rounded border transition-all ${
+                      empresaPercent === p 
+                        ? 'bg-primary border-primary text-primary-foreground font-bold' 
+                        : 'bg-background border-border text-muted-foreground hover:border-primary/50'
+                    }`}
+                  >
+                    {p}%
+                  </button>
+                ))}
+              </div>
             </div>
+          </CardHeader>
+          <CardContent className="p-4 space-y-4">
+            <div className="flex justify-between items-baseline">
+              <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Recebido no Mês</span>
+              <span className="text-xl font-black tabular-nums">R$ {bussola.recebido.toFixed(2)}</span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2.5">
+              <div className="p-3 rounded-lg border border-border/40 bg-background flex justify-between items-center group hover:border-primary/20 transition-colors">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center text-lg">🏢</div>
+                  <div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">Reserva Empresa</p>
+                    <p className="text-sm font-bold tabular-nums">R$ {bussola.empresa.toFixed(2)}</p>
+                  </div>
+                </div>
+                <Badge variant="outline" className="text-[10px] border-primary/20 text-primary bg-primary/5">Pilar</Badge>
+              </div>
+
+              <div className={`p-3 rounded-lg border flex justify-between items-center transition-all ${
+                bussola.pessoal <= 0 ? 'border-destructive/30 bg-destructive/[0.03]' : (bussola.isAdjusted ? 'border-warning/30 bg-warning/[0.03]' : 'border-success/30 bg-success/[0.03]')
+              }`}>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-md flex items-center justify-center text-lg bg-background shadow-sm border border-border/20">💼</div>
+                  <div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">Disponível para Você</p>
+                    <p className={`text-sm font-black tabular-nums ${bussola.statusColor}`}>R$ {bussola.pessoal.toFixed(2)}</p>
+                  </div>
+                </div>
+                {bussola.pessoal > 0 && !bussola.isAdjusted && <Badge className="text-[10px] bg-success text-success-foreground border-0">Livre</Badge>}
+                {bussola.isAdjusted && <Badge className="text-[10px] bg-warning text-warning-foreground animate-pulse border-0">Ajustado</Badge>}
+              </div>
+            </div>
+
+            {bussola.recebido > 0 ? (
+              <div className="pt-1">
+                {bussola.isAdjusted ? (
+                  <div className="flex items-start gap-2 text-warning p-2 rounded bg-warning/5 border border-warning/10">
+                    <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    <p className="text-[10px] font-medium leading-tight">Valor pessoal reduzido automaticamente para manter a margem de segurança do caixa baseada em seus gastos atuais.</p>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-success px-2 py-1.5 rounded bg-success/5">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    <p className="text-[10px] font-medium">Caixa saudável. Divisão padrão mantida com folga.</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-[10px] text-center text-muted-foreground italic py-2">Sem entradas confirmadas neste mês para cálculo.</p>
+            )}
           </CardContent>
         </Card>
       </div>
