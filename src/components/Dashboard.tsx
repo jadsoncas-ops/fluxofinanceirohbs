@@ -125,6 +125,10 @@ export function Dashboard({ transactions, month, year }: Props) {
       statusBg: disponivelPessoalReal <= 0 ? 'bg-destructive/10' : (isAdjusted ? 'bg-warning/10' : 'bg-success/10')
     };
 
+    const stats = { entradas, saidas, aReceber, aPagar, percentRecebido };
+    const saldoAtual = actualBalance;
+    const saldoProjetadoFuturo = runningTotal;
+
     return { 
       stats, 
       projectProfits, 
