@@ -136,18 +136,21 @@ export function Dashboard({ transactions, month, year }: Props) {
     };
   }, [transactions, month, year, empresaPercent]);
 
+  const burnRate = stats.entradas > 0 ? (stats.saidas / stats.entradas) : 0;
+  const isHealthyMargin = burnRate <= 0.8 && stats.entradas > 0;
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 font-sans tracking-tight">
       
       {/* Alerta de Risco (Caixa Negativo) */}
       {negativeAlert && (
-        <Card className="border-destructive/50 bg-destructive/5 shadow-sm rounded-2xl">
+        <Card className="border-rose-500/50 bg-rose-500/10 shadow-sm rounded-2xl animate-pulse">
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="bg-destructive/20 p-2 rounded-full hidden sm:block">
-              <BadgeAlert className="w-8 h-8 text-destructive" />
+            <div className="bg-rose-500/20 p-2 rounded-full hidden sm:block">
+              <BadgeAlert className="w-8 h-8 text-rose-600" />
             </div>
             <div className="flex-1">
-              <h3 className="font-bold text-destructive text-sm uppercase tracking-tight flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 sm:hidden" />Atenção: Risco de Caixa Negativo</h3>
+              <h3 className="font-bold text-rose-600 text-sm uppercase tracking-tight flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 sm:hidden" />Atenção: Risco de Caixa Negativo</h3>
               <p className="text-sm text-foreground/80 mt-1">
                 Seu caixa ficará negativo em <strong>R$ {Math.abs(negativeAlert.balance).toFixed(2)}</strong> na data de <strong>{negativeAlert.date}</strong> de acordo com os lançamentos pendentes.
               </p>
@@ -164,36 +167,39 @@ export function Dashboard({ transactions, month, year }: Props) {
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                 <Wallet className="w-5 h-5" />
-                Saldo Atual
+                Dinheiro em Caixa
               </h2>
-              <Badge variant="secondary" className="bg-success/10 text-success border-0 hover:bg-success/20 transition-colors">Hoje • Realizado</Badge>
+              <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0 hover:bg-emerald-500/20 transition-colors font-semibold">Hoje • Realizado</Badge>
             </div>
-            <p className={`text-5xl sm:text-6xl font-black tabular-nums tracking-tighter ${saldoAtual >= 0 ? 'text-foreground' : 'text-destructive'}`}>
-              R$ {saldoAtual.toFixed(2)}
-            </p>
+            <div className={`flex items-baseline ${saldoAtual >= 0 ? 'text-slate-900 dark:text-gray-100' : 'text-rose-600'}`}>
+              <span className="text-xl sm:text-2xl font-bold mr-2 opacity-60">R$</span>
+              <span className="text-5xl sm:text-6xl font-black tabular-nums tracking-tighter">
+                {saldoAtual.toFixed(2)}
+              </span>
+            </div>
           </CardContent>
         </Card>
 
         {/* Bússola Financeira (O Elemento Mais Importante) */}
-        <Card className="relative overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground border-0 group">
-          <div className="absolute top-0 right-0 -mt-6 -mr-6 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all duration-500"></div>
-          <div className="absolute bottom-0 left-0 -mb-6 -ml-6 w-40 h-40 bg-black/10 rounded-full blur-3xl group-hover:bg-black/20 transition-all duration-500"></div>
+        <Card className="relative overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-900 text-white border-0 group">
+          <div className="absolute top-0 right-0 -mt-6 -mr-6 w-32 h-32 bg-white/5 rounded-full blur-2xl group-hover:bg-white/10 transition-all duration-500"></div>
+          <div className="absolute bottom-0 left-0 -mb-6 -ml-6 w-40 h-40 bg-black/20 rounded-full blur-3xl group-hover:bg-black/40 transition-all duration-500"></div>
           
           <CardContent className="p-6 h-full flex flex-col relative z-10">
             <div className="flex flex-col gap-1 mb-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <h2 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2 text-primary-foreground drop-shadow-sm">
+                <h2 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2 text-white/90 drop-shadow-sm">
                   <span className="text-lg">🧭</span> Bússola Financeira
                 </h2>
-                <div className="flex gap-1 bg-black/10 p-1 rounded-lg backdrop-blur-sm self-start sm:self-auto">
+                <div className="flex gap-1 bg-white/10 p-1 rounded-lg backdrop-blur-sm self-start sm:self-auto">
                   {[10, 15, 20, 30].map(p => (
                     <button
                       key={p}
                       onClick={() => setEmpresaPercent(p)}
                       className={`text-xs px-2.5 py-1 rounded-md transition-all font-medium ${
                         empresaPercent === p 
-                          ? 'bg-white text-primary shadow-sm' 
-                          : 'text-primary-foreground/80 hover:text-white hover:bg-white/10'
+                          ? 'bg-white text-slate-900 shadow-sm' 
+                          : 'text-white/70 hover:text-white hover:bg-white/20'
                       }`}
                     >
                       {p}%
@@ -201,24 +207,25 @@ export function Dashboard({ transactions, month, year }: Props) {
                   ))}
                 </div>
               </div>
-              <p className="text-xs text-primary-foreground/80 italic font-medium">Baseado apenas no que já entrou</p>
+              <p className="text-xs text-white/70 italic font-medium">Garantido com o que já está na conta</p>
             </div>
 
-            <div className="mb-6 flex-1 flex flex-col justify-center">
-              <p className="text-sm font-semibold text-primary-foreground/90 mb-1">Você pode usar até</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-4xl sm:text-5xl font-black tabular-nums tracking-tighter text-white drop-shadow-md">
-                  R$ {bussola.pessoal.toFixed(2)}
-                </p>
+            <div className="mb-5 flex-1 flex flex-col justify-center">
+              <p className="text-sm font-semibold text-emerald-400 mb-1">Liberado para você usar:</p>
+              <div className="flex items-baseline text-white">
+                <span className="text-2xl font-bold mr-2 opacity-80 drop-shadow-md">R$</span>
+                <span className="text-5xl sm:text-6xl font-black tabular-nums tracking-tighter drop-shadow-md">
+                  {bussola.pessoal.toFixed(2)}
+                </span>
               </div>
-              <p className="text-sm text-primary-foreground/90 mt-1 font-semibold">sem comprometer o caixa</p>
+              <p className="text-xs text-white/80 mt-1 font-medium">Retirada segura, sem quebrar o caixa.</p>
             </div>
 
-            <div className="bg-black/10 rounded-xl p-3.5 space-y-3 backdrop-blur-sm border border-white/5">
+            <div className="bg-black/20 rounded-xl p-3.5 space-y-3 backdrop-blur-sm border border-white/10">
               <div className="flex justify-between items-center text-sm">
-                <span className="text-primary-foreground/90 flex items-center gap-2 font-medium">
-                  <div className="w-6 h-6 rounded-md bg-white/20 flex items-center justify-center text-[12px] shadow-sm">🏢</div> 
-                  Reserva Empresa
+                <span className="text-white/90 flex items-center gap-2 font-semibold">
+                  <div className="w-6 h-6 rounded-md bg-white/10 flex items-center justify-center text-[12px] shadow-sm">🏢</div> 
+                  Caixa da Empresa (Intocável)
                 </span>
                 <span className="font-bold tabular-nums">R$ {bussola.empresa.toFixed(2)}</span>
               </div>
@@ -226,14 +233,14 @@ export function Dashboard({ transactions, month, year }: Props) {
               {bussola.recebido > 0 && (
                 <div className="pt-2.5 border-t border-white/10">
                   {bussola.isAdjusted ? (
-                    <div className="flex items-start gap-2 text-warning font-medium bg-warning/10 p-2 rounded-lg border border-warning/20">
+                    <div className="flex items-start gap-2 text-amber-500 font-medium bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
                       <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                      <p className="text-[11px] leading-snug">A retirada desejada é maior do que a folga de segurança. Proceda com cautela.</p>
+                      <p className="text-[11px] font-bold leading-snug text-amber-400">A retirada desejada entra na margem de risco. Mantenha cautela.</p>
                     </div>
                   ) : (
-                     <div className="flex items-center gap-2 text-green-300 font-medium">
+                     <div className="flex items-center gap-2 text-emerald-400 font-medium">
                       <CheckCircle2 className="w-4 h-4 shrink-0" />
-                      <p className="text-[11px] leading-snug">Caixa saudável. Divisão garantida com folga de margem.</p>
+                      <p className="text-[11px] leading-snug">Caixa saudável. Divisão com folga de margem.</p>
                     </div>
                   )}
                 </div>
@@ -247,29 +254,44 @@ export function Dashboard({ transactions, month, year }: Props) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
         <Card className="border-border/50 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300 rounded-2xl bg-card">
           <CardContent className="p-5 flex flex-col gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-success/10 text-success">
-                <ArrowUpCircle className="w-5 h-5" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600">
+                  <ArrowUpCircle className="w-5 h-5" />
+                </div>
+                <span className="text-sm text-muted-foreground font-semibold uppercase tracking-wide">Recebido neste Mês</span>
               </div>
-              <span className="text-sm text-muted-foreground font-semibold uppercase tracking-wide">Entradas Realizadas</span>
             </div>
-            <p className="text-3xl font-bold tabular-nums tracking-tight text-foreground">
-              R$ {stats.entradas.toFixed(2)}
-            </p>
+            <div className="flex items-baseline text-slate-900 dark:text-gray-100">
+              <span className="text-xl font-bold mr-1.5 opacity-60">R$</span>
+              <span className="text-3xl font-black tabular-nums tracking-tight">
+                {stats.entradas.toFixed(2)}
+              </span>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="border-border/50 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300 rounded-2xl bg-card">
+        <Card className="border-border/50 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300 rounded-2xl bg-card group">
           <CardContent className="p-5 flex flex-col gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-destructive/10 text-destructive">
-                <ArrowDownCircle className="w-5 h-5" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600">
+                  <ArrowDownCircle className="w-5 h-5" />
+                </div>
+                <span className="text-sm text-muted-foreground font-semibold uppercase tracking-wide">Gasto neste Mês</span>
               </div>
-              <span className="text-sm text-muted-foreground font-semibold uppercase tracking-wide">Saídas Realizadas</span>
+              {stats.entradas > 0 && (
+                isHealthyMargin 
+                  ? <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-0 flex items-center gap-1 text-[10px] py-0"><CheckCircle2 className="w-3 h-3"/> {Math.round(burnRate*100)}% de gasto da receita</Badge>
+                  : <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-0 flex items-center gap-1 text-[10px] py-0"><AlertTriangle className="w-3 h-3"/> {Math.round(burnRate*100)}% comprometido!</Badge>
+              )}
             </div>
-            <p className="text-3xl font-bold tabular-nums tracking-tight text-foreground">
-              R$ {stats.saidas.toFixed(2)}
-            </p>
+            <div className="flex items-baseline text-slate-900 dark:text-gray-100">
+              <span className="text-xl font-bold mr-1.5 opacity-60">R$</span>
+              <span className="text-3xl font-black tabular-nums tracking-tight">
+                {stats.saidas.toFixed(2)}
+              </span>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -279,7 +301,14 @@ export function Dashboard({ transactions, month, year }: Props) {
         <div className="flex justify-between items-end mb-2">
           <div>
             <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest block mb-0.5">Meta de Recebimentos do Mês</span>
-            <span className="text-sm font-semibold text-foreground/80">{stats.percentRecebido.toFixed(0)}% Concluído</span>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`text-sm font-semibold ${stats.percentRecebido >= 100 ? 'text-emerald-500' : 'text-foreground/80'}`}>{stats.percentRecebido.toFixed(0)}% Concluído</span>
+              {stats.percentRecebido >= 100 ? (
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full flex items-center gap-1 border border-emerald-500/20"><Target className="w-3 h-3"/> Meta Superada! Mês de sucesso.</span>
+              ) : stats.percentRecebido >= 50 ? (
+                <span className="text-[10px] text-primary/80 font-medium italic hidden sm:inline-flex">Falta pouco para você bater a meta. Estamos no caminho!</span>
+              ) : null}
+            </div>
           </div>
         </div>
         <Progress value={stats.percentRecebido} className="h-2.5 rounded-full" />
@@ -291,30 +320,31 @@ export function Dashboard({ transactions, month, year }: Props) {
           <div className="flex flex-col xl:flex-row items-center justify-center xl:justify-between gap-4 text-sm">
             
             <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2">
-              <span className="font-bold text-muted-foreground uppercase text-[11px] tracking-wider flex items-center gap-1.5"><Target className="w-3.5 h-3.5"/> Futuro (Previsto)</span>
+              <span className="font-bold text-muted-foreground uppercase text-[11px] tracking-wider flex items-center gap-1.5"><Target className="w-3.5 h-3.5"/> Visão de Futuro</span>
               <span className="hidden md:inline text-border">•</span>
               <span className="flex items-center gap-1.5 text-muted-foreground">
                 <ArrowDownLeft className="w-4 h-4 text-primary/60"/> 
                 Entradas previstas 
-                <span className="font-bold text-foreground/80">R$ {stats.aReceber.toFixed(2)}</span>
+                <span className="font-bold text-foreground/80 flex items-baseline"><span className="text-[10px] mr-0.5">R$</span>{stats.aReceber.toFixed(2)}</span>
               </span>
               <span className="hidden md:inline text-border">•</span>
               <span className="flex items-center gap-1.5 text-muted-foreground">
-                <ArrowUpRight className="w-4 h-4 text-warning/60"/> 
+                <ArrowUpRight className="w-4 h-4 text-amber-500/60"/> 
                 Saídas previstas 
-                <span className="font-bold text-foreground/80">R$ {stats.aPagar.toFixed(2)}</span>
+                <span className="font-bold text-foreground/80 flex items-baseline"><span className="text-[10px] mr-0.5">R$</span>{stats.aPagar.toFixed(2)}</span>
               </span>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-2 bg-background/80 px-4 py-2 rounded-lg border border-border/50 text-muted-foreground w-full xl:w-auto justify-center">
-              <span className="font-medium text-xs">Saldo futuro (se tudo acontecer):</span>
-              <span className="font-bold text-foreground">R$ {saldoProjetadoFuturo.toFixed(2)}</span>
+            <div className={`flex flex-col sm:flex-row items-center gap-2 px-4 py-2 rounded-lg border w-full xl:w-auto justify-center ${saldoProjetadoFuturo >= 0 ? 'bg-background/80 border-border/50 text-muted-foreground' : 'bg-rose-500/5 border-rose-500/20 text-rose-600'}`}>
+              <span className="font-medium text-xs">Projeção de Caixa (Com pagamentos futuros):</span>
+              <span className="font-bold text-foreground flex items-baseline">
+                <span className="text-[10px] mr-0.5 opacity-60">R$</span>{saldoProjetadoFuturo.toFixed(2)}
+              </span>
             </div>
           </div>
           
           <div className="mt-4 text-center flex flex-col items-center justify-center text-[10px] sm:text-[11px] text-muted-foreground/70 border-t border-border/40 pt-3">
-            <span className="bg-muted px-2 py-0.5 rounded-md mb-1 font-semibold uppercase tracking-widest text-muted-foreground">Valores ainda não realizados</span>
-            <p className="italic">Inclui valores ainda não recebidos e contas não pagas</p>
+            <span className="bg-muted px-2 py-0.5 rounded-md mb-1 font-semibold uppercase tracking-widest text-muted-foreground">O que falta entrar e sair para a sua conta fechar</span>
           </div>
         </CardContent>
       </Card>
@@ -324,7 +354,7 @@ export function Dashboard({ transactions, month, year }: Props) {
         <Card className="border-border/50 shadow-sm rounded-2xl">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2"><Activity className="w-4 h-4 text-primary" /> Fluxo de Caixa Projetado</CardTitle>
-            <CardDescription className="text-xs">Evolução do saldo no decorrer dos próximos dias</CardDescription>
+            <CardDescription className="text-xs">Evolução do Saldo Projetado nos Próximos Dias</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-48 w-full mt-2">
@@ -351,14 +381,14 @@ export function Dashboard({ transactions, month, year }: Props) {
         </Card>
       </div>
 
-      <Card className="border-yellow-500/30 bg-yellow-500/[0.05] rounded-2xl shadow-sm mb-4">
+      <Card className="border-amber-500/30 bg-amber-500/[0.05] rounded-2xl shadow-sm mb-4">
         <CardContent className="p-4 sm:p-5">
           <div className="flex items-start gap-4">
-            <div className="p-2 sm:p-3 bg-yellow-500/15 rounded-xl text-yellow-600 dark:text-yellow-400">
+            <div className="p-2 sm:p-3 bg-amber-500/15 rounded-xl text-amber-600 dark:text-amber-400">
               <span className="text-xl sm:text-2xl leading-none block">💡</span>
             </div>
             <div className="flex-1 mt-0.5">
-              <p className="text-[11px] text-yellow-600 dark:text-yellow-400 font-bold uppercase tracking-widest mb-1.5">Dica do Dia</p>
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-widest mb-1.5">Dica do Dia</p>
               <p className="text-sm text-foreground/80 leading-relaxed font-medium">{getTipOfDay()}</p>
             </div>
           </div>
