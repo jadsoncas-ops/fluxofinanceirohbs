@@ -52,7 +52,7 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
     // 1. Get base items for the filter
     const baseItems = viewFiltered.filter(tx => {
       if (filter === 'Receitas') return tx.tipo === 'Entrada' || tx.tipo === 'A Receber';
-      if (filter === 'Despesas') return (tx.tipo === 'Saída' || tx.tipo === 'A Pagar') && !tx.isRepasse;
+      if (filter === 'Despesas') return (tx.tipo === 'Saída' || tx.tipo === 'A Pagar');
       return true;
     });
 
@@ -86,13 +86,8 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
 
   const totalFiltered = filtered.reduce((sum, tx) => {
     const isIncome = tx.tipo === 'Entrada' || tx.tipo === 'A Receber';
-    // When showing receipts, we want Net Revenue (Income - Repasses)
-    // When showing expenses (OpEx), we show pure expenses (Repasses were filtered out above)
-    // When showing everything, we show balance
-    if (filter === 'Receitas' || filter === 'Tudo') {
-        return isIncome ? sum + tx.valor : sum - tx.valor;
-    }
-    // For Despesas, since repasses are removed from the list, we just sum up what remains
+    // No Histórico, agora exibimos o Bruto nos totais das abas para bater com o que está listado.
+    // O usuário verá os repasses na lista e o total os incluirá.
     return sum + tx.valor;
   }, 0);
 
