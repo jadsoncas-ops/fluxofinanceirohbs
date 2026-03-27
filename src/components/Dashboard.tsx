@@ -103,26 +103,22 @@ export function Dashboard({ transactions, month, year }: Props) {
     const totalPrevisto = entradas + aReceber;
     const percentRecebido = totalPrevisto > 0 ? (entradas / totalPrevisto) * 100 : 0;
 
-    // 4. BÚSSOLA FINANCEIRA (Lógica de Retirada Segura)
+    // 4. BÚSSOLA FINANCEIRA (Lógica de Retirada Sob Demanda)
     const ratio = empresaPercent / 100;
     const reservaEmpresaTeorica = entradas * ratio;
-    const disponivelPessoalTeorico = Math.max(0, entradas - reservaEmpresaTeorica);
+    const disponivelPessoalReal = Math.max(0, entradas - reservaEmpresaTeorica);
     
     const margemSeguranca = saidas * 1.2;
     const caixaDisponivelReal = entradas - saidas;
-    const saldoSegurancaExcedente = Math.max(0, caixaDisponivelReal - margemSeguranca);
-    
-    // O valor real disponível é o menor entre o planejado (80%) e o que sobra após a margem de segurança
-    const disponivelPessoalReal = Math.min(disponivelPessoalTeorico, saldoSegurancaExcedente);
-    const isAdjusted = disponivelPessoalReal < disponivelPessoalTeorico && disponivelPessoalTeorico > 0;
+    const isSafetyAlert = caixaDisponivelReal < margemSeguranca && entradas > 0;
     
     const bussola = {
       recebido: entradas,
-      empresa: entradas - disponivelPessoalReal,
+      empresa: reservaEmpresaTeorica,
       pessoal: disponivelPessoalReal,
-      isAdjusted,
-      statusColor: disponivelPessoalReal <= 0 ? 'text-destructive' : (isAdjusted ? 'text-warning' : 'text-success'),
-      statusBg: disponivelPessoalReal <= 0 ? 'bg-destructive/10' : (isAdjusted ? 'bg-warning/10' : 'bg-success/10')
+      isAdjusted: isSafetyAlert,
+      statusColor: isSafetyAlert ? 'text-warning' : 'text-success',
+      statusBg: isSafetyAlert ? 'bg-warning/10' : 'bg-success/10'
     };
 
     const stats = { entradas, saidas, aReceber, aPagar, percentRecebido };
@@ -276,17 +272,17 @@ export function Dashboard({ transactions, month, year }: Props) {
               </div>
 
               <div className={`p-3 rounded-lg border flex justify-between items-center transition-all ${
-                bussola.pessoal <= 0 ? 'border-destructive/30 bg-destructive/[0.03]' : (bussola.isAdjusted ? 'border-warning/30 bg-warning/[0.03]' : 'border-success/30 bg-success/[0.03]')
+                bussola.isAdjusted ? 'border-warning/30 bg-warning/[0.03]' : 'border-success/30 bg-success/[0.03]'
               }`}>
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-md flex items-center justify-center text-lg bg-background shadow-sm border border-border/20">💼</div>
                   <div>
                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">Disponível para Você</p>
-                    <p className={`text-sm font-black tabular-nums ${bussola.statusColor}`}>R$ {bussola.pessoal.toFixed(2)}</p>
+                    <p className={`text-sm font-black tabular-nums ${bussola.pessoal > 0 ? bussola.statusColor : 'text-muted-foreground'}`}>R$ {bussola.pessoal.toFixed(2)}</p>
                   </div>
                 </div>
                 {bussola.pessoal > 0 && !bussola.isAdjusted && <Badge className="text-[10px] bg-success text-success-foreground border-0">Livre</Badge>}
-                {bussola.isAdjusted && <Badge className="text-[10px] bg-warning text-warning-foreground animate-pulse border-0">Ajustado</Badge>}
+                {bussola.pessoal > 0 && bussola.isAdjusted && <Badge className="text-[10px] bg-warning text-warning-foreground animate-pulse border-0">Atenção</Badge>}
               </div>
             </div>
 
@@ -295,12 +291,12 @@ export function Dashboard({ transactions, month, year }: Props) {
                 {bussola.isAdjusted ? (
                   <div className="flex items-start gap-2 text-warning p-2 rounded bg-warning/5 border border-warning/10">
                     <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                    <p className="text-[10px] font-medium leading-tight">Valor pessoal reduzido automaticamente para manter a margem de segurança do caixa baseada em seus gastos atuais.</p>
+                    <p className="text-[10px] font-medium leading-tight">A retirada desejada é maior do que a folga de segurança do seu caixa mensal. Proceda com cautela.</p>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 text-success px-2 py-1.5 rounded bg-success/5">
                     <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                    <p className="text-[10px] font-medium">Caixa saudável. Divisão padrão mantida com folga.</p>
+                    <p className="text-[10px] font-medium">Caixa saudável. Divisão garantida com folga de margem.</p>
                   </div>
                 )}
               </div>
