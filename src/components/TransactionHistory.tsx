@@ -48,25 +48,53 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
     return tx.status === 'Pendente';
   });
 
-  const filtered = viewFiltered.filter(tx => {
-    if (filter === 'Receitas') return tx.tipo === 'Entrada' || tx.tipo === 'A Receber';
-    if (filter === 'Despesas') return tx.tipo === 'Saída' || tx.tipo === 'A Pagar';
-    return true;
-  });
+  const filtered = useMemo(() => {
+    // 1. Get base items for the filter
+    const baseItems = viewFiltered.filter(tx => {
+      if (filter === 'Receitas') return tx.tipo === 'Entrada' || tx.tipo === 'A Receber';
+      if (filter === 'Despesas') return (tx.tipo === 'Saída' || tx.tipo === 'A Pagar') && !tx.isRepasse;
+      return true;
+    });
+
+    if (filter === 'Receitas') {
+       // Automatically include repasses linked to these receitas so they show up in the tree
+       const parentIdsInView = new Set(baseItems.map(t => t.id));
+       const linkedRepasses = viewFiltered.filter(t => t.parentId && parentIdsInView.has(t.parentId) && t.isRepasse);
+       // Avoid duplicates if some repasse already matched (unlikely given the !isRepasse above but safer)
+       const existingIds = new Set(baseItems.map(t => t.id));
+       const toAdd = linkedRepasses.filter(r => !existingIds.has(r.id));
+       return [...baseItems, ...toAdd];
+    }
+    
+    return baseItems;
+  }, [viewFiltered, filter]);
 
   const childrenMap = new Map<string, Transaction[]>();
-  const childIds = new Set<string>();
+  const parentIdsInFiltered = new Set(filtered.map(t => t.id));
+  const nestedChildIds = new Set<string>();
+
   filtered.forEach(tx => {
-    if (tx.parentId) {
-      childIds.add(tx.id);
+    if (tx.parentId && parentIdsInFiltered.has(tx.parentId)) {
+      nestedChildIds.add(tx.id);
       const existing = childrenMap.get(tx.parentId) || [];
       existing.push(tx);
       childrenMap.set(tx.parentId, existing);
     }
   });
 
-  const topLevel = filtered.filter(tx => !childIds.has(tx.id));
-  const totalFiltered = filtered.reduce((sum, tx) => sum + tx.valor, 0);
+  const topLevel = filtered.filter(tx => !nestedChildIds.has(tx.id));
+
+  const totalFiltered = filtered.reduce((sum, tx) => {
+    const isIncome = tx.tipo === 'Entrada' || tx.tipo === 'A Receber';
+    // When showing receipts, we want Net Revenue (Income - Repasses)
+    // When showing expenses (OpEx), we show pure expenses (Repasses were filtered out above)
+    // When showing everything, we show balance
+    if (filter === 'Receitas' || filter === 'Tudo') {
+        return isIncome ? sum + tx.valor : sum - tx.valor;
+    }
+    // For Despesas, since repasses are removed from the list, we just sum up what remains
+    return sum + tx.valor;
+  }, 0);
 
   // Group by Date
   const groupedDates = useMemo(() => {
@@ -95,6 +123,17 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
     toast.success('Lançamento excluído com sucesso.');
     setDeleteTarget(null);
     onDelete();
+  }
+
+  function handleEditClick(tx: Transaction) {
+    if (tx.parentId) {
+      const parent = transactions.find(t => t.id === tx.parentId);
+      if (parent) {
+         onEdit(parent);
+         return;
+      }
+    }
+    onEdit(tx);
   }
 
   function renderRow(tx: Transaction, isChild = false) {
@@ -139,7 +178,7 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               <p className={`text-sm font-bold truncate tracking-tight ${isLate ? 'text-destructive' : 'text-foreground'}`}>{tx.descricao}</p>
-              {tx.isRepasse && <Badge variant="secondary" className="text-[9px] h-4 px-1 py-0 border-0 bg-primary/10 text-primary uppercase font-bold tracking-wider">Repasse</Badge>}
+              {tx.isRepasse && <Badge variant="secondary" className="text-[9px] h-4 px-1 py-0 border-0 bg-primary/10 text-primary uppercase font-bold tracking-wider">Repasse Vinculado</Badge>}
               {isLate && <Badge variant="destructive" className="text-[9px] h-4 px-1 py-0 border-0 flex gap-1 items-center"><AlertCircle className="w-3 h-3" /> Atrasado</Badge>}
             </div>
             <div className="flex items-center gap-1.5 mt-1">
@@ -151,6 +190,11 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
             <p className={`text-base font-black tabular-nums ${color}`}>
               {isIncome ? '+' : '-'} R$ {tx.valor.toFixed(2)}
             </p>
+            {isIncome && childrenMap.has(tx.id) && (
+              <span className="text-[10px] font-bold text-success/80 bg-success/5 px-1.5 rounded border border-success/10 italic">
+                Líquido: R$ {(tx.valor - (childrenMap.get(tx.id)?.reduce((s, c) => s + c.valor, 0) || 0)).toFixed(2)}
+              </span>
+            )}
             <Badge variant={tx.status === 'Concluído' ? 'default' : 'secondary'} className={`text-[9px] h-4 px-1.5 border-0 ${tx.status === 'Concluído' ? 'bg-success/15 text-success' : 'bg-warning/20 text-warning font-semibold tracking-wide'}`}>
               {tx.status === 'Concluído' ? <CheckCircle2 className="w-2.5 h-2.5 mr-1" /> : <Clock3 className="w-2.5 h-2.5 mr-1" />}
               {tx.status}
@@ -164,10 +208,7 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
               <Plus className="w-3 h-3 mr-1" /> Repasse
             </Button>
           )}
-          <Button variant="secondary" size="sm" className="h-6 px-2.5 text-[10px] bg-background border border-border hover:bg-muted" onClick={() => onEdit(tx)}>
-            <Pencil className="w-3 h-3 mr-1" /> Editar
-          </Button>
-          {tx.status === 'Pendente' && (
+          {tx.status === 'Pendente' && !tx.parentId && (
             <Button variant="default" size="sm" className="h-6 px-2.5 text-[10px] bg-success/10 text-success hover:bg-success hover:text-white border border-success/20" onClick={() => onComplete(tx)}>
               <CheckCircle2 className="w-3 h-3 mr-1" /> Concluir
             </Button>

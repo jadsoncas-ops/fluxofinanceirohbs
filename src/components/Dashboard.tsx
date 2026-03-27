@@ -91,10 +91,25 @@ export function Dashboard({ transactions, month, year }: Props) {
       const d = new Date(t.data + 'T12:00:00');
       return d.getMonth() === month && d.getFullYear() === year;
     });
-    const entradas = monthTxs.filter(t => t.tipo === 'Entrada' && t.status === 'Concluído').reduce((s, t) => s + t.valor, 0);
-    const saidas = monthTxs.filter(t => t.tipo === 'Saída' && t.status === 'Concluído').reduce((s, t) => s + t.valor, 0);
-    const aReceber = monthTxs.filter(t => t.tipo === 'A Receber').reduce((s, t) => s + t.valor, 0);
-    const aPagar = monthTxs.filter(t => t.tipo === 'A Pagar').reduce((s, t) => s + t.valor, 0);
+
+    const monthConcluidas = monthTxs.filter(t => t.status === 'Concluído');
+    const monthPendentes = monthTxs.filter(t => t.status === 'Pendente');
+
+    // Entradas (Líquidas): soma entradas e subtrai repasses
+    const entradasBrutas = monthConcluidas.filter(t => t.tipo === 'Entrada').reduce((s, t) => s + t.valor, 0);
+    const repassesPagos = monthConcluidas.filter(t => t.tipo === 'Saída' && t.isRepasse).reduce((s, t) => s + t.valor, 0);
+    const entradas = entradasBrutas - repassesPagos;
+
+    // Saídas (Gerais): apenas gastos operacionais (não repasse)
+    const saidas = monthConcluidas.filter(t => t.tipo === 'Saída' && !t.isRepasse).reduce((s, t) => s + t.valor, 0);
+
+    // Projetados
+    const aReceberBruto = monthPendentes.filter(t => t.tipo === 'A Receber').reduce((s, t) => s + t.valor, 0);
+    const repassesPendentes = monthPendentes.filter(t => t.tipo === 'A Pagar' && t.isRepasse).reduce((s, t) => s + t.valor, 0);
+    const aReceber = aReceberBruto - repassesPendentes;
+
+    const aPagar = monthPendentes.filter(t => t.tipo === 'A Pagar' && !t.isRepasse).reduce((s, t) => s + t.valor, 0);
+
     const totalPrevisto = entradas + aReceber;
     const percentRecebido = totalPrevisto > 0 ? (entradas / totalPrevisto) * 100 : 0;
 
