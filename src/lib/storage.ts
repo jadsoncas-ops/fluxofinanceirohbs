@@ -26,11 +26,16 @@ function migrateOrphanRepasses(txs: Transaction[]): boolean {
     if (tx.isRepasse && !tx.parentId) {
       // Try to match "Repasse - <description>" to a parent
       const descMatch = tx.descricao.replace(/^Repasse\s*-\s*/i, '');
+      const parts = descMatch.split('-');
+      const suffix = parts.length > 1 ? parts[parts.length - 1].trim() : descMatch;
+      
       // Find a non-repasse with matching description (could be on different date)
-      const parent = nonRepasses.find(p =>
-        (p.tipo === 'Entrada' || p.tipo === 'A Receber') &&
-        (p.descricao === descMatch || p.descricao.includes(descMatch) || descMatch.includes(p.descricao))
-      );
+      const parent = nonRepasses.find(p => {
+        if (p.tipo !== 'Entrada' && p.tipo !== 'A Receber') return false;
+        if (p.descricao === descMatch || p.descricao.includes(descMatch) || descMatch.includes(p.descricao)) return true;
+        if (parts.length > 1 && p.descricao.includes(suffix)) return true;
+        return false;
+      });
       if (parent) {
         tx.parentId = parent.id;
         changed = true;

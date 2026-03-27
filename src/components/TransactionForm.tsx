@@ -9,7 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Transaction, TransactionType, TransactionStatus, getCategorias, CATEGORIAS_REPASSE } from '@/lib/types';
 import { getTransactions, addTransactions, updateTransaction, addTransaction, deleteTransaction } from '@/lib/storage';
 import { toast } from 'sonner';
-import { AlertTriangle, Trash2, Plus, X } from 'lucide-react';
+import { AlertTriangle, Trash2, Plus, X, Wallet } from 'lucide-react';
 
 interface RepasseItem {
   id?: string;
@@ -19,7 +19,7 @@ interface RepasseItem {
   status?: TransactionStatus;
 }
 
-const emptyRepasse = (): RepasseItem => ({ valor: '', categoria: '🖨️ Impressão de projetos', descricao: '' });
+const emptyRepasse = (): RepasseItem => ({ valor: '', categoria: '🖨️ Impressão de projetos', descricao: '', status: 'Pendente' });
 
 interface Props {
   open: boolean;
@@ -197,7 +197,9 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
           repasses.forEach(rep => {
              const rv = parseFloat(rep.valor);
              if (!isNaN(rv) && rv > 0) {
-               const rt = numRecebido > 0 ? getCompletedType(editItem.tipo) : getPendingType(editItem.tipo);
+               const repStatus = rep.status || 'Pendente';
+               const repTipo = repStatus === 'Concluído' ? 'Saída' : 'A Pagar';
+               
                if (rep.id) {
                  const ex = existingRepasses.find(e => e.id === rep.id);
                  if (ex) {
@@ -206,17 +208,19 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
                      valor: rv,
                      categoria: rep.categoria,
                      descricao: rep.descricao || `Repasse - ${descricao}`,
+                     status: repStatus,
+                     tipo: repTipo,
                    });
                  }
                } else {
                  addTransaction({
                    id: crypto.randomUUID(),
                    data,
-                   tipo: rt === 'Entrada' ? 'Saída' : 'A Pagar',
+                   tipo: repTipo,
                    categoria: rep.categoria,
                    descricao: rep.descricao || `Repasse - ${descricao}`,
                    valor: rv,
-                   status: rt === 'Entrada' ? 'Concluído' : 'Pendente',
+                   status: repStatus,
                    isRepasse: true,
                    parentId: editItem.id,
                  });
@@ -430,9 +434,21 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
                             </Select>
                           </div>
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px]">Descrição do Repasse</Label>
-                          <Input value={rep.descricao} onChange={e => updateRepasse(idx, 'descricao', e.target.value)} placeholder="Ex: Pagamento ao projetista" className="h-8 text-xs" />
+                        <div className="grid grid-cols-[1fr_auto] gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-[11px]">Descrição do Repasse</Label>
+                            <Input value={rep.descricao} onChange={e => updateRepasse(idx, 'descricao', e.target.value)} placeholder="Ex: Pagamento ao projetista" className="h-8 text-xs" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px]">Status</Label>
+                            <Select value={rep.status || 'Pendente'} onValueChange={v => updateRepasse(idx, 'status', v as TransactionStatus)}>
+                              <SelectTrigger className="h-8 text-xs w-[100px]"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Pendente">Pendente</SelectItem>
+                                <SelectItem value="Concluído">Concluído</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -448,6 +464,28 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
                         <span className="font-medium tabular-nums">R$ {totalRepasses.toFixed(2)}</span>
                       </div>
                     )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {showRepasse && hasRepasse && repasses.length > 0 && (
+              <div className="border border-success/30 bg-success/5 rounded-lg p-3 space-y-2 mt-2">
+                <h4 className="text-xs font-bold text-success uppercase tracking-wider flex items-center pr-2">
+                  <Wallet className="w-3.5 h-3.5 mr-1" /> Simulador: Lucro Líquido
+                </h4>
+                <div className="flex justify-between text-xs items-center text-muted-foreground pt-1.5 border-t border-success/10">
+                  <span>Sobra Atual (Recebido - Repasses Pagos):</span>
+                  <span className={`font-semibold tabular-nums px-1.5 py-0.5 rounded leading-none flex items-center ${(numRecebido - repasses.filter(r => r.status === 'Concluído').reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0)) >= 0 ? 'bg-success/20 text-success' : 'bg-destructive/20 text-destructive'}`}>
+                    R$ {(numRecebido - repasses.filter(r => r.status === 'Concluído').reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0)).toFixed(2)}
+                  </span>
+                </div>
+                {hasSplit && (
+                  <div className="flex justify-between text-xs items-center text-muted-foreground pt-1.5 border-t border-success/10">
+                     <span>Lucro Faltante (Restante - Rep. Pendentes):</span>
+                     <span className={`font-semibold tabular-nums px-1.5 py-0.5 rounded leading-none flex items-center ${(diferenca - repasses.filter(r => r.status === 'Pendente').reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0)) >= 0 ? 'bg-primary/20 text-primary' : 'bg-warning/20 text-warning'}`}>
+                       R$ {(diferenca - repasses.filter(r => r.status === 'Pendente').reduce((sum, r) => sum + (parseFloat(r.valor) || 0), 0)).toFixed(2)}
+                     </span>
                   </div>
                 )}
               </div>
