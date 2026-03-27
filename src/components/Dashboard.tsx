@@ -136,24 +136,12 @@ export function Dashboard({ transactions, month, year }: Props) {
     };
   }, [transactions, month, year, empresaPercent]);
 
-  const hojeCards = [
-    { label: 'Saldo Atual (Realizado)', value: saldoAtual, icon: Wallet, color: saldoAtual >= 0 ? 'text-success' : 'text-destructive', bg: 'bg-success/10' },
-    { label: 'Mês - Entradas', value: stats.entradas, icon: ArrowUpCircle, color: 'text-success', bg: 'bg-success/10' },
-    { label: 'Mês - Saídas', value: stats.saidas, icon: ArrowDownCircle, color: 'text-destructive', bg: 'bg-destructive/10' },
-  ];
-
-  const futuroCards = [
-    { label: 'Mês - A Receber', value: stats.aReceber, icon: ArrowDownLeft, color: 'text-primary/70', bg: 'bg-primary/5' },
-    { label: 'Mês - A Pagar', value: stats.aPagar, icon: ArrowUpRight, color: 'text-warning/70', bg: 'bg-warning/5' },
-    { label: 'Saldo Futuro (Previsto)', value: saldoProjetadoFuturo, icon: Target, color: saldoProjetadoFuturo >= 0 ? 'text-muted-foreground' : 'text-destructive/70', bg: 'bg-muted/40' },
-  ];
-
   return (
-    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 font-sans tracking-tight">
       
       {/* Alerta de Risco (Caixa Negativo) */}
       {negativeAlert && (
-        <Card className="border-destructive/50 bg-destructive/5 shadow-sm">
+        <Card className="border-destructive/50 bg-destructive/5 shadow-sm rounded-2xl">
           <CardContent className="p-4 flex items-center gap-4">
             <div className="bg-destructive/20 p-2 rounded-full hidden sm:block">
               <BadgeAlert className="w-8 h-8 text-destructive" />
@@ -168,78 +156,175 @@ export function Dashboard({ transactions, month, year }: Props) {
         </Card>
       )}
 
-      {/* Seção 1: HOJE (Realizado) */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <div className="w-1 h-4 bg-success rounded-full"></div>
-          <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Hoje (Realizado)</h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {hojeCards.map(c => (
-            <Card key={c.label} className="border-border/50 hover:border-border transition-colors shadow-sm">
-              <CardContent className="p-4 flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <div className={`p-1.5 rounded-md ${c.bg}`}>
-                    <c.icon className={`w-4 h-4 ${c.color}`} />
-                  </div>
-                  <span className="text-xs text-muted-foreground font-medium">{c.label}</span>
+      {/* NÍVEL 1: Saldo & Bússola (Maior Destaque) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Saldo Atual */}
+        <Card className="border-border/60 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl bg-gradient-to-br from-background to-muted/20">
+          <CardContent className="p-6 flex flex-col justify-center h-full gap-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <Wallet className="w-5 h-5" />
+                Saldo Atual
+              </h2>
+              <Badge variant="secondary" className="bg-success/10 text-success border-0 hover:bg-success/20 transition-colors">Hoje • Realizado</Badge>
+            </div>
+            <p className={`text-5xl sm:text-6xl font-black tabular-nums tracking-tighter ${saldoAtual >= 0 ? 'text-foreground' : 'text-destructive'}`}>
+              R$ {saldoAtual.toFixed(2)}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Bússola Financeira (O Elemento Mais Importante) */}
+        <Card className="relative overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground border-0 group">
+          <div className="absolute top-0 right-0 -mt-6 -mr-6 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:bg-white/20 transition-all duration-500"></div>
+          <div className="absolute bottom-0 left-0 -mb-6 -ml-6 w-40 h-40 bg-black/10 rounded-full blur-3xl group-hover:bg-black/20 transition-all duration-500"></div>
+          
+          <CardContent className="p-6 h-full flex flex-col relative z-10">
+            <div className="flex flex-col gap-1 mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <h2 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2 text-primary-foreground drop-shadow-sm">
+                  <span className="text-lg">🧭</span> Bússola Financeira
+                </h2>
+                <div className="flex gap-1 bg-black/10 p-1 rounded-lg backdrop-blur-sm self-start sm:self-auto">
+                  {[10, 15, 20, 30].map(p => (
+                    <button
+                      key={p}
+                      onClick={() => setEmpresaPercent(p)}
+                      className={`text-xs px-2.5 py-1 rounded-md transition-all font-medium ${
+                        empresaPercent === p 
+                          ? 'bg-white text-primary shadow-sm' 
+                          : 'text-primary-foreground/80 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      {p}%
+                    </button>
+                  ))}
                 </div>
-                <p className={`text-xl sm:text-2xl font-black tabular-nums tracking-tight ${c.color}`}>
-                  R$ {c.value.toFixed(2)}
+              </div>
+              <p className="text-xs text-primary-foreground/80 italic font-medium">Baseado apenas no que já entrou</p>
+            </div>
+
+            <div className="mb-6 flex-1 flex flex-col justify-center">
+              <p className="text-sm font-semibold text-primary-foreground/90 mb-1">Você pode usar até</p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-4xl sm:text-5xl font-black tabular-nums tracking-tighter text-white drop-shadow-md">
+                  R$ {bussola.pessoal.toFixed(2)}
                 </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              </div>
+              <p className="text-sm text-primary-foreground/90 mt-1 font-semibold">sem comprometer o caixa</p>
+            </div>
+
+            <div className="bg-black/10 rounded-xl p-3.5 space-y-3 backdrop-blur-sm border border-white/5">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-primary-foreground/90 flex items-center gap-2 font-medium">
+                  <div className="w-6 h-6 rounded-md bg-white/20 flex items-center justify-center text-[12px] shadow-sm">🏢</div> 
+                  Reserva Empresa
+                </span>
+                <span className="font-bold tabular-nums">R$ {bussola.empresa.toFixed(2)}</span>
+              </div>
+
+              {bussola.recebido > 0 && (
+                <div className="pt-2.5 border-t border-white/10">
+                  {bussola.isAdjusted ? (
+                    <div className="flex items-start gap-2 text-warning font-medium bg-warning/10 p-2 rounded-lg border border-warning/20">
+                      <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                      <p className="text-[11px] leading-snug">A retirada desejada é maior do que a folga de segurança. Proceda com cautela.</p>
+                    </div>
+                  ) : (
+                     <div className="flex items-center gap-2 text-green-300 font-medium">
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      <p className="text-[11px] leading-snug">Caixa saudável. Divisão garantida com folga de margem.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Seção 2: FUTURO (Previsto) */}
-      <div className="space-y-3 pt-2">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <div className="w-1 h-4 bg-muted-foreground/30 rounded-full"></div>
-            <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Futuro (Previsto)</h2>
+      {/* NÍVEL 2: Entradas / Saídas (Realizadas) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+        <Card className="border-border/50 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300 rounded-2xl bg-card">
+          <CardContent className="p-5 flex flex-col gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-success/10 text-success">
+                <ArrowUpCircle className="w-5 h-5" />
+              </div>
+              <span className="text-sm text-muted-foreground font-semibold uppercase tracking-wide">Entradas Realizadas</span>
+            </div>
+            <p className="text-3xl font-bold tabular-nums tracking-tight text-foreground">
+              R$ {stats.entradas.toFixed(2)}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/50 shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300 rounded-2xl bg-card">
+          <CardContent className="p-5 flex flex-col gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-destructive/10 text-destructive">
+                <ArrowDownCircle className="w-5 h-5" />
+              </div>
+              <span className="text-sm text-muted-foreground font-semibold uppercase tracking-wide">Saídas Realizadas</span>
+            </div>
+            <p className="text-3xl font-bold tabular-nums tracking-tight text-foreground">
+              R$ {stats.saidas.toFixed(2)}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Thermometer de Progresso */}
+      <div className="px-2 py-3">
+        <div className="flex justify-between items-end mb-2">
+          <div>
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest block mb-0.5">Meta de Recebimentos do Mês</span>
+            <span className="text-sm font-semibold text-foreground/80">{stats.percentRecebido.toFixed(0)}% Concluído</span>
           </div>
-          <span className="text-[10px] text-muted-foreground italic">Baseado em valores ainda não realizados</span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {futuroCards.map(c => (
-            <Card key={c.label} className="border-border/40 bg-muted/[0.02] hover:bg-muted/[0.05] transition-colors">
-              <CardContent className="p-4 flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <div className={`p-1.5 rounded-md ${c.bg}`}>
-                    <c.icon className={`w-4 h-4 ${c.color}`} />
-                  </div>
-                  <span className="text-xs text-muted-foreground/80 font-medium">{c.label}</span>
-                </div>
-                <p className={`text-lg sm:text-xl font-bold tabular-nums tracking-tight ${c.color}`}>
-                  R$ {c.value.toFixed(2)}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <Progress value={stats.percentRecebido} className="h-2.5 rounded-full" />
       </div>
 
-      {/* Thermometer */}
-      <Card className="border-border/50 shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex justify-between items-end mb-2">
-            <div>
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest block mb-1">Meta de Recebimentos</span>
-              <span className="text-sm font-semibold">{stats.percentRecebido.toFixed(0)}% Concluído</span>
+      {/* NÍVEL 3: Futuro (Previsto) em linha compacta */}
+      <Card className="border-border/30 bg-muted/40 shadow-none hover:bg-muted/60 transition-colors duration-300 rounded-xl mt-4">
+        <CardContent className="p-5">
+          <div className="flex flex-col xl:flex-row items-center justify-center xl:justify-between gap-4 text-sm">
+            
+            <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2">
+              <span className="font-bold text-muted-foreground uppercase text-[11px] tracking-wider flex items-center gap-1.5"><Target className="w-3.5 h-3.5"/> Futuro (Previsto)</span>
+              <span className="hidden md:inline text-border">•</span>
+              <span className="flex items-center gap-1.5 text-muted-foreground">
+                <ArrowDownLeft className="w-4 h-4 text-primary/60"/> 
+                Entradas previstas 
+                <span className="font-bold text-foreground/80">R$ {stats.aReceber.toFixed(2)}</span>
+              </span>
+              <span className="hidden md:inline text-border">•</span>
+              <span className="flex items-center gap-1.5 text-muted-foreground">
+                <ArrowUpRight className="w-4 h-4 text-warning/60"/> 
+                Saídas previstas 
+                <span className="font-bold text-foreground/80">R$ {stats.aPagar.toFixed(2)}</span>
+              </span>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-2 bg-background/80 px-4 py-2 rounded-lg border border-border/50 text-muted-foreground w-full xl:w-auto justify-center">
+              <span className="font-medium text-xs">Saldo futuro (se tudo acontecer):</span>
+              <span className="font-bold text-foreground">R$ {saldoProjetadoFuturo.toFixed(2)}</span>
             </div>
           </div>
-          <Progress value={stats.percentRecebido} className="h-2.5 rounded-full" />
+          
+          <div className="mt-4 text-center flex flex-col items-center justify-center text-[10px] sm:text-[11px] text-muted-foreground/70 border-t border-border/40 pt-3">
+            <span className="bg-muted px-2 py-0.5 rounded-md mb-1 font-semibold uppercase tracking-widest text-muted-foreground">Valores ainda não realizados</span>
+            <p className="italic">Inclui valores ainda não recebidos e contas não pagas</p>
+          </div>
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Fluxo de Caixa Projetado */}
-        <Card className="border-border/50 shadow-sm col-span-1 md:col-span-2 lg:col-span-1">
+      {/* Gráfico e Dica do Dia */}
+      <div className="grid grid-cols-1 gap-6 pt-2">
+        <Card className="border-border/50 shadow-sm rounded-2xl">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2"><Activity className="w-4 h-4 text-primary" /> Fluxo de Caixa Projetado</CardTitle>
-            <CardDescription className="text-xs">Evolução do saldo (Realizado + Futuro)</CardDescription>
+            <CardDescription className="text-xs">Evolução do saldo no decorrer dos próximos dias</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-48 w-full mt-2">
@@ -256,7 +341,7 @@ export function Dashboard({ transactions, month, year }: Props) {
                   <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                   <Tooltip 
                     formatter={(val: number) => [`R$ ${val.toFixed(2)}`, 'Saldo']}
-                    contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', fontSize: '12px' }}
+                    contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', fontSize: '12px', zIndex: 100 }}
                   />
                   <Area type="monotone" dataKey="balance" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorBalance)" />
                 </AreaChart>
@@ -264,94 +349,17 @@ export function Dashboard({ transactions, month, year }: Props) {
             </div>
           </CardContent>
         </Card>
-
-        {/* Bússola Financeira */}
-        <Card className="border-border/50 shadow-sm col-span-1 md:col-span-2 lg:col-span-1 overflow-hidden">
-          <CardHeader className="pb-2 bg-muted/20 border-b border-border/40">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-sm flex items-center gap-2">🧭 Bússola Financeira</CardTitle>
-                <CardDescription className="text-[10px] mt-0.5">Sugestão de divisão de retiradas</CardDescription>
-              </div>
-              <div className="flex gap-1">
-                {[10, 15, 20, 30].map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setEmpresaPercent(p)}
-                    className={`text-[9px] px-1.5 py-0.5 rounded border transition-all ${
-                      empresaPercent === p 
-                        ? 'bg-primary border-primary text-primary-foreground font-bold' 
-                        : 'bg-background border-border text-muted-foreground hover:border-primary/50'
-                    }`}
-                  >
-                    {p}%
-                  </button>
-                ))}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-4 space-y-4">
-            <div className="flex justify-between items-baseline">
-              <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Recebido no Mês</span>
-              <span className="text-xl font-black tabular-nums">R$ {bussola.recebido.toFixed(2)}</span>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2.5">
-              <div className="p-3 rounded-lg border border-border/40 bg-background flex justify-between items-center group hover:border-primary/20 transition-colors">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center text-lg">🏢</div>
-                  <div>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">Reserva Empresa</p>
-                    <p className="text-sm font-bold tabular-nums">R$ {bussola.empresa.toFixed(2)}</p>
-                  </div>
-                </div>
-                <Badge variant="outline" className="text-[10px] border-primary/20 text-primary bg-primary/5">Pilar</Badge>
-              </div>
-
-              <div className={`p-3 rounded-lg border flex justify-between items-center transition-all ${
-                bussola.isAdjusted ? 'border-warning/30 bg-warning/[0.03]' : 'border-success/30 bg-success/[0.03]'
-              }`}>
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-md flex items-center justify-center text-lg bg-background shadow-sm border border-border/20">💼</div>
-                  <div>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">Disponível para Você</p>
-                    <p className={`text-sm font-black tabular-nums ${bussola.pessoal > 0 ? bussola.statusColor : 'text-muted-foreground'}`}>R$ {bussola.pessoal.toFixed(2)}</p>
-                  </div>
-                </div>
-                {bussola.pessoal > 0 && !bussola.isAdjusted && <Badge className="text-[10px] bg-success text-success-foreground border-0">Livre</Badge>}
-                {bussola.pessoal > 0 && bussola.isAdjusted && <Badge className="text-[10px] bg-warning text-warning-foreground animate-pulse border-0">Atenção</Badge>}
-              </div>
-            </div>
-
-            {bussola.recebido > 0 ? (
-              <div className="pt-1">
-                {bussola.isAdjusted ? (
-                  <div className="flex items-start gap-2 text-warning p-2 rounded bg-warning/5 border border-warning/10">
-                    <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                    <p className="text-[10px] font-medium leading-tight">A retirada desejada é maior do que a folga de segurança do seu caixa mensal. Proceda com cautela.</p>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-success px-2 py-1.5 rounded bg-success/5">
-                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                    <p className="text-[10px] font-medium">Caixa saudável. Divisão garantida com folga de margem.</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <p className="text-[10px] text-center text-muted-foreground italic py-2">Sem entradas confirmadas neste mês para cálculo.</p>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
-      {/* Daily Tip */}
-      <Card className="border-yellow-500/20 bg-yellow-500/[0.04]">
-        <CardContent className="p-3">
-          <div className="flex items-start gap-2">
-            <span className="text-lg leading-none mt-0.5">💡</span>
-            <div>
-              <p className="text-[10px] text-yellow-600 dark:text-yellow-400 font-semibold uppercase tracking-wider mb-1">Dica do Dia</p>
-              <p className="text-xs text-foreground/80 leading-relaxed">{getTipOfDay()}</p>
+      <Card className="border-yellow-500/30 bg-yellow-500/[0.05] rounded-2xl shadow-sm mb-4">
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex items-start gap-4">
+            <div className="p-2 sm:p-3 bg-yellow-500/15 rounded-xl text-yellow-600 dark:text-yellow-400">
+              <span className="text-xl sm:text-2xl leading-none block">💡</span>
+            </div>
+            <div className="flex-1 mt-0.5">
+              <p className="text-[11px] text-yellow-600 dark:text-yellow-400 font-bold uppercase tracking-widest mb-1.5">Dica do Dia</p>
+              <p className="text-sm text-foreground/80 leading-relaxed font-medium">{getTipOfDay()}</p>
             </div>
           </div>
         </CardContent>
