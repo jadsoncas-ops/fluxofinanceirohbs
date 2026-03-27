@@ -17,20 +17,14 @@ function getCategoryEmoji(categoria: string): string {
 }
 
 function getTypeStyles(tipo: string) {
-  switch (tipo) {
-    case 'Entrada': return 'border-l-4 border-l-green-500 bg-green-500/[0.03] hover:bg-green-500/[0.06] border-t-border/40 border-r-border/40 border-b-border/40';
-    case 'Saída': return 'border-l-4 border-l-red-500 bg-red-500/[0.03] hover:bg-red-500/[0.06] border-t-border/40 border-r-border/40 border-b-border/40';
-    case 'A Receber': return 'border-l-4 border-l-yellow-500 bg-yellow-500/[0.03] hover:bg-yellow-500/[0.06] border-t-border/40 border-r-border/40 border-b-border/40';
-    case 'A Pagar': return 'border-l-4 border-l-orange-500 bg-orange-500/[0.03] hover:bg-orange-500/[0.06] border-t-border/40 border-r-border/40 border-b-border/40';
-    default: return 'border-l-4 border-l-border bg-card';
-  }
+  return 'border border-border/60 bg-card hover:border-border hover:shadow-sm transition-all duration-200';
 }
 
 function getAmountColor(tipo: string) {
-  if (tipo === 'Entrada') return 'text-green-600 dark:text-green-500';
-  if (tipo === 'Saída') return 'text-red-600 dark:text-red-500';
-  if (tipo === 'A Receber') return 'text-yellow-600 dark:text-yellow-500';
-  if (tipo === 'A Pagar') return 'text-orange-600 dark:text-orange-500';
+  if (tipo === 'Entrada') return 'text-success';
+  if (tipo === 'Saída') return 'text-destructive';
+  if (tipo === 'A Receber') return 'text-primary';
+  if (tipo === 'A Pagar') return 'text-warning';
   return '';
 }
 
@@ -148,9 +142,9 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete 
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
-              <p className={`text-sm font-bold truncate tracking-tight ${isLate ? 'text-destructive/90' : 'text-foreground/90'}`}>{tx.descricao}</p>
+              <p className={`text-sm font-bold truncate tracking-tight ${isLate ? 'text-destructive' : 'text-foreground'}`}>{tx.descricao}</p>
               {tx.isRepasse && <Badge variant="secondary" className="text-[9px] h-4 px-1 py-0 border-0 bg-primary/10 text-primary uppercase font-bold tracking-wider">Repasse</Badge>}
-              {isLate && <Badge variant="destructive" className="text-[9px] h-4 px-1 py-0 border-0 animate-pulse flex gap-1 items-center"><AlertCircle className="w-3 h-3" /> Atrasado</Badge>}
+              {isLate && <Badge variant="destructive" className="text-[9px] h-4 px-1 py-0 border-0 flex gap-1 items-center"><AlertCircle className="w-3 h-3" /> Atrasado</Badge>}
             </div>
             <div className="flex items-center gap-1.5 mt-1">
               <Badge variant="outline" className={`text-[9px] leading-none h-4 px-1.5 py-0 border-current bg-background ${color}`}>{tx.tipo}</Badge>
@@ -161,7 +155,7 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete 
             <p className={`text-base font-black tabular-nums ${color}`}>
               {isIncome ? '+' : '-'} R$ {tx.valor.toFixed(2)}
             </p>
-            <Badge variant={tx.status === 'Concluído' ? 'default' : 'secondary'} className={`text-[9px] h-4 px-1.5 border-0 ${tx.status === 'Concluído' ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning font-semibold tracking-wide'}`}>
+            <Badge variant={tx.status === 'Concluído' ? 'default' : 'secondary'} className={`text-[9px] h-4 px-1.5 border-0 ${tx.status === 'Concluído' ? 'bg-success/15 text-success' : 'bg-warning/20 text-warning font-semibold tracking-wide'}`}>
               {tx.status === 'Concluído' ? <CheckCircle2 className="w-2.5 h-2.5 mr-1" /> : <Clock3 className="w-2.5 h-2.5 mr-1" />}
               {tx.status}
             </Badge>
