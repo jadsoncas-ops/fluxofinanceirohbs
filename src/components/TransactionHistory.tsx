@@ -122,13 +122,8 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
             <p className={`text-xs font-bold tabular-nums ${color}`}>
               {isIncome ? '+' : '-'} R$ {tx.valor.toFixed(2)}
             </p>
-            <div className="flex gap-0.5">
-              <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => onEdit(tx)}>
-                <Pencil className="w-3 h-3" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/50 hover:text-destructive" onClick={() => setDeleteTarget(tx)}>
-                <Trash2 className="w-3 h-3" />
-              </Button>
+            <div className="px-1 line-clamp-1">
+              <Badge variant="secondary" className="text-[8px] uppercase tracking-widest text-muted-foreground bg-transparent border-0 opacity-50">Vinculado</Badge>
             </div>
           </div>
         </div>

@@ -6,15 +6,17 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Transaction, TransactionType, getCategorias, CATEGORIAS_REPASSE } from '@/lib/types';
-import { addTransactions, updateTransaction, addTransaction, deleteTransaction } from '@/lib/storage';
+import { Transaction, TransactionType, TransactionStatus, getCategorias, CATEGORIAS_REPASSE } from '@/lib/types';
+import { getTransactions, addTransactions, updateTransaction, addTransaction, deleteTransaction } from '@/lib/storage';
 import { toast } from 'sonner';
 import { AlertTriangle, Trash2, Plus, X } from 'lucide-react';
 
 interface RepasseItem {
+  id?: string;
   valor: string;
   categoria: string;
   descricao: string;
+  status?: TransactionStatus;
 }
 
 const emptyRepasse = (): RepasseItem => ({ valor: '', categoria: '🖨️ Impressão de projetos', descricao: '' });
@@ -50,8 +52,21 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
       setValorRecebido(String(editItem.valor));
       setData(editItem.data);
       setDataRestante('');
-      setHasRepasse(false);
-      setRepasses([emptyRepasse()]);
+
+      const existingRepasses = getTransactions().filter(t => t.parentId === editItem.id && t.isRepasse);
+      if (existingRepasses.length > 0) {
+        setHasRepasse(true);
+        setRepasses(existingRepasses.map(r => ({
+          id: r.id,
+          valor: String(r.valor),
+          categoria: r.categoria,
+          descricao: r.descricao,
+          status: r.status
+        })));
+      } else {
+        setHasRepasse(false);
+        setRepasses([emptyRepasse()]);
+      }
     } else if (parentItem) {
       setTipo(parentItem.status === 'Concluído' ? 'Saída' : 'A Pagar');
       setCategoria('🤝 Comissão');
@@ -174,6 +189,52 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
         });
         toast.success('Lançamento atualizado com sucesso.');
       }
+
+      if (showRepasse) {
+        const existingRepasses = getTransactions().filter(t => t.parentId === editItem.id && t.isRepasse);
+        
+        if (hasRepasse) {
+          repasses.forEach(rep => {
+             const rv = parseFloat(rep.valor);
+             if (!isNaN(rv) && rv > 0) {
+               const rt = numRecebido > 0 ? getCompletedType(editItem.tipo) : getPendingType(editItem.tipo);
+               if (rep.id) {
+                 const ex = existingRepasses.find(e => e.id === rep.id);
+                 if (ex) {
+                   updateTransaction({
+                     ...ex,
+                     valor: rv,
+                     categoria: rep.categoria,
+                     descricao: rep.descricao || `Repasse - ${descricao}`,
+                   });
+                 }
+               } else {
+                 addTransaction({
+                   id: crypto.randomUUID(),
+                   data,
+                   tipo: rt === 'Entrada' ? 'Saída' : 'A Pagar',
+                   categoria: rep.categoria,
+                   descricao: rep.descricao || `Repasse - ${descricao}`,
+                   valor: rv,
+                   status: rt === 'Entrada' ? 'Concluído' : 'Pendente',
+                   isRepasse: true,
+                   parentId: editItem.id,
+                 });
+               }
+             }
+          });
+          
+          const newRepasseIds = repasses.map(r => r.id).filter(Boolean);
+          existingRepasses.forEach(er => {
+            if (!newRepasseIds.includes(er.id)) {
+              deleteTransaction(er.id);
+            }
+          });
+        } else {
+          existingRepasses.forEach(er => deleteTransaction(er.id));
+        }
+      }
+
     } else {
       const txs: Transaction[] = [];
       const rootId = crypto.randomUUID();
@@ -334,7 +395,7 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
               </div>
             )}
 
-            {showRepasse && !editItem && (
+            {showRepasse && (
               <div className="border border-border rounded-lg p-3 space-y-3 bg-muted/30">
                 <div className="flex items-center gap-2">
                   <Checkbox checked={hasRepasse} onCheckedChange={v => setHasRepasse(!!v)} id="repasse" />
