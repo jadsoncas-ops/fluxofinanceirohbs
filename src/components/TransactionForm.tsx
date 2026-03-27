@@ -24,9 +24,10 @@ interface Props {
   onClose: () => void;
   onSave: () => void;
   editItem?: Transaction | null;
+  parentItem?: Transaction | null;
 }
 
-export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
+export function TransactionForm({ open, onClose, onSave, editItem, parentItem }: Props) {
   const [tipo, setTipo] = useState<TransactionType>('Entrada');
   const [categoria, setCategoria] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -51,6 +52,16 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
       setDataRestante('');
       setHasRepasse(false);
       setRepasses([emptyRepasse()]);
+    } else if (parentItem) {
+      setTipo(parentItem.status === 'Concluído' ? 'Saída' : 'A Pagar');
+      setCategoria('🤝 Comissão');
+      setDescricao(`Repasse - ${parentItem.descricao}`);
+      setValorTotal('');
+      setValorRecebido('');
+      setData(new Date().toISOString().slice(0, 10));
+      setDataRestante('');
+      setHasRepasse(false);
+      setRepasses([emptyRepasse()]);
     } else {
       setTipo('Entrada');
       setCategoria('');
@@ -62,7 +73,7 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
       setHasRepasse(false);
       setRepasses([emptyRepasse()]);
     }
-  }, [editItem, open]);
+  }, [editItem, parentItem, open]);
 
   function handleValorTotalChange(val: string) {
     const wasSync = valorTotal === valorRecebido || valorRecebido === '';
@@ -75,7 +86,7 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
   const hasSplit = numRecebido > 0 && numRecebido < numTotal;
   const diferenca = numTotal - numRecebido;
 
-  const showRepasse = tipo === 'Entrada' || tipo === 'A Receber';
+  const showRepasse = (tipo === 'Entrada' || tipo === 'A Receber') && !parentItem;
   const categorias = getCategorias(tipo);
 
   function updateRepasse(index: number, field: keyof RepasseItem, value: string) {
@@ -165,19 +176,22 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
       }
     } else {
       const txs: Transaction[] = [];
-      const parentId = crypto.randomUUID();
+      const rootId = crypto.randomUUID();
+      const linkId = parentItem ? parentItem.id : rootId;
+      const isAutoRepasse = !!parentItem;
 
       if (hasSplit) {
         const paidNow = numRecebido > 0;
         txs.push({
-          id: parentId,
+          id: isAutoRepasse ? crypto.randomUUID() : linkId,
           data,
           tipo: paidNow ? getCompletedType(tipo) : getPendingType(tipo),
           categoria,
           descricao,
           valor: paidNow ? numRecebido : numTotal,
           status: paidNow ? 'Concluído' : 'Pendente',
-          isRepasse: false,
+          isRepasse: isAutoRepasse,
+          parentId: isAutoRepasse ? linkId : undefined,
         });
         txs.push({
           id: crypto.randomUUID(),
@@ -187,24 +201,25 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
           descricao: `${descricao} (Restante)`,
           valor: diferenca,
           status: 'Pendente',
-          isRepasse: false,
-          parentId,
+          isRepasse: isAutoRepasse,
+          parentId: linkId,
         });
       } else {
         const isConcluido = tipo === 'Entrada' || tipo === 'Saída';
         txs.push({
-          id: parentId,
+          id: isAutoRepasse ? crypto.randomUUID() : linkId,
           data,
           tipo,
           categoria,
           descricao,
           valor: numTotal,
           status: isConcluido ? 'Concluído' : 'Pendente',
-          isRepasse: false,
+          isRepasse: isAutoRepasse,
+          parentId: isAutoRepasse ? linkId : undefined,
         });
       }
 
-      if (hasRepasse) {
+      if (hasRepasse && !isAutoRepasse) {
         const mainTipo = hasSplit ? getCompletedType(tipo) : tipo;
         repasses.forEach(rep => {
           const rv = parseFloat(rep.valor);
@@ -218,7 +233,7 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
               valor: rv,
               status: mainTipo === 'Entrada' ? 'Concluído' : 'Pendente',
               isRepasse: true,
-              parentId,
+              parentId: linkId,
             });
           }
         });
@@ -248,7 +263,7 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle className="text-base font-semibold">
-                {editItem ? 'Editar Lançamento' : 'Novo Lançamento'}
+                {editItem ? 'Editar Lançamento' : (parentItem ? 'Lançar Repasse' : 'Novo Lançamento')}
               </DialogTitle>
               {editItem && (
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive" onClick={() => setShowDeleteConfirm(true)}>

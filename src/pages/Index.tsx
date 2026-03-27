@@ -25,6 +25,7 @@ export default function Index() {
   const [txKey, setTxKey] = useState(0);
   const [formOpen, setFormOpen] = useState(false);
   const [editItem, setEditItem] = useState<Transaction | null>(null);
+  const [parentItem, setParentItem] = useState<Transaction | null>(null);
   const [completeItem, setCompleteItem] = useState<Transaction | null>(null);
 
   const refresh = useCallback(() => setTxKey(k => k + 1), []);
@@ -49,6 +50,13 @@ export default function Index() {
 
   function handleEdit(tx: Transaction) {
     setEditItem(tx);
+    setParentItem(null);
+    setFormOpen(true);
+  }
+
+  function handleAddRepasse(tx: Transaction) {
+    setParentItem(tx);
+    setEditItem(null);
     setFormOpen(true);
   }
 
@@ -103,7 +111,7 @@ export default function Index() {
           <FileDown className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Relatório PDF</span>
         </Button>
-        <Button size="sm" className="h-8 text-xs gap-1.5" onClick={() => { setEditItem(null); setFormOpen(true); }}>
+        <Button size="sm" className="h-8 text-xs gap-1.5" onClick={() => { setEditItem(null); setParentItem(null); setFormOpen(true); }}>
           <Plus className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Novo</span>
         </Button>
@@ -118,6 +126,7 @@ export default function Index() {
             onEdit={handleEdit}
             onComplete={tx => setCompleteItem(tx)}
             onDelete={refresh}
+            onAddRepasse={handleAddRepasse}
           />
         )}
         {tab === 'settings' && <Settings onDataChange={refresh} />}
@@ -146,9 +155,10 @@ export default function Index() {
       {/* Modals */}
       <TransactionForm
         open={formOpen}
-        onClose={() => { setFormOpen(false); setEditItem(null); }}
+        onClose={() => { setFormOpen(false); setEditItem(null); setParentItem(null); }}
         onSave={refresh}
         editItem={editItem}
+        parentItem={parentItem}
       />
       <PartialPaymentModal
         open={!!completeItem}

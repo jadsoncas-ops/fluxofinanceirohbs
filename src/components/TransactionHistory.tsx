@@ -3,7 +3,7 @@ import { Transaction } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Pencil, CheckCircle2, Clock3, Trash2, ArrowUpRight, ArrowDownRight, CornerDownRight, CalendarDays, Wallet, CalendarClock, AlertCircle } from 'lucide-react';
+import { Pencil, CheckCircle2, Clock3, Trash2, ArrowUpRight, ArrowDownRight, CornerDownRight, CalendarDays, Wallet, CalendarClock, AlertCircle, Plus } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { deleteTransaction } from '@/lib/storage';
 import { toast } from 'sonner';
@@ -33,9 +33,10 @@ interface Props {
   onEdit: (tx: Transaction) => void;
   onComplete: (tx: Transaction) => void;
   onDelete: () => void;
+  onAddRepasse?: (tx: Transaction) => void;
 }
 
-export function TransactionHistory({ transactions, onEdit, onComplete, onDelete }: Props) {
+export function TransactionHistory({ transactions, onEdit, onComplete, onDelete, onAddRepasse }: Props) {
   const [viewType, setViewType] = useState<ViewType>('Realizado');
   const [filter, setFilter] = useState<FilterTab>('Tudo');
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
@@ -163,6 +164,11 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete 
         </div>
         
         <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-border/40 border-dashed opacity-70 group-hover:opacity-100 transition-opacity">
+          {isIncome && onAddRepasse && (
+            <Button variant="outline" size="sm" className="h-6 px-2.5 text-[10px] bg-background border-border hover:bg-muted text-muted-foreground hover:text-foreground font-medium" onClick={() => onAddRepasse(tx)}>
+              <Plus className="w-3 h-3 mr-1" /> Repasse
+            </Button>
+          )}
           <Button variant="secondary" size="sm" className="h-6 px-2.5 text-[10px] bg-background border border-border hover:bg-muted" onClick={() => onEdit(tx)}>
             <Pencil className="w-3 h-3 mr-1" /> Editar
           </Button>

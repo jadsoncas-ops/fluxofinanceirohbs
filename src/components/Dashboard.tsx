@@ -16,16 +16,34 @@ export function Dashboard({ transactions, month, year }: Props) {
   const { stats, projectProfits, cashFlowPoints, negativeAlert, saldoAtual, saldoProjetadoFuturo } = useMemo(() => {
     // 1. LUCRO POR PROJETO
     const projMap = new Map<string, { receita: number; custo: number }>();
+    const txIdToName = new Map<string, string>();
+
+    // Primeiro mapeia todas as receitas/projetos
     transactions.forEach(t => {
-      let projName = t.descricao.replace(/ \(Restante\)$/, '').replace(/^Repasse\s*-\s*/, '').trim();
-      if (!projMap.has(projName)) projMap.set(projName, { receita: 0, custo: 0 });
-      const p = projMap.get(projName)!;
-      
       const isReceita = t.tipo === 'Entrada' || t.tipo === 'A Receber';
+      if (isReceita) {
+        const projName = t.descricao.replace(/ \(Restante\)$/, '').trim();
+        txIdToName.set(t.id, projName);
+        if (!projMap.has(projName)) projMap.set(projName, { receita: 0, custo: 0 });
+        projMap.get(projName)!.receita += t.valor;
+      }
+    });
+
+    // Depois computa as despesas (repasses) para abatê-las corretamente da receita
+    transactions.forEach(t => {
       const isCusto = (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.isRepasse;
-      
-      if (isReceita) p.receita += t.valor;
-      if (isCusto) p.custo += t.valor;
+      if (isCusto) {
+        let projName = '';
+        if (t.parentId && txIdToName.has(t.parentId)) {
+           projName = txIdToName.get(t.parentId)!;
+        } else {
+           // Fallback para repasses soltos antigos
+           projName = t.descricao.replace(/ \(Restante\)$/, '').replace(/^Repasse\s*-\s*/i, '').trim();
+        }
+        
+        if (!projMap.has(projName)) projMap.set(projName, { receita: 0, custo: 0 });
+        projMap.get(projName)!.custo += t.valor;
+      }
     });
 
     const projectProfits = Array.from(projMap.entries())
