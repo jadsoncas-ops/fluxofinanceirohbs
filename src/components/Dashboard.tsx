@@ -14,9 +14,7 @@ interface Props {
 }
 
 export function Dashboard({ transactions, month, year }: Props) {
-  const [empresaPercent, setEmpresaPercent] = useState(20);
-
-  const { stats, projectProfits, cashFlowPoints, negativeAlert, saldoAtual, saldoProjetadoFuturo, bussola } = useMemo(() => {
+  const { stats, projectProfits, cashFlowPoints, negativeAlert, saldoAtual, saldoProjetadoFuturo } = useMemo(() => {
     // 1. LUCRO POR PROJETO
     const projMap = new Map<string, { receita: number; custo: number }>();
     const txIdToName = new Map<string, string>();
@@ -103,27 +101,11 @@ export function Dashboard({ transactions, month, year }: Props) {
     const totalPrevisto = entradas + aReceber;
     const percentRecebido = totalPrevisto > 0 ? (entradas / totalPrevisto) * 100 : 0;
 
-    // 4. BÚSSOLA FINANCEIRA (Lógica de Retirada Sob Demanda)
-    // Regra: Subtrair repasses já pagos da receita para calcular o líquido real da Bússola
-    const repassesPagos = monthTxs.filter(t => t.tipo === 'Saída' && t.status === 'Concluído' && t.isRepasse).reduce((s, t) => s + t.valor, 0);
-    const entradasLiquidas = Math.max(0, entradas - repassesPagos);
-
-    const ratio = empresaPercent / 100;
-    const reservaEmpresaTeorica = entradasLiquidas * ratio;
-    const disponivelPessoalReal = Math.max(0, entradasLiquidas - reservaEmpresaTeorica);
+    // 4. BÚSSOLA FINANCEIRA
+    // A bússola gora cálcula on the fly no componente usando o saldoAtual global (que já desconta despesas, repasses e retiradas)
     
     const margemSeguranca = saidas * 1.2;
     const caixaDisponivelReal = entradas - saidas;
-    const isSafetyAlert = caixaDisponivelReal < margemSeguranca && entradas > 0;
-    
-    const bussola = {
-      recebido: entradasLiquidas,
-      empresa: reservaEmpresaTeorica,
-      pessoal: disponivelPessoalReal,
-      isAdjusted: isSafetyAlert,
-      statusColor: isSafetyAlert ? 'text-warning' : 'text-success',
-      statusBg: isSafetyAlert ? 'bg-warning/10' : 'bg-success/10'
-    };
 
     const stats = { entradas, saidas, aReceber, aPagar, percentRecebido };
     const saldoAtual = actualBalance;
@@ -135,10 +117,9 @@ export function Dashboard({ transactions, month, year }: Props) {
       cashFlowPoints, 
       negativeAlert,
       saldoAtual,
-      saldoProjetadoFuturo,
-      bussola
+      saldoProjetadoFuturo
     };
-  }, [transactions, month, year, empresaPercent]);
+  }, [transactions, month, year]);
 
   const burnRate = stats.entradas > 0 ? (stats.saidas / stats.entradas) : 0;
   const isHealthyMargin = burnRate <= 0.8 && stats.entradas > 0;
@@ -184,71 +165,47 @@ export function Dashboard({ transactions, month, year }: Props) {
           </CardContent>
         </Card>
 
-        {/* Bússola Financeira (O Elemento Mais Importante) */}
+        {/* Bússola Financeira (Saldo Líquido Real) */}
         <Card className="relative overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-900 text-white border-0 group">
           <div className="absolute top-0 right-0 -mt-6 -mr-6 w-32 h-32 bg-white/5 rounded-full blur-2xl group-hover:bg-white/10 transition-all duration-500"></div>
           <div className="absolute bottom-0 left-0 -mb-6 -ml-6 w-40 h-40 bg-black/20 rounded-full blur-3xl group-hover:bg-black/40 transition-all duration-500"></div>
           
           <CardContent className="p-6 h-full flex flex-col relative z-10">
-            <div className="flex flex-col gap-1 mb-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <h2 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2 text-white/90 drop-shadow-sm">
-                  <span className="text-lg">🧭</span> Bússola Financeira
-                </h2>
-                <div className="flex gap-1 bg-white/10 p-1 rounded-lg backdrop-blur-sm self-start sm:self-auto">
-                  {[10, 15, 20, 30].map(p => (
-                    <button
-                      key={p}
-                      onClick={() => setEmpresaPercent(p)}
-                      className={`text-xs px-2.5 py-1 rounded-md transition-all font-medium ${
-                        empresaPercent === p 
-                          ? 'bg-white text-slate-900 shadow-sm' 
-                          : 'text-white/70 hover:text-white hover:bg-white/20'
-                      }`}
-                    >
-                      {p}%
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <p className="text-xs text-white/70 italic font-medium">Garantido com o que já está na conta</p>
+            <div className="flex flex-col gap-1 mb-5">
+              <h2 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2 text-white/90 drop-shadow-sm">
+                <span className="text-lg">🧭</span> Bússola Financeira
+              </h2>
+              <p className="text-xs text-white/70 italic font-medium">Cálculo baseado no saldo líquido real disponível</p>
             </div>
 
-            <div className="mb-5 flex-1 flex flex-col justify-center">
-              <p className="text-sm font-semibold text-emerald-400 mb-1">Liberado para você usar:</p>
+            <div className="mb-4 flex-1 flex flex-col justify-center">
+              <p className="text-sm font-semibold text-emerald-400 mb-1">Seu saldo atual:</p>
               <div className="flex items-baseline text-white">
                 <span className="text-2xl font-bold mr-2 opacity-80 drop-shadow-md">R$</span>
                 <span className="text-5xl sm:text-6xl font-black tabular-nums tracking-tighter drop-shadow-md">
-                  {bussola.pessoal.toFixed(2)}
+                  {Math.max(0, saldoAtual).toFixed(2)}
                 </span>
               </div>
-              <p className="text-xs text-white/80 mt-1 font-medium">Retirada segura, sem quebrar o caixa.</p>
             </div>
 
             <div className="bg-black/20 rounded-xl p-3.5 space-y-3 backdrop-blur-sm border border-white/10">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-white/90 flex items-center gap-2 font-semibold">
-                  <div className="w-6 h-6 rounded-md bg-white/10 flex items-center justify-center text-[12px] shadow-sm">🏢</div> 
-                  Caixa da Empresa (Intocável)
-                </span>
-                <span className="font-bold tabular-nums">R$ {bussola.empresa.toFixed(2)}</span>
+              <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-400/90 mb-2 flex items-center gap-1.5"><div className="w-5 h-5 rounded overflow-hidden bg-white/10 flex items-center justify-center text-[10px]">🏢</div> Se você guardar p/ Empresa:</p>
+              
+              <div className="grid grid-cols-2 gap-2">
+                {[10, 15, 20, 30].map(pct => {
+                  const valorGuardado = Math.max(0, saldoAtual) * (pct / 100);
+                  const sobrando = Math.max(0, saldoAtual) - valorGuardado;
+                  return (
+                    <div key={pct} className="bg-white/5 hover:bg-white/10 transition-colors cursor-default rounded-lg p-2.5 border border-white/10 flex flex-col">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-[11px] font-bold text-white/80">{pct}%</span>
+                      </div>
+                      <span className="font-bold text-sm text-white tabular-nums drop-shadow-sm">R$ {valorGuardado.toFixed(2)}</span>
+                      <span className="text-[9px] text-white/50 font-medium mt-1 truncate">Sobram: R$ {sobrando.toFixed(2)}</span>
+                    </div>
+                  );
+                })}
               </div>
-
-              {bussola.recebido > 0 && (
-                <div className="pt-2.5 border-t border-white/10">
-                  {bussola.isAdjusted ? (
-                    <div className="flex items-start gap-2 text-amber-500 font-medium bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
-                      <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                      <p className="text-[11px] font-bold leading-snug text-amber-400">A retirada desejada entra na margem de risco. Mantenha cautela.</p>
-                    </div>
-                  ) : (
-                     <div className="flex items-center gap-2 text-emerald-400 font-medium">
-                      <CheckCircle2 className="w-4 h-4 shrink-0" />
-                      <p className="text-[11px] leading-snug">Caixa saudável. Divisão com folga de margem.</p>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
