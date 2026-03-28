@@ -1,4 +1,4 @@
-import { Transaction } from './types';
+import { Transaction, Client } from './types';
 
 const STORAGE_KEY = 'hbs_transactions';
 
@@ -73,6 +73,17 @@ export function updateTransaction(updated: Transaction): void {
   saveAll(all);
 }
 
+export function bulkUpdateTransactions(updates: Partial<Transaction> & { id: string }[]): void {
+  const all = loadAll();
+  updates.forEach(u => {
+    const idx = all.findIndex(t => t.id === u.id);
+    if (idx >= 0) {
+      all[idx] = { ...all[idx], ...u };
+    }
+  });
+  saveAll(all);
+}
+
 export function deleteTransaction(id: string): void {
   const all = loadAll();
   
@@ -101,4 +112,45 @@ export function importBackup(json: string): void {
   const data = JSON.parse(json);
   if (!Array.isArray(data)) throw new Error('Formato inválido');
   saveAll(data);
+}
+
+// --- CLIENTS CRM ---
+const STORAGE_KEY_CLIENTS = 'hbs_clients';
+
+function loadAllClients(): Client[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_CLIENTS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveAllClients(clients: Client[]) {
+  localStorage.setItem(STORAGE_KEY_CLIENTS, JSON.stringify(clients));
+}
+
+export function getClients(): Client[] {
+  return loadAllClients().sort((a, b) => a.nome.localeCompare(b.nome));
+}
+
+export function addClient(client: Client): void {
+  const all = loadAllClients();
+  all.push(client);
+  saveAllClients(all);
+}
+
+export function updateClient(updated: Client): void {
+  const all = loadAllClients();
+  const idx = all.findIndex(c => c.id === updated.id);
+  if (idx >= 0) all[idx] = updated;
+  saveAllClients(all);
+}
+
+export function deleteClient(id: string): void {
+  const all = loadAllClients();
+  const filtered = all.filter(c => c.id !== id);
+  saveAllClients(filtered);
 }

@@ -14,7 +14,7 @@ interface Props {
 }
 
 export function Dashboard({ transactions, month, year }: Props) {
-  const { stats, projectProfits, cashFlowPoints, negativeAlert, saldoAtual, saldoProjetadoFuturo } = useMemo(() => {
+  const { stats, projectProfits, cashFlowPoints, negativeAlert, saldoAtual, saldoProjetadoFuturo, annualData } = useMemo(() => {
     // 1. LUCRO POR PROJETO
     const projMap = new Map<string, { receita: number; custo: number }>();
     const txIdToName = new Map<string, string>();

@@ -6,8 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Transaction, TransactionType, TransactionStatus, getCategorias, CATEGORIAS_REPASSE } from '@/lib/types';
-import { getTransactions, addTransactions, updateTransaction, addTransaction, deleteTransaction } from '@/lib/storage';
+import { Transaction, TransactionType, TransactionStatus, getCategorias, CATEGORIAS_REPASSE, Client } from '@/lib/types';
+import { getTransactions, addTransactions, updateTransaction, addTransaction, deleteTransaction, getClients } from '@/lib/storage';
 import { toast } from 'sonner';
 import { AlertTriangle, Trash2, Plus, X, Wallet } from 'lucide-react';
 
@@ -40,8 +40,15 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
 
   const [hasRepasse, setHasRepasse] = useState(false);
   const [repasses, setRepasses] = useState<RepasseItem[]>([emptyRepasse()]);
+  const [clienteId, setClienteId] = useState<string | null>(null);
+  
+  const [clientes, setClientes] = useState<Client[]>([]);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  useEffect(() => {
+    setClientes(getClients());
+  }, [open]);
 
   useEffect(() => {
     if (editItem) {
@@ -52,6 +59,7 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
       setValorRecebido(String(editItem.valor));
       setData(editItem.data);
       setDataRestante('');
+      setClienteId(editItem.clienteId || null);
 
       const existingRepasses = getTransactions().filter(t => t.parentId === editItem.id && t.isRepasse);
       if (existingRepasses.length > 0) {
@@ -77,6 +85,7 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
       setDataRestante('');
       setHasRepasse(false);
       setRepasses([emptyRepasse()]);
+      setClienteId(null);
     } else {
       setTipo('Entrada');
       setCategoria('');
@@ -87,6 +96,7 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
       setDataRestante('');
       setHasRepasse(false);
       setRepasses([emptyRepasse()]);
+      setClienteId(null);
     }
   }, [editItem, parentItem, open]);
 
@@ -159,6 +169,7 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
           valor: numRecebido > 0 ? numRecebido : numTotal,
           data,
           status: numRecebido > 0 ? 'Concluído' : 'Pendente',
+          clienteId,
           updatedAt: Date.now(),
         });
 
@@ -173,6 +184,7 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
             status: 'Parcial',
             isRepasse: editItem.isRepasse,
             parentId: editItem.parentId,
+            clienteId: editItem.clienteId,
             originalTotal: editItem.originalTotal || numTotal,
           });
           toast.success(`Atualizado. Restante de R$ ${diferenca.toFixed(2)} gerado como pendente.`);
@@ -188,6 +200,7 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
           valor: numRecebido > 0 ? numRecebido : numTotal,
           data,
           status: isFullyPaid ? 'Concluído' : 'Pendente',
+          clienteId,
           updatedAt: Date.now(),
         });
         toast.success('Lançamento atualizado com sucesso.');
@@ -261,6 +274,7 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
           status: paidNow ? 'Concluído' : 'Pendente',
           isRepasse: isAutoRepasse,
           parentId: isAutoRepasse ? linkId : undefined,
+          clienteId: isAutoRepasse ? undefined : clienteId,
         });
         txs.push({
           id: crypto.randomUUID(),
@@ -272,6 +286,7 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
           status: 'Parcial',
           isRepasse: isAutoRepasse,
           parentId: linkId,
+          clienteId: isAutoRepasse ? undefined : clienteId,
           originalTotal: numTotal,
         });
       } else {
@@ -286,6 +301,7 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
           status: isConcluido ? 'Concluído' : 'Pendente',
           isRepasse: isAutoRepasse,
           parentId: isAutoRepasse ? linkId : undefined,
+          clienteId: isAutoRepasse ? undefined : clienteId,
         });
       }
 
@@ -372,16 +388,32 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs">Categoria</Label>
-              <Select value={categoria} onValueChange={setCategoria}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {categorias.map(c => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Categoria</Label>
+                <Select value={categoria} onValueChange={setCategoria}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {categorias.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-primary/80">Vínculo de Cliente (Opcional)</Label>
+                <Select value={clienteId || 'none'} onValueChange={v => setClienteId(v === 'none' ? null : v)}>
+                  <SelectTrigger><SelectValue placeholder="Sem cliente" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      <span className="italic text-muted-foreground">Sem cliente vinculado</span>
+                    </SelectItem>
+                    {clientes.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-1.5">

@@ -6,16 +6,18 @@ import { TransactionHistory } from '@/components/TransactionHistory';
 import { TransactionForm } from '@/components/TransactionForm';
 import { PartialPaymentModal } from '@/components/PartialPaymentModal';
 import { Settings } from '@/components/Settings';
+import { ClientsList } from '@/components/ClientsList';
+import { ClientMigrationModal } from '@/components/ClientMigrationModal';
 import { getTransactions } from '@/lib/storage';
 import { generateMonthlyReport } from '@/lib/pdf';
 import { Transaction } from '@/lib/types';
-import { LayoutDashboard, List, Settings as SettingsIcon, Plus, FileDown, Building } from 'lucide-react';
+import { LayoutDashboard, List, Settings as SettingsIcon, Plus, FileDown, Building, Users } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import hbsLogo from '@/assets/hbs-logo.png';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-type Tab = 'dashboard' | 'history' | 'settings';
+type Tab = 'dashboard' | 'history' | 'clients' | 'settings';
 
 export default function Index() {
   const now = new Date();
@@ -27,6 +29,7 @@ export default function Index() {
   const [editItem, setEditItem] = useState<Transaction | null>(null);
   const [parentItem, setParentItem] = useState<Transaction | null>(null);
   const [completeItem, setCompleteItem] = useState<Transaction | null>(null);
+  const [migrationOpen, setMigrationOpen] = useState(false);
 
   const refresh = useCallback(() => setTxKey(k => k + 1), []);
 
@@ -48,6 +51,10 @@ export default function Index() {
     return Array.from(set).sort();
   }, [allTransactions]);
 
+  const unlinkedCount = useMemo(() => {
+    return (allTransactions || []).filter(t => !t.isRepasse && t.clienteId === undefined).length;
+  }, [allTransactions]);
+
   function handleEdit(tx: Transaction) {
     setEditItem(tx);
     setParentItem(null);
@@ -67,6 +74,7 @@ export default function Index() {
   const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
     { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { key: 'history', label: 'Histórico', icon: List },
+    { key: 'clients', label: 'Clientes', icon: Users },
     { key: 'settings', label: 'Definições', icon: SettingsIcon },
   ];
 
@@ -83,6 +91,19 @@ export default function Index() {
           <ThemeToggle />
         </div>
       </header>
+
+      {unlinkedCount > 0 && (
+        <div className="bg-primary/10 border-b border-primary/20 p-3 flex justify-between items-center sm:px-6">
+           <div className="flex items-center gap-3">
+             <div className="p-2 bg-primary/20 rounded-full shrink-0"><Users className="w-5 h-5 text-primary" /></div>
+             <div>
+               <p className="text-sm font-bold text-foreground">Ação Necessária ({unlinkedCount} pendências)</p>
+               <p className="text-[11px] text-muted-foreground leading-snug max-w-sm hidden sm:block">Você possui registros sem cliente vinculado. Vincule-os à base corporativa.</p>
+             </div>
+           </div>
+           <Button size="sm" onClick={() => setMigrationOpen(true)} className="ml-4 shrink-0 shadow-sm font-semibold h-9 rounded-md">Organizar Agora</Button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="max-w-2xl mx-auto w-full px-4 py-3 flex items-center gap-2">
@@ -129,6 +150,7 @@ export default function Index() {
             onAddRepasse={handleAddRepasse}
           />
         )}
+        {tab === 'clients' && <ClientsList />}
         {tab === 'settings' && <Settings onDataChange={refresh} />}
       </main>
 
@@ -166,6 +188,15 @@ export default function Index() {
         onSave={refresh}
         transaction={completeItem}
       />
+      
+      {migrationOpen && (
+         <ClientMigrationModal 
+           open={migrationOpen} 
+           onClose={() => setMigrationOpen(false)} 
+           transactions={allTransactions || []} 
+           onComplete={refresh} 
+         />
+      )}
     </div>
   );
 }
