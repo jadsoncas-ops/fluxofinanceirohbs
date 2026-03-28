@@ -6,197 +6,243 @@ export function generateMonthlyReport(transactions: Transaction[], month: number
   const doc = new jsPDF();
   const monthName = new Date(year, month).toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
 
-  // Foca EXCLUSIVAMENTE no Realizado (Dinheiro real na conta)
+  // Foca no que foi concluído (Dinheiro real)
   const realizedTxs = transactions.filter(t => t.status === 'Concluído');
   
   const entradas = realizedTxs.filter(t => t.tipo === 'Entrada').sort((a,b) => a.data.localeCompare(b.data));
-  const saidas = realizedTxs.filter(t => t.tipo === 'Saída').sort((a,b) => a.data.localeCompare(b.data));
+  const saidasTotal = realizedTxs.filter(t => t.tipo === 'Saída').sort((a,b) => a.data.localeCompare(b.data));
+
+  // Divisão de saídas
+  const repassesList = saidasTotal.filter(t => t.isRepasse);
+  const despesasList = saidasTotal.filter(t => !t.isRepasse);
 
   const totalEntradas = entradas.reduce((s, t) => s + t.valor, 0);
-  const totalSaidas = saidas.reduce((s, t) => s + t.valor, 0);
-  
-  // Repasses extraídos das saídas
-  const repassesList = saidas.filter(t => t.isRepasse);
   const totalRepasses = repassesList.reduce((s, t) => s + t.valor, 0);
+  const totalDespesas = despesasList.reduce((s, t) => s + t.valor, 0);
+  const totalSaidasCompilado = totalRepasses + totalDespesas;
   
-  const saldoFinal = totalEntradas - totalSaidas;
-  const isPositivo = saldoFinal >= 0;
+  const lucroLiquido = totalEntradas - totalSaidasCompilado;
+  const isPositivo = lucroLiquido >= 0;
 
-  // Cores institucionais para o Relatório
+  // Proporções
+  const repassePct = totalEntradas > 0 ? (totalRepasses / totalEntradas) : 0;
+  const despesaPct = totalEntradas > 0 ? (totalDespesas / totalEntradas) : 0;
+  const lucroPct = totalEntradas > 0 ? Math.max(0, lucroLiquido / totalEntradas) : (isPositivo ? 0 : 0);
+
+  // Cores
   const GREEN = [22, 163, 74] as [number, number, number]; 
   const RED = [220, 38, 38] as [number, number, number];
-  const NEUTRAL = [40, 50, 70] as [number, number, number];
-  const BLACK = [10, 15, 20] as [number, number, number];
+  const BLUE = [37, 99, 235] as [number, number, number];
+  const NEUTRAL = [51, 65, 85] as [number, number, number];
+  const LIGHT_GRAY = [241, 245, 249] as [number, number, number];
 
   // =====================
   // HEADER
   // =====================
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
-  doc.setTextColor(...BLACK);
-  doc.text(`Extrato Financeiro Executivo`, 14, 20);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`EXTRATO FINANCEIRO MENSAL`, 14, 20);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  doc.setTextColor(120, 120, 120);
-  doc.text(`Mês de Referência: ${monthName.charAt(0).toUpperCase() + monthName.slice(1).toLowerCase()}`, 14, 27);
+  doc.setFontSize(10);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Referência: ${monthName.toUpperCase()}`, 14, 27);
+  doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, 196, 27, { align: 'right' });
 
-  let cursorY = 40;
+  let cursorY = 35;
   
   // =====================
-  // BOX: RESUMO DO MÊS
+  // RESUMO DO MÊS
   // =====================
-  doc.setFillColor(248, 250, 252);
-  doc.roundedRect(14, cursorY, 182, 45, 3, 3, 'F');
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.5);
-  doc.roundedRect(14, cursorY, 182, 45, 3, 3, 'S');
+  doc.setFillColor(...LIGHT_GRAY);
+  doc.roundedRect(14, cursorY, 182, 42, 2, 2, 'F');
   
-  cursorY += 8;
+  cursorY += 10;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
+  doc.setFontSize(11);
   doc.setTextColor(...NEUTRAL);
-  doc.text('Resumo de Resultados:', 18, cursorY);
-  
+  doc.text('📌 RESUMO DO MÊS', 20, cursorY);
+
   cursorY += 8;
-  doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   
-  // Entradas
-  doc.setTextColor(...GREEN);
-  doc.text('✔ Você recebeu:', 18, cursorY);
-  doc.text(`+ R$ ${totalEntradas.toFixed(2)}`, 85, cursorY, { align: 'right' });
-  
-  // Saidas
-  cursorY += 6;
-  doc.setTextColor(...RED);
-  doc.text('⚠ Você pagou:', 18, cursorY);
-  doc.text(`- R$ ${totalSaidas.toFixed(2)}`, 85, cursorY, { align: 'right' });
-  
-  // Sublinha do calculo
-  cursorY += 3;
-  doc.setDrawColor(200, 210, 220);
-  doc.line(18, cursorY, 85, cursorY);
-  
-  // Saldo
-  cursorY += 6;
+  // Receitas
+  doc.setFont('helvetica', 'normal');
+  doc.text('💰 Total recebido:', 20, cursorY);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...NEUTRAL);
-  doc.text('💰 Quanto sobrou:', 18, cursorY);
-  doc.setFontSize(11);
-  doc.setTextColor(...(isPositivo ? GREEN : RED));
-  doc.text(`R$ ${saldoFinal.toFixed(2)}`, 85, cursorY, { align: 'right' });
+  doc.text(`R$ ${totalEntradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 100, cursorY, { align: 'right' });
   
-  // Insight Crescimento
-  cursorY += 8;
-  doc.setFont('helvetica', 'italic');
+  // Saídas
+  cursorY += 6;
+  doc.setFont('helvetica', 'normal');
+  doc.text('💸 Total de saídas (Custo total):', 20, cursorY);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...RED);
+  doc.text(`R$ ${totalSaidasCompilado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 100, cursorY, { align: 'right' });
+  
+  // Repasses (Sub-info)
+  cursorY += 6;
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(100);
-  const insightCrescimento = isPositivo 
-        ? "📌 Seu caixa cresceu neste período." 
-        : (saldoFinal < 0 ? "📌 Atenção: Seu caixa diminuiu neste período." : "📌 Seu caixa fechou no limite zero a zero.");
-  doc.text(insightCrescimento, 18, cursorY);
+  doc.text(`   (Sendo 🔁 Repasses: R$ ${totalRepasses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`, 20, cursorY);
+
+  // Resultado Final
+  cursorY = cursorY - 12; // Alinha resultado à direita do bloco
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(...NEUTRAL);
+  doc.text('📊 Resultado final (Líquido):', 115, cursorY + 12);
+  doc.setFontSize(14);
+  doc.setTextColor(...(isPositivo ? GREEN : RED));
+  doc.text(`R$ ${lucroLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 190, cursorY + 22, { align: 'right' });
+  
+  // Frase Inteligente
+  cursorY += 28;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  const msgStr = isPositivo ? "📈 Seu caixa cresceu neste mês." : "⚠️ Seu caixa reduziu neste mês.";
+  doc.text(msgStr, 20, cursorY);
+
+  cursorY += 15;
 
   // =====================
-  // BLOCO: DISTRIBUIÇÃO
+  // BARRA DE PROPORÇÃO
   // =====================
-  cursorY += 22; // sai da box
-  
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(...NEUTRAL);
-  doc.text('Como o dinheiro foi distribuído (Destaque):', 14, cursorY);
-  
-  cursorY += 8;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.text(`Total Recebido: R$ ${totalEntradas.toFixed(2)}`, 14, cursorY);
+  doc.text('📊 DISTRIBUIÇÃO DO DINHEIRO', 14, cursorY);
   
   cursorY += 6;
-  const repassePct = totalEntradas > 0 ? ((totalRepasses / totalEntradas) * 100).toFixed(1) : '0.0';
-  doc.setTextColor(...RED);
-  doc.text(`Repasses Realizados: - R$ ${totalRepasses.toFixed(2)}   (${repassePct}% da receita foram repassados)`, 14, cursorY);
+  const barWidth = 182;
+  const barHeight = 8;
+  const xStart = 14;
   
-  cursorY += 6;
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...NEUTRAL);
-  doc.text(`Valor líquido final: R$ ${(totalEntradas - totalRepasses).toFixed(2)}`, 14, cursorY);
+  // Desenha segmentos da barra
+  let currentX = xStart;
   
-  // Insight Despesas
-  cursorY += 7;
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(9);
-  doc.setTextColor(130);
-  let gastoInsight = '';
-  if (totalSaidas > totalEntradas) {
-     gastoInsight = '⚠ Você gastou mais do que recebeu neste mês.';
-  } else {
-     const gastoPct = totalEntradas > 0 ? ((totalSaidas / totalEntradas) * 100).toFixed(1) : '0';
-     gastoInsight = `📌 Seus pagamentos gerais e obras consumiram ${gastoPct}% da receita mensal. O saldo ficou pra você.`;
+  // Repasse
+  if (repassePct > 0) {
+    doc.setFillColor(...BLUE);
+    const w = barWidth * Math.min(1, repassePct);
+    doc.rect(currentX, cursorY, w, barHeight, 'F');
+    currentX += w;
   }
-  doc.text(gastoInsight, 14, cursorY);
+  // Despesa
+  if (despesaPct > 0) {
+    doc.setFillColor(...RED);
+    const w = barWidth * Math.min(1, despesaPct);
+    doc.rect(currentX, cursorY, w, barHeight, 'F');
+    currentX += w;
+  }
+  // Lucro
+  if (lucroPct > 0 && isPositivo) {
+    doc.setFillColor(...GREEN);
+    const w = barWidth - (currentX - xStart);
+    if (w > 0) doc.rect(currentX, cursorY, w, barHeight, 'F');
+  } else if (!isPositivo) {
+    // Se negativo, o que falta é vermelho escuro ou a barra ja foi preenchida pelas saidas
+  }
 
   cursorY += 15;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
   
+  doc.setTextColor(...BLUE);
+  doc.text(`🔁 Repasses: R$ ${totalRepasses.toFixed(2)} (${(repassePct * 100).toFixed(0)}%)`, 14, cursorY);
+  
+  doc.setTextColor(...RED);
+  doc.text(`💸 Despesas gerais: R$ ${totalDespesas.toFixed(2)} (${(despesaPct * 100).toFixed(0)}%)`, 75, cursorY);
+  
+  doc.setTextColor(...GREEN);
+  doc.text(`💼 Lucro líquido: R$ ${Math.max(0, lucroLiquido).toFixed(2)} (${(lucroPct * 100).toFixed(0)}%)`, 140, cursorY);
+
+  cursorY += 15;
+
   // =====================
-  // LISTA DE O QUE RECEBEU
+  // TABELA: ENTRADAS
   // =====================
   if (entradas.length > 0) {
-     doc.setFont('helvetica', 'bold');
-     doc.setFontSize(13);
-     doc.setTextColor(...GREEN);
-     doc.text('🟩 Entradas (Você recebeu)', 14, cursorY);
-     cursorY += 4;
-     
-     autoTable(doc, {
-       startY: cursorY,
-       head: [['Data', 'Origem / Cliente', 'Categoria', 'Valor recebido']],
-       body: entradas.map(t => [
-         new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR'),
-         t.descricao,
-         t.categoria,
-         `R$ ${t.valor.toFixed(2)}`,
-       ]),
-       styles: { fontSize: 9, cellPadding: 3 },
-       headStyles: { fillColor: [40, 160, 80], textColor: 255 },
-       alternateRowStyles: { fillColor: [248, 252, 248] },
-     });
-     
-     cursorY = Math.round((doc as any).lastAutoTable.finalY) + 15;
-  }
-  
-  // Quebra de página protetora
-  if (cursorY > 230) {
-      doc.addPage();
-      cursorY = 20;
-  }
-  
-  // =====================
-  // LISTA DE O QUE PAGOU
-  // =====================
-  if (saidas.length > 0) {
-     doc.setFont('helvetica', 'bold');
-     doc.setFontSize(13);
-     doc.setTextColor(...RED);
-     doc.text('🟥 Saídas (Você pagou)', 14, cursorY);
-     cursorY += 4;
-     
-     autoTable(doc, {
-       startY: cursorY,
-       head: [['Data', 'Destino / Custos', 'Sinalização', 'Categoria', 'Valor pago']],
-       body: saidas.map(t => [
-         new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR'),
-         t.descricao,
-         t.isRepasse ? 'Repasse / Obra' : 'Geral',
-         t.categoria,
-         `R$ ${t.valor.toFixed(2)}`,
-       ]),
-       styles: { fontSize: 9, cellPadding: 3 },
-       headStyles: { fillColor: [200, 60, 60], textColor: 255 },
-       alternateRowStyles: { fillColor: [253, 245, 245] },
-     });
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(...GREEN);
+    doc.text('💰 ENTRADAS (RECEITAS)', 14, cursorY);
+    cursorY += 4;
+
+    autoTable(doc, {
+      startY: cursorY,
+      head: [['📅 Data', '👤 Cliente / Descrição', 'Valor']],
+      body: entradas.map(t => [
+        new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR'),
+        t.descricao,
+        { content: `R$ ${t.valor.toFixed(2)}`, styles: { halign: 'right', fontStyle: 'bold' } }
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: GREEN, fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 2 },
+      columnStyles: { 2: { cellWidth: 30 } }
+    });
+    cursorY = (doc as any).lastAutoTable.finalY + 12;
   }
 
-  // Finalização do Documento
-  doc.save(`extrato_caixa_${year}_${String(month + 1).padStart(2, '0')}.pdf`);
+  // Quebra de página se necessário
+  if (cursorY > 240) { doc.addPage(); cursorY = 20; }
+
+  // =====================
+  // TABELA: REPASSES
+  // =====================
+  if (repassesList.length > 0) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(...BLUE);
+    doc.text('🔁 REPASSES', 14, cursorY);
+    cursorY += 4;
+
+    autoTable(doc, {
+      startY: cursorY,
+      head: [['📅 Data', 'Parceiro / Destino', 'Valor']],
+      body: repassesList.map(t => [
+        new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR'),
+        t.descricao,
+        { content: `R$ ${t.valor.toFixed(2)}`, styles: { halign: 'right', fontStyle: 'bold' } }
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: BLUE, fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 2 },
+      columnStyles: { 2: { cellWidth: 30 } }
+    });
+    cursorY = (doc as any).lastAutoTable.finalY + 12;
+  }
+
+  if (cursorY > 240) { doc.addPage(); cursorY = 20; }
+
+  // =====================
+  // TABELA: DESPESAS GERAIS
+  // =====================
+  if (despesasList.length > 0) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(...RED);
+    doc.text('💸 DESPESAS GERAIS', 14, cursorY);
+    cursorY += 4;
+
+    autoTable(doc, {
+      startY: cursorY,
+      head: [['📅 Data', 'Descrição', 'Valor']],
+      body: despesasList.map(t => [
+        new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR'),
+        t.descricao,
+        { content: `R$ ${t.valor.toFixed(2)}`, styles: { halign: 'right', fontStyle: 'bold' } }
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: RED, fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 2 },
+      columnStyles: { 2: { cellWidth: 30 } }
+    });
+  }
+
+  // Gerar o PDF
+  doc.save(`extrato_${year}_${String(month + 1).padStart(2, '0')}.pdf`);
 }
