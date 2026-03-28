@@ -105,13 +105,53 @@ export function deleteTransaction(id: string): void {
 }
 
 export function exportBackup(): string {
-  return JSON.stringify(loadAll(), null, 2);
+  const data = {
+    lancamentos: loadAll(),
+    clientes: loadAllClients()
+  };
+  return JSON.stringify(data, null, 2);
 }
 
 export function importBackup(json: string): void {
   const data = JSON.parse(json);
-  if (!Array.isArray(data)) throw new Error('Formato inválido');
-  saveAll(data);
+  
+  // Suporte a formato antigo (Apenas array de lançamentos)
+  if (Array.isArray(data)) {
+    saveAll(data);
+    return;
+  }
+
+  // Formato Novo (Objeto com clientes e lancamentos)
+  if (data && typeof data === 'object') {
+    const newTxs: Transaction[] = Array.isArray(data.lancamentos) ? data.lancamentos : [];
+    const newClients: Client[] = Array.isArray(data.clientes) ? data.clientes : [];
+
+    // Restaurar Clientes com de-duplicação por ID
+    if (newClients.length > 0) {
+      const currentClients = loadAllClients();
+      const clientsMap = new Map(currentClients.map(c => [c.id, c]));
+      
+      newClients.forEach(c => {
+        clientsMap.set(c.id, c); // Sobrescreve/Adiciona mantendo o ID único
+      });
+      
+      saveAllClients(Array.from(clientsMap.values()));
+    }
+
+    // Restaurar Lançamentos (Substituição total para garantir integridade do backup)
+    if (Array.isArray(data.lancamentos)) {
+      // Validação de vínculo: se o clienteId não existir na base restaurada, garantimos compatibilidade
+      const currentClientsAfterRestore = loadAllClients();
+      const validClientIds = new Set(currentClientsAfterRestore.map(c => c.id));
+      const validatedTxs = newTxs.map(tx => {
+        if (tx.clienteId && !validClientIds.has(tx.clienteId)) {
+          return { ...tx, clienteId: null }; // Limpa vínculo se o cliente não existe
+        }
+        return tx;
+      });
+      saveAll(validatedTxs);
+    }
+  }
 }
 
 // --- CLIENTS CRM ---
