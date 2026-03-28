@@ -1,5 +1,5 @@
 export type TransactionType = 'Entrada' | 'Saída' | 'A Receber' | 'A Pagar';
-export type TransactionStatus = 'Pendente' | 'Concluído';
+export type TransactionStatus = 'Pendente' | 'Concluído' | 'Parcial';
 
 export interface Transaction {
   id: string;
@@ -12,6 +12,7 @@ export interface Transaction {
   isRepasse: boolean;
   parentId?: string; // Links repasse to parent transaction
   updatedAt?: number; // Flag visual de edição
+  originalTotal?: number; // Memória do valor total do repasse original
 }
 
 export const CATEGORIAS_ENTRADA = [

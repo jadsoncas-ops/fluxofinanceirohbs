@@ -98,7 +98,7 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
 
   const viewFiltered = transactions.filter(tx => {
     if (viewType === 'Realizado') return tx.status === 'Concluído';
-    return tx.status === 'Pendente';
+    return tx.status === 'Pendente' || tx.status === 'Parcial';
   });
 
   const filtered = useMemo(() => {
@@ -196,7 +196,7 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
     const styles = getTypeStyles(tx.tipo);
     const color = getAmountColor(tx.tipo);
     const isIncome = tx.tipo === 'Entrada' || tx.tipo === 'A Receber';
-    const isLate = viewType === 'Pendente' && tx.status === 'Pendente' && tx.data < todayStr;
+    const isLate = viewType === 'Pendente' && (tx.status === 'Pendente' || tx.status === 'Parcial') && tx.data < todayStr;
     const children = childrenMap.get(tx.id) || [];
     const hasChildren = children.length > 0 && !isChild;
     const childrenSum = children.reduce((s, c) => s + Math.abs(c.valor), 0);
@@ -222,9 +222,17 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
             </div>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            <p className={`text-xs font-bold tabular-nums ${color}`}>
-              - R$ {tx.valor.toFixed(2)}
-            </p>
+            {tx.status === 'Parcial' && tx.originalTotal ? (
+               <div className="flex flex-col items-end gap-px">
+                  <span className="text-[9px] text-muted-foreground line-through font-medium leading-none">Repasse: R$ {tx.originalTotal.toFixed(2)}</span>
+                  <span className="text-[10px] text-emerald-600 font-bold leading-none py-0.5">Pago: R$ {(tx.originalTotal - tx.valor).toFixed(2)}</span>
+                  <span className={`text-xs font-black tabular-nums text-destructive leading-none`}>Falta: R$ {tx.valor.toFixed(2)}</span>
+               </div>
+            ) : (
+               <p className={`text-xs font-bold tabular-nums ${color}`}>
+                 - R$ {tx.valor.toFixed(2)}
+               </p>
+            )}
             <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-muted-foreground hover:bg-muted font-medium hover:text-foreground transition-colors" onClick={() => handleEditClick(tx)}>
               <Pencil className="w-3 h-3" />
             </Button>
@@ -254,10 +262,22 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
             </div>
           </div>
           <div className="flex flex-col items-end gap-1.5 shrink-0">
-            <p className={`text-xl font-black tabular-nums tracking-tighter ${color}`}>
-              {isIncome ? '+' : '-'} R$ {tx.valor.toFixed(2)}
-            </p>
-            <Badge variant={tx.status === 'Concluído' ? 'default' : 'secondary'} className={`text-[10px] h-4 px-1.5 border-0 font-bold uppercase tracking-wider ${tx.status === 'Concluído' ? 'bg-success/15 text-success' : 'bg-warning/20 text-warning'}`}>
+            {tx.status === 'Parcial' && tx.originalTotal ? (
+               <div className="flex flex-col items-end">
+                 <span className="text-[10px] text-muted-foreground line-through font-medium">Era: R$ {tx.originalTotal.toFixed(2)}</span>
+                 <p className={`text-xl font-black tabular-nums tracking-tighter ${color}`}>
+                   {isIncome ? '+' : '-'} R$ {tx.valor.toFixed(2)}
+                 </p>
+               </div>
+            ) : (
+               <p className={`text-xl font-black tabular-nums tracking-tighter ${color}`}>
+                 {isIncome ? '+' : '-'} R$ {tx.valor.toFixed(2)}
+               </p>
+            )}
+            <Badge variant="secondary" className={`text-[10px] h-4 px-1.5 border-0 font-bold uppercase tracking-wider ${
+              tx.status === 'Concluído' ? 'bg-success/15 text-success' : 
+              (tx.status === 'Parcial' ? 'bg-primary/15 text-primary' : 'bg-warning/20 text-warning')
+            }`}>
               {tx.status === 'Concluído' ? <CheckCircle2 className="w-2.5 h-2.5 mr-1" /> : <Clock3 className="w-2.5 h-2.5 mr-1" />}
               {tx.status}
             </Badge>
@@ -306,7 +326,7 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
               </Button>
             )}
             
-            {tx.status === 'Pendente' && !tx.parentId && (
+            {(tx.status === 'Pendente' || tx.status === 'Parcial') && !tx.parentId && (
               <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

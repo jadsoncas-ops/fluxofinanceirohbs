@@ -152,9 +152,10 @@ export function PartialPaymentModal({ open, onClose, onSave, transaction }: Prop
               ? transaction!.descricao 
               : `${transaction!.descricao} (Restante)`,
           valor: diferenca,
-          status: 'Pendente',
+          status: 'Parcial',
           isRepasse: transaction!.isRepasse,
           parentId: transaction!.parentId,
+          originalTotal: transaction!.originalTotal || transaction!.valor,
         });
       }
     } else {
@@ -190,9 +191,10 @@ export function PartialPaymentModal({ open, onClose, onSave, transaction }: Prop
                  categoria: r.categoria,
                  descricao: r.descricao.includes('(Restante') ? r.descricao : `${r.descricao} (Restante)`,
                  valor: rpDiff,
-                 status: 'Pendente',
+                 status: 'Parcial',
                  isRepasse: true,
                  parentId: targetPendingId,
+                 originalTotal: r.originalTotal || r.valor,
                });
             }
         } else {

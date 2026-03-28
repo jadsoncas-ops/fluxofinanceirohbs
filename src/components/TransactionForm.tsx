@@ -170,9 +170,10 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
             categoria,
             descricao: `${descricao.replace(/ \(Restante\)$/, '')} (Restante)`,
             valor: diferenca,
-            status: 'Pendente',
+            status: 'Parcial',
             isRepasse: editItem.isRepasse,
             parentId: editItem.parentId,
+            originalTotal: editItem.originalTotal || numTotal,
           });
           toast.success(`Atualizado. Restante de R$ ${diferenca.toFixed(2)} gerado como pendente.`);
         } else {
@@ -268,9 +269,10 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
           categoria,
           descricao: `${descricao} (Restante)`,
           valor: diferenca,
-          status: 'Pendente',
+          status: 'Parcial',
           isRepasse: isAutoRepasse,
           parentId: linkId,
+          originalTotal: numTotal,
         });
       } else {
         const isConcluido = tipo === 'Entrada' || tipo === 'Saída';
