@@ -134,13 +134,17 @@ export default function Index() {
           <FileDown className="w-3.5 h-3.5" />
           <span>PDF</span>
         </Button>
-        <Button variant="secondary" size="sm" className="h-8 text-[11px] sm:text-xs gap-1 sm:gap-1.5 bg-muted/50 hover:bg-muted font-bold text-muted-foreground hover:text-foreground" onClick={() => setClientFormOpen(true)}>
-          <UserPlus className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Cliente</span>
+        <Button variant="outline" size="sm" className="h-8 text-[11px] sm:text-xs gap-1 sm:gap-1.5 border-border shadow-sm text-foreground/80 hover:text-foreground hidden sm:flex" onClick={() => setTab('clients')}>
+          <Users className="w-3.5 h-3.5" />
+          <span>Clientes</span>
         </Button>
-        <Button size="sm" className="h-8 text-[11px] sm:text-xs gap-1 sm:gap-1.5 font-bold shadow-sm" onClick={() => { setEditItem(null); setParentItem(null); setFormOpen(true); }}>
+        <Button variant="secondary" size="sm" className="h-8 text-[11px] sm:text-xs gap-1 sm:gap-1.5 bg-muted/50 hover:bg-muted font-bold text-muted-foreground hover:text-foreground shrink-0" onClick={() => setClientFormOpen(true)}>
+          <UserPlus className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Novo Cliente</span>
+        </Button>
+        <Button size="sm" className="h-8 text-[11px] sm:text-xs gap-1 sm:gap-1.5 font-bold shadow-sm shrink-0" onClick={() => { setEditItem(null); setParentItem(null); setFormOpen(true); }}>
           <Plus className="w-3.5 h-3.5" />
-          <span>Lançamento</span>
+          <span className="hidden sm:inline">Novo Lançamento</span>
         </Button>
       </div>
 
