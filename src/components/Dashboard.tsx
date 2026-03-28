@@ -3,8 +3,8 @@ import { Transaction } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { getTipOfDay } from '@/lib/tips';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
-import { TrendingUp, Wallet, ArrowDownLeft, ArrowUpRight, AlertTriangle, ArrowUpCircle, ArrowDownCircle, Target, Activity, CheckCircle2, BadgeAlert } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, ComposedChart, Line, Legend } from 'recharts';
+import { TrendingUp, Wallet, ArrowDownLeft, ArrowUpRight, AlertTriangle, ArrowUpCircle, ArrowDownCircle, Target, Activity, CheckCircle2, BadgeAlert, BarChart3 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface Props {
@@ -111,13 +111,36 @@ export function Dashboard({ transactions, month, year }: Props) {
     const saldoAtual = actualBalance;
     const saldoProjetadoFuturo = runningTotal;
 
+    // 5. ESTATÍSTICAS ANUAIS
+    const monthsNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const annualData = monthsNames.map(m => ({ name: m, Receita: 0, Saída: 0, Resultado: 0 }));
+
+    transactions.forEach(t => {
+      if (t.status === 'Concluído') {
+        const date = new Date(t.data + 'T12:00:00');
+        if (date.getFullYear() === year) {
+          const isReceita = t.tipo === 'Entrada' || t.tipo === 'A Receber';
+          const isDespesa = t.tipo === 'Saída' || t.tipo === 'A Pagar';
+          const mIdx = date.getMonth();
+
+          if (isReceita) annualData[mIdx].Receita += t.valor;
+          if (isDespesa) annualData[mIdx].Saída += t.valor;
+        }
+      }
+    });
+
+    annualData.forEach(d => {
+      d.Resultado = d.Receita - d.Saída;
+    });
+
     return { 
       stats, 
       projectProfits, 
       cashFlowPoints, 
       negativeAlert,
       saldoAtual,
-      saldoProjetadoFuturo
+      saldoProjetadoFuturo,
+      annualData
     };
   }, [transactions, month, year]);
 
@@ -328,6 +351,36 @@ export function Dashboard({ transactions, month, year }: Props) {
                   />
                   <Area type="monotone" dataKey="balance" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorBalance)" />
                 </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Desempenho Anual (Gráfico de Barras Agrupadas + Linha de Lucro) */}
+        <Card className="border-border/50 shadow-sm rounded-2xl">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2"><BarChart3 className="w-4 h-4 text-primary" /> Desempenho Anual ({year})</CardTitle>
+            <CardDescription className="text-xs">Receitas, saídas e resultado consolidado mês a mês (apenas transações concluídas)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px] w-full mt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={annualData} margin={{ top: 10, right: 5, left: -20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} dy={5} />
+                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <Tooltip 
+                    formatter={(value: number, name: string) => [
+                      `R$ ${value.toFixed(2)}`,
+                      name === 'Resultado' && value > 0 ? 'Lucro Líquido' : name === 'Resultado' && value < 0 ? 'Prejuízo' : name
+                    ]}
+                    contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', fontSize: '12px', zIndex: 100 }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '15px' }} />
+                  <Bar dataKey="Receita" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Bar dataKey="Saída" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Line type="monotone" dataKey="Resultado" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 4, fill: "hsl(var(--background))", strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
