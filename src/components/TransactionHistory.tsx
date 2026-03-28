@@ -215,14 +215,20 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
                 <Badge variant="outline" className={`text-[9px] h-3 px-1 py-0 bg-transparent ${color} border-current opacity-80 uppercase font-bold tracking-wider`}>Repasse</Badge>
                 <p className="text-[11px] font-semibold truncate text-foreground/80">{tx.descricao}</p>
               </div>
-              <span className="text-[9px] text-muted-foreground block truncate">{tx.categoria}</span>
+              <span className="text-[9px] text-muted-foreground flex items-center gap-1.5 truncate">
+                <span>{tx.categoria}</span>
+                {tx.updatedAt && <span className="italic opacity-70">• Editado</span>}
+              </span>
             </div>
           </div>
           <div className="flex items-center gap-3 shrink-0">
             <p className={`text-xs font-bold tabular-nums ${color}`}>
               - R$ {tx.valor.toFixed(2)}
             </p>
-            <Button variant="ghost" size="sm" className="h-6 w-6 px-0 text-destructive/50 hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteTarget(tx)}>
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-muted-foreground hover:bg-muted font-medium hover:text-foreground transition-colors" onClick={() => handleEditClick(tx)}>
+              <Pencil className="w-3 h-3" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-6 w-6 px-0 text-destructive/50 hover:bg-destructive/10 hover:text-destructive shrink-0" onClick={() => setDeleteTarget(tx)}>
               <Trash2 className="w-3 h-3" />
             </Button>
           </div>
@@ -244,6 +250,7 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
             <div className="flex items-center gap-2">
               <Badge variant="outline" className={`text-[9px] font-bold tracking-wider uppercase leading-none h-4 px-1.5 py-0 border-current bg-background shadow-xs ${color}`}>{tx.tipo}</Badge>
               <span className="text-xs text-muted-foreground truncate font-medium">{tx.categoria}</span>
+              {tx.updatedAt && <span className="text-[9px] text-muted-foreground/60 italic font-medium ml-1 flex items-center gap-1"><Pencil className="w-2.5 h-2.5" /> Editado</span>}
             </div>
           </div>
           <div className="flex flex-col items-end gap-1.5 shrink-0">
@@ -328,7 +335,9 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
                 </Button>
               </div>
             )}
-            
+            <Button variant="ghost" size="sm" className="h-7 px-2.5 text-[10px] text-muted-foreground hover:bg-muted font-medium hover:text-foreground border border-transparent transition-colors" onClick={() => handleEditClick(tx)}>
+              <Pencil className="w-3.5 h-3.5 mr-1" /> {tx.status === 'Concluído' ? 'Ajustar' : 'Editar'}
+            </Button>
             <Button variant="ghost" size="sm" className="h-7 w-8 px-0 text-destructive/60 hover:bg-destructive/10 hover:text-destructive shrink-0" onClick={() => setDeleteTarget(tx)}>
               <Trash2 className="w-3.5 h-3.5" />
             </Button>

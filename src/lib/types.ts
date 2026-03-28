@@ -11,6 +11,7 @@ export interface Transaction {
   status: TransactionStatus;
   isRepasse: boolean;
   parentId?: string; // Links repasse to parent transaction
+  updatedAt?: number; // Flag visual de edição
 }
 
 export const CATEGORIAS_ENTRADA = [

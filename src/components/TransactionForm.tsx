@@ -159,6 +159,7 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
           valor: numRecebido > 0 ? numRecebido : numTotal,
           data,
           status: numRecebido > 0 ? 'Concluído' : 'Pendente',
+          updatedAt: Date.now(),
         });
 
         if (numRecebido > 0) {
@@ -186,6 +187,7 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
           valor: numRecebido > 0 ? numRecebido : numTotal,
           data,
           status: isFullyPaid ? 'Concluído' : 'Pendente',
+          updatedAt: Date.now(),
         });
         toast.success('Lançamento atualizado com sucesso.');
       }
@@ -210,6 +212,7 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
                      descricao: rep.descricao || `Repasse - ${descricao}`,
                      status: repStatus,
                      tipo: repTipo,
+                     updatedAt: Date.now(),
                    });
                  }
                } else {
@@ -338,6 +341,17 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
             </div>
           </DialogHeader>
           <div className="space-y-4 pt-2">
+            {editItem && editItem.status === 'Concluído' && (
+              <div className="border border-warning/40 bg-warning/10 rounded-xl p-3.5 flex gap-3 items-start mt-0 mb-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+                <div className="space-y-1 text-xs">
+                  <p className="font-bold text-warning uppercase tracking-wide">Registro Já Consolidado</p>
+                  <p className="text-warning/90 font-medium leading-relaxed">
+                    Atenção! Você está ajustando um lançamento marcado como Concluído. Ao alterar este valor ou data, as movimentações financeiras no seu histórico serão diretamente recálculadas.
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Tipo</Label>
