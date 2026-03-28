@@ -104,16 +104,20 @@ export function Dashboard({ transactions, month, year }: Props) {
     const percentRecebido = totalPrevisto > 0 ? (entradas / totalPrevisto) * 100 : 0;
 
     // 4. BÚSSOLA FINANCEIRA (Lógica de Retirada Sob Demanda)
+    // Regra: Subtrair repasses já pagos da receita para calcular o líquido real da Bússola
+    const repassesPagos = monthTxs.filter(t => t.tipo === 'Saída' && t.status === 'Concluído' && t.isRepasse).reduce((s, t) => s + t.valor, 0);
+    const entradasLiquidas = Math.max(0, entradas - repassesPagos);
+
     const ratio = empresaPercent / 100;
-    const reservaEmpresaTeorica = entradas * ratio;
-    const disponivelPessoalReal = Math.max(0, entradas - reservaEmpresaTeorica);
+    const reservaEmpresaTeorica = entradasLiquidas * ratio;
+    const disponivelPessoalReal = Math.max(0, entradasLiquidas - reservaEmpresaTeorica);
     
     const margemSeguranca = saidas * 1.2;
     const caixaDisponivelReal = entradas - saidas;
     const isSafetyAlert = caixaDisponivelReal < margemSeguranca && entradas > 0;
     
     const bussola = {
-      recebido: entradas,
+      recebido: entradasLiquidas,
       empresa: reservaEmpresaTeorica,
       pessoal: disponivelPessoalReal,
       isAdjusted: isSafetyAlert,
