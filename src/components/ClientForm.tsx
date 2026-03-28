@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSave: () => void;
+  onSave: (client?: Client) => void;
   editItem?: Client | null;
 }
 
@@ -65,7 +65,7 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
       addClient(clientData);
       toast.success('Cliente cadastrado com sucesso.');
     }
-    onSave();
+    onSave(clientData);
     onClose();
   }
 

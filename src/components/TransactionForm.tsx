@@ -9,7 +9,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Transaction, TransactionType, TransactionStatus, getCategorias, CATEGORIAS_REPASSE, Client } from '@/lib/types';
 import { getTransactions, addTransactions, updateTransaction, addTransaction, deleteTransaction, getClients } from '@/lib/storage';
 import { toast } from 'sonner';
-import { AlertTriangle, Trash2, Plus, X, Wallet } from 'lucide-react';
+import { AlertTriangle, Trash2, Plus, X, Wallet, UserPlus } from 'lucide-react';
+import { ClientForm } from './ClientForm';
 
 interface RepasseItem {
   id?: string;
@@ -43,6 +44,7 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
   const [clienteId, setClienteId] = useState<string | null>(null);
   
   const [clientes, setClientes] = useState<Client[]>([]);
+  const [clientFormOpen, setClientFormOpen] = useState(false);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -402,11 +404,20 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-primary/80">Vínculo de Cliente (Opcional)</Label>
-                <Select value={clienteId || 'none'} onValueChange={v => setClienteId(v === 'none' ? null : v)}>
+                <Select value={clienteId || 'none'} onValueChange={v => {
+                  if (v === 'new_client') {
+                    setClientFormOpen(true);
+                    return;
+                  }
+                  setClienteId(v === 'none' ? null : v);
+                }}>
                   <SelectTrigger><SelectValue placeholder="Sem cliente" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">
-                      <span className="italic text-muted-foreground">Sem cliente vinculado</span>
+                      <span className="italic text-muted-foreground mr-2">Sem cliente vinculado</span>
+                    </SelectItem>
+                    <SelectItem value="new_client" className="text-primary font-bold bg-primary/5 hover:bg-primary/10 transition-colors focus:bg-primary/10">
+                      <span className="flex items-center gap-1.5"><UserPlus className="w-3.5 h-3.5" /> Cadastrar novo cliente</span>
                     </SelectItem>
                     {clientes.map(c => (
                       <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
@@ -562,6 +573,15 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ClientForm 
+        open={clientFormOpen} 
+        onClose={() => setClientFormOpen(false)} 
+        onSave={(newC) => {
+          setClientes(getClients());
+          if (newC) setClienteId(newC.id);
+        }} 
+      />
     </>
   );
 }

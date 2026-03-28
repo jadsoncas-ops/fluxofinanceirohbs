@@ -8,10 +8,11 @@ import { PartialPaymentModal } from '@/components/PartialPaymentModal';
 import { Settings } from '@/components/Settings';
 import { ClientsList } from '@/components/ClientsList';
 import { ClientMigrationModal } from '@/components/ClientMigrationModal';
+import { ClientForm } from '@/components/ClientForm';
 import { getTransactions } from '@/lib/storage';
 import { generateMonthlyReport } from '@/lib/pdf';
 import { Transaction } from '@/lib/types';
-import { LayoutDashboard, List, Settings as SettingsIcon, Plus, FileDown, Building, Users } from 'lucide-react';
+import { LayoutDashboard, List, Settings as SettingsIcon, Plus, FileDown, Building, Users, UserPlus } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import hbsLogo from '@/assets/hbs-logo.png';
 
@@ -30,6 +31,7 @@ export default function Index() {
   const [parentItem, setParentItem] = useState<Transaction | null>(null);
   const [completeItem, setCompleteItem] = useState<Transaction | null>(null);
   const [migrationOpen, setMigrationOpen] = useState(false);
+  const [clientFormOpen, setClientFormOpen] = useState(false);
 
   const refresh = useCallback(() => setTxKey(k => k + 1), []);
 
@@ -128,13 +130,17 @@ export default function Index() {
           </SelectContent>
         </Select>
         <div className="flex-1" />
-        <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={handleExportPdf}>
+        <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 hidden sm:flex" onClick={handleExportPdf}>
           <FileDown className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Relatório PDF</span>
+          <span>PDF</span>
         </Button>
-        <Button size="sm" className="h-8 text-xs gap-1.5" onClick={() => { setEditItem(null); setParentItem(null); setFormOpen(true); }}>
+        <Button variant="secondary" size="sm" className="h-8 text-[11px] sm:text-xs gap-1 sm:gap-1.5 bg-muted/50 hover:bg-muted font-bold text-muted-foreground hover:text-foreground" onClick={() => setClientFormOpen(true)}>
+          <UserPlus className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Cliente</span>
+        </Button>
+        <Button size="sm" className="h-8 text-[11px] sm:text-xs gap-1 sm:gap-1.5 font-bold shadow-sm" onClick={() => { setEditItem(null); setParentItem(null); setFormOpen(true); }}>
           <Plus className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Novo</span>
+          <span>Lançamento</span>
         </Button>
       </div>
 
@@ -197,6 +203,13 @@ export default function Index() {
            onComplete={refresh} 
          />
       )}
+      <ClientForm
+         open={clientFormOpen}
+         onClose={() => setClientFormOpen(false)}
+         onSave={(newC) => { 
+           // If they create it here, it will just show up in the history/CRM. No transaction mapping needed.
+         }}
+      />
     </div>
   );
 }
