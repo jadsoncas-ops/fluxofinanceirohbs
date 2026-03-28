@@ -5,8 +5,51 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Pencil, CheckCircle2, Clock3, Trash2, ArrowUpRight, ArrowDownRight, CornerDownRight, CalendarDays, Wallet, CalendarClock, AlertCircle, Plus } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { deleteTransaction } from '@/lib/storage';
+import { deleteTransaction, updateTransaction } from '@/lib/storage';
 import { toast } from 'sonner';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+function getNext3MonthsOptions(originalDateStr: string) {
+  const [, , dStr] = originalDateStr.split('-');
+  const origDay = parseInt(dStr, 10);
+  
+  const options = [];
+  const baseDate = new Date();
+  const txDate = new Date(originalDateStr + 'T12:00:00');
+  const startRef = txDate > baseDate ? txDate : baseDate;
+  
+  let currentMonth = startRef.getMonth();
+  let currentYear = startRef.getFullYear();
+
+  for (let i = 1; i <= 3; i++) {
+    const targetMonth = (currentMonth + i) % 12;
+    const targetYear = currentYear + Math.floor((currentMonth + i) / 12);
+    
+    // Calcula ultimo dia valido para garantir que nao exista 31 de Abril ou 30 de Fev.
+    const lastDayOfMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+    const finalDay = Math.min(origDay, lastDayOfMonth);
+    
+    const mFmt = String(targetMonth + 1).padStart(2, '0');
+    const dFmt = String(finalDay).padStart(2, '0');
+    const newDateStr = `${targetYear}-${mFmt}-${dFmt}`;
+    
+    options.push({
+      label: `${MONTHS[targetMonth]} ${targetYear}`,
+      newDate: newDateStr,
+      displayDate: `${dFmt}/${mFmt}/${targetYear}`,
+    });
+  }
+  return options;
+}
 
 type ViewType = 'Realizado' | 'Pendente';
 type FilterTab = 'Tudo' | 'Receitas' | 'Despesas';
@@ -120,6 +163,13 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
     onDelete();
   }
 
+  function handlePostpone(tx: Transaction, newDate: string, monthLabel: string) {
+    const updated = { ...tx, data: newDate };
+    updateTransaction(updated);
+    toast.success(`Lançamento movido para ${monthLabel}`);
+    onDelete(); // Triggers parent refresh instantly without reload
+  }
+
   function handleEditClick(tx: Transaction) {
     if (tx.parentId) {
       const parent = transactions.find(t => t.id === tx.parentId);
@@ -204,9 +254,33 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
             </Button>
           )}
           {tx.status === 'Pendente' && !tx.parentId && (
-            <Button variant="default" size="sm" className="h-6 px-2.5 text-[10px] bg-success/10 text-success hover:bg-success hover:text-white border border-success/20" onClick={() => onComplete(tx)}>
-              <CheckCircle2 className="w-3 h-3 mr-1" /> Concluir
-            </Button>
+            <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-6 px-2.5 text-[10px] bg-accent/30 text-muted-foreground hover:bg-muted font-medium hover:text-foreground border-border/50 transition-colors">
+                    <CalendarClock className="w-3 h-3 mr-1.5" /> {isLate ? 'Adiar para outro mês' : (isIncome ? 'Não recebi ainda' : 'Não paguei ainda')}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-60 rounded-xl border-border/50 shadow-xl overflow-hidden p-1">
+                  <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground/80 pb-1">Para qual mês deseja mover?</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-border/40 mb-1" />
+                  {getNext3MonthsOptions(tx.data).map((opt) => (
+                    <DropdownMenuItem 
+                      key={opt.newDate} 
+                      className="text-xs flex justify-between items-center cursor-pointer py-2.5 px-3 focus:bg-primary/10 transition-colors rounded-lg mb-0.5"
+                      onClick={() => handlePostpone(tx, opt.newDate, opt.label)}
+                    >
+                      <span className="font-semibold text-foreground/90">{opt.label}</span>
+                      <span className="text-[10px] text-muted-foreground tracking-tight tabular-nums bg-muted px-1.5 py-0.5 rounded shadow-sm border border-border/50">{opt.displayDate}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Button variant="default" size="sm" className="h-6 px-3 text-[10px] font-bold bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 shadow-sm transition-all" onClick={() => onComplete(tx)}>
+                <CheckCircle2 className="w-3 h-3 mr-1.5" /> {isIncome ? 'Recebido' : 'Pago'}
+              </Button>
+            </div>
           )}
           <Button variant="ghost" size="sm" className="h-6 w-7 px-0 text-destructive/60 hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteTarget(tx)}>
             <Trash2 className="w-3 h-3" />
