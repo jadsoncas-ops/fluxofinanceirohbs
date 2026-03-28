@@ -74,25 +74,23 @@ export function PartialPaymentModal({ open, onClose, onSave, transaction }: Prop
     }
   }, [transaction, open]);
 
-  if (!transaction) return null;
-
   const recebido = parseFloat(valorRecebido) || 0;
-  const diferenca = parseFloat((transaction.valor - recebido).toFixed(2));
-  const isParcial = recebido >= 0 && recebido < transaction.valor;
+  const diferenca = transaction ? parseFloat((transaction.valor - recebido).toFixed(2)) : 0;
+  const isParcial = transaction ? (recebido >= 0 && recebido < transaction.valor) : false;
 
   // Calculo Repasses
   const sumRepasses = pendingRepasses.reduce((acc, rep) => {
      return acc + (parseFloat(repasseInputs[rep.id]) || 0);
   }, 0);
 
-  const monthOptions = getNext3MonthsOptions(transaction.data);
+  const monthOptions = transaction ? getNext3MonthsOptions(transaction.data) : [];
 
   useEffect(() => {
      if (restanteDecision === 'adiar' && monthOptions.length > 0) {
         if (!monthOptions.find(o => o.newDate === dataRestante)) {
            setDataRestante(monthOptions[0].newDate);
         }
-     } else if (restanteDecision === 'manter') {
+     } else if (restanteDecision === 'manter' && transaction) {
         setDataRestante(transaction.data);
      }
   }, [restanteDecision, isParcial]);
@@ -214,6 +212,8 @@ export function PartialPaymentModal({ open, onClose, onSave, transaction }: Prop
     onSave();
     onClose();
   }
+
+  if (!transaction) return null;
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
