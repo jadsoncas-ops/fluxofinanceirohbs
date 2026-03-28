@@ -3,7 +3,7 @@ import { Transaction } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Pencil, CheckCircle2, Clock3, Trash2, ArrowUpRight, ArrowDownRight, CornerDownRight, CalendarDays, Wallet, CalendarClock, AlertCircle, Plus } from 'lucide-react';
+import { Pencil, CheckCircle2, Clock3, Trash2, ArrowUpRight, ArrowDownRight, CornerDownRight, CalendarDays, Wallet, CalendarClock, AlertCircle, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { deleteTransaction, updateTransaction } from '@/lib/storage';
 import { toast } from 'sonner';
@@ -83,6 +83,16 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
   const [viewType, setViewType] = useState<ViewType>('Realizado');
   const [filter, setFilter] = useState<FilterTab>('Tudo');
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
+  const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
+
+  function toggleExpand(id: string) {
+    setExpandedParents(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -187,104 +197,142 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
     const color = getAmountColor(tx.tipo);
     const isIncome = tx.tipo === 'Entrada' || tx.tipo === 'A Receber';
     const isLate = viewType === 'Pendente' && tx.status === 'Pendente' && tx.data < todayStr;
+    const children = childrenMap.get(tx.id) || [];
+    const hasChildren = children.length > 0 && !isChild;
+    const childrenSum = children.reduce((s, c) => s + Math.abs(c.valor), 0);
+    const liquido = isIncome ? (tx.valor - childrenSum) : tx.valor;
 
     if (isChild) {
       return (
-        <div key={tx.id} className="flex items-center gap-2.5 px-3 py-2 ml-4 mb-1 border-l-2 rounded-r-lg bg-background/50 border-l-muted-foreground/30 hover:bg-muted/50 transition-colors">
-          <CornerDownRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-          <div className="w-6 h-6 rounded flex items-center justify-center shrink-0 bg-muted/60 text-muted-foreground">
-            <span className="text-[10px] leading-none">{emoji}</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <Badge variant="outline" className={`text-[9px] h-3 px-1 py-0 bg-transparent ${color} border-current`}>{tx.tipo}</Badge>
-              <p className="text-xs font-medium truncate text-foreground/80">{tx.descricao}</p>
+        <div key={tx.id} className="flex items-center justify-between gap-3 px-3 py-2.5 ml-8 mt-1.5 border border-border/40 rounded-lg bg-card hover:bg-muted/40 transition-colors shadow-sm relative">
+          <div className="absolute -left-4 top-1/2 -mt-px w-4 h-px bg-border/60"></div>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 bg-muted/60 text-muted-foreground shadow-sm">
+              <span className="text-[12px] leading-none">{emoji}</span>
             </div>
-            <span className="text-[10px] text-muted-foreground block mt-0.5">{tx.categoria}</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <Badge variant="outline" className={`text-[9px] h-3 px-1 py-0 bg-transparent ${color} border-current opacity-80 uppercase font-bold tracking-wider`}>Repasse</Badge>
+                <p className="text-[11px] font-semibold truncate text-foreground/80">{tx.descricao}</p>
+              </div>
+              <span className="text-[9px] text-muted-foreground block truncate">{tx.categoria}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-3 shrink-0">
             <p className={`text-xs font-bold tabular-nums ${color}`}>
-              {isIncome ? '+' : '-'} R$ {tx.valor.toFixed(2)}
+              - R$ {tx.valor.toFixed(2)}
             </p>
-            <div className="px-1 line-clamp-1">
-              <Badge variant="secondary" className="text-[8px] uppercase tracking-widest text-muted-foreground bg-transparent border-0 opacity-50">Vinculado</Badge>
-            </div>
+            <Button variant="ghost" size="sm" className="h-6 w-6 px-0 text-destructive/50 hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteTarget(tx)}>
+              <Trash2 className="w-3 h-3" />
+            </Button>
           </div>
         </div>
       );
     }
 
     return (
-      <div key={tx.id} className={`flex relative flex-col p-3 rounded-lg border shadow-sm transition-all ${styles} mb-1.5 group ${isLate ? 'border-destructive/40 bg-destructive/[0.02]' : ''}`}>
+      <div key={tx.id} className={`flex relative flex-col p-4 rounded-xl border border-border/50 shadow-sm hover:shadow-md transition-all ${styles} mb-2.5 group ${isLate ? 'border-destructive/40 bg-destructive/[0.03]' : ''}`}>
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-background shadow-sm border border-border/40">
-            <span className="text-lg leading-none">{emoji}</span>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-background shadow-sm border border-border/50">
+            <span className="text-xl leading-none">{emoji}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2 mb-0.5">
               <p className={`text-sm font-bold truncate tracking-tight ${isLate ? 'text-destructive' : 'text-foreground'}`}>{tx.descricao}</p>
-              {tx.isRepasse && <Badge variant="secondary" className="text-[9px] h-4 px-1 py-0 border-0 bg-primary/10 text-primary uppercase font-bold tracking-wider">Repasse Vinculado</Badge>}
-              {isLate && <Badge variant="destructive" className="text-[9px] h-4 px-1 py-0 border-0 flex gap-1 items-center"><AlertCircle className="w-3 h-3" /> Atrasado</Badge>}
+              {isLate && <Badge variant="destructive" className="text-[9px] h-4 px-1.5 py-0 border-0 flex gap-1 items-center font-bold tracking-wide uppercase"><AlertCircle className="w-3 h-3" /> Atrasado</Badge>}
             </div>
-            <div className="flex items-center gap-1.5 mt-1">
-              <Badge variant="outline" className={`text-[9px] leading-none h-4 px-1.5 py-0 border-current bg-background ${color}`}>{tx.tipo}</Badge>
-              <span className="text-xs text-muted-foreground truncate">{tx.categoria}</span>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className={`text-[9px] font-bold tracking-wider uppercase leading-none h-4 px-1.5 py-0 border-current bg-background shadow-xs ${color}`}>{tx.tipo}</Badge>
+              <span className="text-xs text-muted-foreground truncate font-medium">{tx.categoria}</span>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-1 shrink-0">
-            <p className={`text-base font-black tabular-nums ${color}`}>
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            <p className={`text-xl font-black tabular-nums tracking-tighter ${color}`}>
               {isIncome ? '+' : '-'} R$ {tx.valor.toFixed(2)}
             </p>
-            {isIncome && childrenMap.has(tx.id) && (
-              <span className="text-[10px] font-bold text-success/80 bg-success/5 px-1.5 rounded border border-success/10 italic">
-                Líquido: R$ {(tx.valor - (childrenMap.get(tx.id)?.reduce((s, c) => s + c.valor, 0) || 0)).toFixed(2)}
-              </span>
-            )}
-            <Badge variant={tx.status === 'Concluído' ? 'default' : 'secondary'} className={`text-[9px] h-4 px-1.5 border-0 ${tx.status === 'Concluído' ? 'bg-success/15 text-success' : 'bg-warning/20 text-warning font-semibold tracking-wide'}`}>
+            <Badge variant={tx.status === 'Concluído' ? 'default' : 'secondary'} className={`text-[10px] h-4 px-1.5 border-0 font-bold uppercase tracking-wider ${tx.status === 'Concluído' ? 'bg-success/15 text-success' : 'bg-warning/20 text-warning'}`}>
               {tx.status === 'Concluído' ? <CheckCircle2 className="w-2.5 h-2.5 mr-1" /> : <Clock3 className="w-2.5 h-2.5 mr-1" />}
               {tx.status}
             </Badge>
           </div>
         </div>
+
+        {hasChildren && (
+          <div className="mt-4 pt-3 border-t border-border/40 grid grid-cols-3 gap-2 text-center bg-muted/20 p-2.5 rounded-xl border border-border/40 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+             <div className="flex flex-col items-center justify-center">
+                <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest mb-0.5">Total Recebido</p>
+                <p className="font-bold text-xs text-foreground tabular-nums">R$ {tx.valor.toFixed(2)}</p>
+             </div>
+             <div className="flex flex-col items-center justify-center relative">
+                <div className="absolute left-0 top-1 bottom-1 w-px bg-border/50"></div>
+                <div className="absolute right-0 top-1 bottom-1 w-px bg-border/50"></div>
+                <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest mb-0.5">Repassado</p>
+                <p className="font-bold text-xs text-destructive/80 tabular-nums">- R$ {childrenSum.toFixed(2)}</p>
+             </div>
+             <div className="flex flex-col items-center justify-center">
+                <p className="text-[10px] text-success font-bold uppercase tracking-widest mb-0.5">Líquido P/ Empresa</p>
+                <p className="font-bold text-xs text-success tabular-nums drop-shadow-[0_1px_1px_rgba(0,0,0,0.1)]">R$ {liquido.toFixed(2)}</p>
+             </div>
+          </div>
+        )}
         
-        <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-border/40 border-dashed opacity-70 group-hover:opacity-100 transition-opacity">
-          {isIncome && onAddRepasse && (
-            <Button variant="outline" size="sm" className="h-6 px-2.5 text-[10px] bg-background border-border hover:bg-muted text-muted-foreground hover:text-foreground font-medium" onClick={() => onAddRepasse(tx)}>
-              <Plus className="w-3 h-3 mr-1" /> Repasse
+        <div className={`flex items-center gap-2 mt-4 pt-4 border-t border-border/40 border-dashed transition-opacity opacity-80 group-hover:opacity-100 ${hasChildren ? 'justify-between' : 'justify-end'}`}>
+          {hasChildren && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2.5 text-[10px] font-bold tracking-wide uppercase text-muted-foreground hover:text-foreground bg-background hover:bg-muted"
+              onClick={() => toggleExpand(tx.id)}
+            >
+              {expandedParents.has(tx.id) ? (
+                <><ChevronUp className="w-4 h-4 mr-1.5"/> Ocultar ({children.length})</>
+              ) : (
+                <><ChevronDown className="w-4 h-4 mr-1.5"/> Ver Repasses ({children.length})</>
+              )}
             </Button>
           )}
-          {tx.status === 'Pendente' && !tx.parentId && (
-            <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-6 px-2.5 text-[10px] bg-accent/30 text-muted-foreground hover:bg-muted font-medium hover:text-foreground border-border/50 transition-colors">
-                    <CalendarClock className="w-3 h-3 mr-1.5" /> {isLate ? 'Adiar para outro mês' : (isIncome ? 'Não recebi ainda' : 'Não paguei ainda')}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-60 rounded-xl border-border/50 shadow-xl overflow-hidden p-1">
-                  <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground/80 pb-1">Para qual mês deseja mover?</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-border/40 mb-1" />
-                  {getNext3MonthsOptions(tx.data).map((opt) => (
-                    <DropdownMenuItem 
-                      key={opt.newDate} 
-                      className="text-xs flex justify-between items-center cursor-pointer py-2.5 px-3 focus:bg-primary/10 transition-colors rounded-lg mb-0.5"
-                      onClick={() => handlePostpone(tx, opt.newDate, opt.label)}
-                    >
-                      <span className="font-semibold text-foreground/90">{opt.label}</span>
-                      <span className="text-[10px] text-muted-foreground tracking-tight tabular-nums bg-muted px-1.5 py-0.5 rounded shadow-sm border border-border/50">{opt.displayDate}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
 
-              <Button variant="default" size="sm" className="h-6 px-3 text-[10px] font-bold bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 shadow-sm transition-all" onClick={() => onComplete(tx)}>
-                <CheckCircle2 className="w-3 h-3 mr-1.5" /> {isIncome ? 'Recebido' : 'Pago'}
+          <div className="flex items-center justify-end flex-wrap gap-2 flex-1">
+            {isIncome && onAddRepasse && (
+              <Button variant="outline" size="sm" className="h-7 px-3 text-[10px] bg-background border-border hover:bg-muted text-foreground font-semibold shadow-sm" onClick={() => onAddRepasse(tx)}>
+                <Plus className="w-3.5 h-3.5 mr-1" /> Repasse
               </Button>
-            </div>
-          )}
-          <Button variant="ghost" size="sm" className="h-6 w-7 px-0 text-destructive/60 hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteTarget(tx)}>
-            <Trash2 className="w-3 h-3" />
-          </Button>
+            )}
+            
+            {tx.status === 'Pendente' && !tx.parentId && (
+              <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-7 px-3 text-[10px] bg-accent/30 text-muted-foreground hover:bg-muted font-medium hover:text-foreground border-border/50 shadow-sm transition-colors">
+                      <CalendarClock className="w-3.5 h-3.5 mr-1.5" /> {isLate ? 'Adiar para outro mês' : (isIncome ? 'Não recebi ainda' : 'Não paguei ainda')}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-60 rounded-xl border-border/50 shadow-xl overflow-hidden p-1">
+                    <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground/80 pb-1">Para qual mês deseja mover?</DropdownMenuLabel>
+                    <DropdownMenuSeparator className="bg-border/40 mb-1" />
+                    {getNext3MonthsOptions(tx.data).map((opt) => (
+                      <DropdownMenuItem 
+                        key={opt.newDate} 
+                        className="text-xs flex justify-between items-center cursor-pointer py-2.5 px-3 focus:bg-primary/10 transition-colors rounded-lg mb-0.5"
+                        onClick={() => handlePostpone(tx, opt.newDate, opt.label)}
+                      >
+                        <span className="font-semibold text-foreground/90">{opt.label}</span>
+                        <span className="text-[10px] text-muted-foreground tracking-tight tabular-nums bg-muted px-1.5 py-0.5 rounded shadow-sm border border-border/50">{opt.displayDate}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <Button variant="default" size="sm" className="h-7 px-3.5 text-[10.5px] font-bold bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 shadow-sm transition-all" onClick={() => onComplete(tx)}>
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> {isIncome ? 'Recebido' : 'Pago'}
+                </Button>
+              </div>
+            )}
+            
+            <Button variant="ghost" size="sm" className="h-7 w-8 px-0 text-destructive/60 hover:bg-destructive/10 hover:text-destructive shrink-0" onClick={() => setDeleteTarget(tx)}>
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -366,9 +414,9 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
                     return (
                       <div key={tx.id}>
                         {renderRow(tx)}
-                        {children.length > 0 && (
-                          <div className="space-y-0 relative mt-0.5">
-                            <div className="absolute left-6 top-0 bottom-3 w-px bg-border/60 z-0"></div>
+                        {children.length > 0 && expandedParents.has(tx.id) && (
+                          <div className="space-y-0 relative mt-1 mb-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <div className="absolute left-[1.125rem] top-0 bottom-3 w-px bg-border/60 z-0"></div>
                             {children.map(child => (
                               <div className="relative z-10" key={child.id}>
                                 {renderRow(child, true)}
