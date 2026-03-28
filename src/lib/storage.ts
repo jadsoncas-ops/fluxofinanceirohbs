@@ -74,8 +74,23 @@ export function updateTransaction(updated: Transaction): void {
 }
 
 export function deleteTransaction(id: string): void {
-  const all = loadAll().filter(t => t.id !== id);
-  saveAll(all);
+  const all = loadAll();
+  
+  const toDelete = new Set<string>([id]);
+  let added = true;
+  
+  while (added) {
+    added = false;
+    for (const tx of all) {
+      if (tx.parentId && toDelete.has(tx.parentId) && !toDelete.has(tx.id)) {
+        toDelete.add(tx.id);
+        added = true;
+      }
+    }
+  }
+
+  const filtered = all.filter(t => !toDelete.has(t.id));
+  saveAll(filtered);
 }
 
 export function exportBackup(): string {
