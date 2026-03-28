@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, User, Phone, MapPin, Edit } from 'lucide-react';
+import { Plus, User, Phone, MapPin, Edit, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Client } from '@/lib/types';
 import { getClients } from '@/lib/storage';
 import { ClientForm } from './ClientForm';
@@ -11,10 +12,15 @@ export function ClientsList() {
   const [formOpen, setFormOpen] = useState(false);
   const [editItem, setEditItem] = useState<Client | null>(null);
 
+  const [search, setSearch] = useState('');
+
   const clients = useMemo(() => {
     void key;
-    return getClients();
-  }, [key]);
+    const all = getClients();
+    return search.trim() === '' 
+      ? all 
+      : all.filter(c => c.nome.toLowerCase().includes(search.toLowerCase()));
+  }, [key, search]);
 
   const refresh = () => setKey(k => k + 1);
 
@@ -42,6 +48,19 @@ export function ClientsList() {
         </Button>
       </div>
 
+      <div className="relative mb-6">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <Search className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <Input 
+          type="text" 
+          placeholder="Buscar cliente..." 
+          className="pl-9 h-10 w-full sm:w-72 bg-background shadow-sm border-border/60 transition-colors focus-visible:ring-primary/20"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+      </div>
+
       {clients.length === 0 ? (
         <Card className="border-border/40 shadow-none bg-muted/20">
           <CardContent className="p-10 text-center text-muted-foreground flex flex-col items-center">
@@ -49,7 +68,12 @@ export function ClientsList() {
                <User className="w-10 h-10 text-primary/40" />
              </div>
              <p className="text-sm font-bold uppercase tracking-wide">Nenhum cliente cadastrado ainda</p>
-             <p className="text-xs mt-1.5 mb-5 opacity-80 max-w-xs leading-relaxed">Organize sua carteira. Cadastre o primeiro cliente para criar atalhos de WhatsApp e relatórios dedicados!</p>
+             <p className="text-xs mt-1.5 mb-5 opacity-80 max-w-xs leading-relaxed">
+               {search 
+                 ? `Nenhum cliente encontrado com "${search}".` 
+                 : 'Organize sua carteira. Cadastre o primeiro cliente para criar atalhos de WhatsApp!'
+               }
+             </p>
              <Button variant="outline" size="sm" onClick={handleAdd} className="rounded-full shadow-sm font-semibold text-primary border-primary/20 bg-primary/5">
                 + Iniciar Cadastro
              </Button>

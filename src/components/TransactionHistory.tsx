@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react';
-import { Transaction } from '@/lib/types';
+import { useState, useMemo, useEffect } from 'react';
+import { Transaction, Client } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Pencil, CheckCircle2, Clock3, Trash2, ArrowUpRight, ArrowDownRight, CornerDownRight, CalendarDays, Wallet, CalendarClock, AlertCircle, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { Pencil, CheckCircle2, Clock3, Trash2, ArrowUpRight, ArrowDownRight, CornerDownRight, CalendarDays, Wallet, CalendarClock, AlertCircle, Plus, ChevronDown, ChevronUp, ArrowDownUp } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { deleteTransaction, updateTransaction } from '@/lib/storage';
 import { toast } from 'sonner';
@@ -15,6 +15,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getClients } from '@/lib/storage';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -53,6 +55,7 @@ function getNext3MonthsOptions(originalDateStr: string) {
 
 type ViewType = 'Realizado' | 'Pendente';
 type FilterTab = 'Tudo' | 'Receitas' | 'Despesas';
+type SortOrder = 'Data' | 'Valor' | 'Cliente';
 
 function getCategoryEmoji(categoria: string): string {
   const match = categoria.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F?)/u);
@@ -82,8 +85,20 @@ interface Props {
 export function TransactionHistory({ transactions, onEdit, onComplete, onDelete, onAddRepasse }: Props) {
   const [viewType, setViewType] = useState<ViewType>('Realizado');
   const [filter, setFilter] = useState<FilterTab>('Tudo');
+  const [sortBy, setSortBy] = useState<SortOrder>('Data');
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
+  const [clientes, setClientes] = useState<Client[]>([]);
+
+  useEffect(() => {
+    setClientes(getClients());
+  }, []);
+
+  function getClientName(id?: string | null) {
+    if (!id) return "Sem cliente";
+    const c = clientes.find(c => c.id === id);
+    return c ? c.nome : "Sem cliente";
+  }
 
   function toggleExpand(id: string) {
     setExpandedParents(prev => {
@@ -144,26 +159,59 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
     return sum + tx.valor;
   }, 0);
 
-  // Group by Date
   const groupedDates = useMemo(() => {
-    const map = new Map<string, Transaction[]>();
-    topLevel.forEach(tx => {
-      const d = tx.data;
-      if (!map.has(d)) map.set(d, []);
-      map.get(d)!.push(tx);
-    });
-    // Pendentes: A to Z (próximos do vencimento primeiro ou atrasados)
-    // Realizados: Z to A (mais recentes primeiro)
-    const sortedDates = Array.from(map.keys()).sort((a, b) => 
-      viewType === 'Realizado' ? b.localeCompare(a) : a.localeCompare(b)
-    );
+    const today = new Date();
+    // Ajusta fuso para bater perfeitamente a data local formatada vs UTC
+    const offset = today.getTimezoneOffset() * 60000;
+    const localToday = new Date(today.getTime() - offset);
+    const todayStr = localToday.toISOString().slice(0, 10);
     
-    return sortedDates.map(date => ({ 
-      date, 
-      dateObj: new Date(date + 'T12:00:00'),
-      items: map.get(date)! 
-    }));
-  }, [topLevel, viewType]);
+    const localYesterday = new Date(localToday);
+    localYesterday.setDate(localToday.getDate() - 1);
+    const yesterdayStr = localYesterday.toISOString().slice(0, 10);
+
+    const currentMonthStr = todayStr.slice(0, 7);
+
+    // Initial Sorting
+    let sortedList = [...topLevel];
+
+    if (sortBy === 'Data') {
+      sortedList.sort((a, b) => viewType === 'Realizado' ? b.data.localeCompare(a.data) : a.data.localeCompare(b.data));
+    } else if (sortBy === 'Valor') {
+      sortedList.sort((a, b) => b.valor - a.valor);
+    } else if (sortBy === 'Cliente') {
+      sortedList.sort((a, b) => {
+        const cA = getClientName(a.clienteId).toLowerCase();
+        const cB = getClientName(b.clienteId).toLowerCase();
+        return cA.localeCompare(cB);
+      });
+    }
+
+    if (sortBy === 'Data') {
+      const map = new Map<string, Transaction[]>();
+      map.set('Hoje', []);
+      map.set('Ontem', []);
+      map.set('Este mês', []);
+      map.set('Meses anteriores', []);
+
+      sortedList.forEach(tx => {
+        if (tx.data === todayStr) map.get('Hoje')!.push(tx);
+        else if (tx.data === yesterdayStr) map.get('Ontem')!.push(tx);
+        else if (tx.data.startsWith(currentMonthStr)) map.get('Este mês')!.push(tx);
+        else map.get('Meses anteriores')!.push(tx);
+      });
+
+      return [
+        { label: 'Hoje', items: map.get('Hoje')! },
+        { label: 'Ontem', items: map.get('Ontem')! },
+        { label: 'Este mês', items: map.get('Este mês')! },
+        { label: 'Meses anteriores', items: map.get('Meses anteriores')! },
+      ].filter(g => g.items.length > 0);
+    } 
+
+    // Se nao for agrupado por data, bota num grupo Geral unificado
+    return [{ label: `Ordenado por ${sortBy}`, items: sortedList }];
+  }, [topLevel, viewType, sortBy, clientes]);
 
   function handleConfirmDelete() {
     if (!deleteTarget) return;
@@ -255,10 +303,14 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
               <p className={`text-sm font-bold truncate tracking-tight ${isLate ? 'text-destructive' : 'text-foreground'}`}>{tx.descricao}</p>
               {isLate && <Badge variant="destructive" className="text-[9px] h-4 px-1.5 py-0 border-0 flex gap-1 items-center font-bold tracking-wide uppercase"><AlertCircle className="w-3 h-3" /> Atrasado</Badge>}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mt-0.5">
               <Badge variant="outline" className={`text-[9px] font-bold tracking-wider uppercase leading-none h-4 px-1.5 py-0 border-current bg-background shadow-xs ${color}`}>{tx.tipo}</Badge>
               <span className="text-xs text-muted-foreground truncate font-medium">{tx.categoria}</span>
-              {tx.updatedAt && <span className="text-[9px] text-muted-foreground/60 italic font-medium ml-1 flex items-center gap-1"><Pencil className="w-2.5 h-2.5" /> Editado</span>}
+            </div>
+            <div className="flex items-center gap-2 mt-1 block">
+               <span className="text-[10px] text-muted-foreground bg-muted/30 px-1.5 py-0.5 rounded border border-border/40 font-medium">👤 {getClientName(tx.clienteId)}</span>
+               <span className="text-[10px] text-muted-foreground font-medium opacity-70 border-l border-border/40 pl-2">{new Date(tx.data + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+               {tx.updatedAt && <span className="text-[9px] text-muted-foreground/60 italic font-medium flex items-center gap-1 border-l border-border/40 pl-2"><Pencil className="w-2.5 h-2.5" /></span>}
             </div>
           </div>
           <div className="flex flex-col items-end gap-1.5 shrink-0">
@@ -415,6 +467,23 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
         </div>
       )}
 
+      {/* Select de Ordenacao */}
+      <div className="flex justify-end pt-1">
+        <Select value={sortBy} onValueChange={v => setSortBy(v as SortOrder)}>
+          <SelectTrigger className="h-8 text-xs w-[180px] bg-background shadow-sm">
+             <div className="flex items-center gap-1.5">
+               <ArrowDownUp className="w-3.5 h-3.5 text-muted-foreground" />
+               <SelectValue placeholder="Ordenar por" />
+             </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Data">Data (Padrão)</SelectItem>
+            <SelectItem value="Valor">Valor (Maior → Menor)</SelectItem>
+            <SelectItem value="Cliente">Cliente (A → Z)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {groupedDates.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-10 text-muted-foreground bg-muted/20 rounded-lg border border-border/50 border-dashed">
           <CalendarDays className="w-10 h-10 mb-2 opacity-20" />
@@ -422,17 +491,16 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
         </div>
       ) : (
         <div className="space-y-6">
-          {groupedDates.map(({ date, dateObj, items }) => {
-            const isDateLate = viewType === 'Pendente' && date < todayStr;
+          {groupedDates.map(({ label, items }) => {
+            const isAlertGroup = viewType === 'Pendente' && sortBy === 'Data' && (label === 'Ontem' || label === 'Meses anteriores');
             return (
-              <div key={date} className="relative">
+              <div key={label} className="relative">
                 <div className="flex items-center gap-3 mb-2 px-1">
-                  <div className={`flex items-center justify-center p-1.5 rounded-md ${isDateLate ? 'bg-destructive/10' : 'bg-primary/10'}`}>
-                    {isDateLate ? <AlertCircle className="w-4 h-4 text-destructive" /> : <CalendarDays className="w-4 h-4 text-primary" />}
+                  <div className={`flex items-center justify-center p-1.5 rounded-md ${isAlertGroup ? 'bg-destructive/10' : 'bg-primary/10'}`}>
+                    {isAlertGroup ? <AlertCircle className="w-4 h-4 text-destructive" /> : <CalendarDays className="w-4 h-4 text-primary" />}
                   </div>
-                  <h3 className={`text-xs font-bold uppercase tracking-wider ${isDateLate ? 'text-destructive/90' : 'text-muted-foreground/80'}`}>
-                    {dateObj.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
-                    {isDateLate && <span className="ml-2 font-black italic">!</span>}
+                  <h3 className={`text-[13px] font-black uppercase tracking-widest ${isAlertGroup ? 'text-destructive/90' : 'text-muted-foreground/90'}`}>
+                    {label}
                   </h3>
                   <div className="h-px flex-1 bg-gradient-to-r from-border/80 to-transparent"></div>
                 </div>
