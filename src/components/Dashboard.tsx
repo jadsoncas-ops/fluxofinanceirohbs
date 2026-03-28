@@ -144,72 +144,58 @@ export function Dashboard({ transactions, month, year }: Props) {
         </Card>
       )}
 
-      {/* NÍVEL 1: Saldo & Bússola (Maior Destaque) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Saldo Atual */}
-        <Card className="border-border/60 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl bg-gradient-to-br from-background to-muted/20">
-          <CardContent className="p-6 flex flex-col justify-center h-full gap-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                <Wallet className="w-5 h-5" />
-                Dinheiro em Caixa
-              </h2>
-              <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0 hover:bg-emerald-500/20 transition-colors font-semibold">Hoje • Realizado</Badge>
-            </div>
-            <div className={`flex items-baseline ${saldoAtual >= 0 ? 'text-slate-900 dark:text-gray-100' : 'text-rose-600'}`}>
-              <span className="text-xl sm:text-2xl font-bold mr-2 opacity-60">R$</span>
-              <span className="text-5xl sm:text-6xl font-black tabular-nums tracking-tighter">
-                {saldoAtual.toFixed(2)}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Bússola Financeira (Saldo Líquido Real) */}
-        <Card className="relative overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-900 text-white border-0 group">
-          <div className="absolute top-0 right-0 -mt-6 -mr-6 w-32 h-32 bg-white/5 rounded-full blur-2xl group-hover:bg-white/10 transition-all duration-500"></div>
-          <div className="absolute bottom-0 left-0 -mb-6 -ml-6 w-40 h-40 bg-black/20 rounded-full blur-3xl group-hover:bg-black/40 transition-all duration-500"></div>
+      {/* NÍVEL 1: Bússola Financeira (Saldo Líquido Real e Divisão) */}
+      <Card className="relative overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-slate-800 dark:to-slate-900 text-white border-0 group">
+        <div className="absolute top-0 right-0 -mt-6 -mr-6 w-48 h-48 bg-white/5 rounded-full blur-3xl group-hover:bg-white/10 transition-all duration-700"></div>
+        <div className="absolute bottom-0 left-0 -mb-6 -ml-6 w-48 h-48 bg-black/20 rounded-full blur-3xl group-hover:bg-black/40 transition-all duration-700"></div>
+        
+        <CardContent className="p-6 sm:p-8 h-full flex flex-col lg:flex-row relative z-10 gap-8 lg:items-center">
           
-          <CardContent className="p-6 h-full flex flex-col relative z-10">
-            <div className="flex flex-col gap-1 mb-5">
-              <h2 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2 text-white/90 drop-shadow-sm">
-                <span className="text-lg">🧭</span> Bússola Financeira
+          {/* Lado Esquerdo: Saldo Atual */}
+          <div className="flex-1 flex flex-col justify-center">
+            <div className="flex flex-col gap-1.5 mb-6">
+              <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-white/90 drop-shadow-sm">
+                <span className="text-xl">🧭</span> Bússola Financeira
               </h2>
-              <p className="text-xs text-white/70 italic font-medium">Cálculo baseado no saldo líquido real disponível</p>
+              <p className="text-xs text-white/60 italic font-medium">Cálculo enraizado no seu caixa líquido real de <span className="font-bold text-white/80">Hoje</span></p>
             </div>
 
-            <div className="mb-4 flex-1 flex flex-col justify-center">
-              <p className="text-sm font-semibold text-emerald-400 mb-1">Seu saldo atual:</p>
-              <div className="flex items-baseline text-white">
-                <span className="text-2xl font-bold mr-2 opacity-80 drop-shadow-md">R$</span>
-                <span className="text-5xl sm:text-6xl font-black tabular-nums tracking-tighter drop-shadow-md">
+            <div className="flex flex-col justify-center">
+              <p className="text-sm font-semibold text-emerald-400 mb-2 uppercase tracking-widest flex items-center gap-2"><Wallet className="w-4 h-4"/> Saldo Atual Disponível</p>
+              <div className={`flex items-baseline ${saldoAtual >= 0 ? 'text-white' : 'text-rose-400'}`}>
+                <span className="text-2xl sm:text-3xl font-bold mr-2 opacity-80 drop-shadow-md">R$</span>
+                <span className="text-6xl sm:text-7xl lg:text-8xl font-black tabular-nums tracking-tighter drop-shadow-lg">
                   {Math.max(0, saldoAtual).toFixed(2)}
                 </span>
               </div>
             </div>
+          </div>
 
-            <div className="bg-black/20 rounded-xl p-3.5 space-y-3 backdrop-blur-sm border border-white/10">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-400/90 mb-2 flex items-center gap-1.5"><div className="w-5 h-5 rounded overflow-hidden bg-white/10 flex items-center justify-center text-[10px]">🏢</div> Se você guardar p/ Empresa:</p>
-              
-              <div className="grid grid-cols-2 gap-2">
-                {[10, 15, 20, 30].map(pct => {
-                  const valorGuardado = Math.max(0, saldoAtual) * (pct / 100);
-                  const sobrando = Math.max(0, saldoAtual) - valorGuardado;
-                  return (
-                    <div key={pct} className="bg-white/5 hover:bg-white/10 transition-colors cursor-default rounded-lg p-2.5 border border-white/10 flex flex-col">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-[11px] font-bold text-white/80">{pct}%</span>
-                      </div>
-                      <span className="font-bold text-sm text-white tabular-nums drop-shadow-sm">R$ {valorGuardado.toFixed(2)}</span>
-                      <span className="text-[9px] text-white/50 font-medium mt-1 truncate">Sobram: R$ {sobrando.toFixed(2)}</span>
-                    </div>
-                  );
-                })}
-              </div>
+          {/* Lado Direito: Divisões */}
+          <div className="lg:w-[500px] shrink-0 bg-black/20 rounded-2xl p-4 sm:p-5 border border-white/5 backdrop-blur-sm shadow-inner">
+            <div className="flex items-center gap-2 mb-3.5">
+              <div className="w-6 h-6 rounded overflow-hidden bg-white/10 flex items-center justify-center text-[11px] shadow-sm">🏢</div> 
+              <p className="text-xs font-bold uppercase tracking-widest text-emerald-400/90 leading-none">Se você guardar p/ Empresa:</p>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              {[10, 15, 20, 30].map(pct => {
+                const valorGuardado = Math.max(0, saldoAtual) * (pct / 100);
+                const sobrando = Math.max(0, saldoAtual) - valorGuardado;
+                return (
+                  <div key={pct} className="bg-white/5 hover:bg-white/10 transition-colors cursor-default rounded-xl p-3.5 border border-white/5 flex flex-col shadow-[0_2px_10px_rgba(0,0,0,0.1)]">
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className="text-[11px] font-black text-white/80 bg-white/10 px-2 py-0.5 rounded-full">{pct}%</span>
+                    </div>
+                    <span className="font-black text-lg sm:text-xl text-white tabular-nums drop-shadow-sm tracking-tight">R$ {valorGuardado.toFixed(2)}</span>
+                    <span className="text-[10px] text-white/50 font-bold mt-1.5 truncate uppercase tracking-wider">Sobram: R$ {sobrando.toFixed(2)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* NÍVEL 2: Entradas / Saídas (Realizadas) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
