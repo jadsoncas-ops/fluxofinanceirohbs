@@ -3,9 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { exportBackup, importBackup } from '@/lib/storage';
+import { exportBackup, importBackup, clearAllTransactions } from '@/lib/storage';
 import { toast } from 'sonner';
-import { Download, Upload, Shield, Moon, Smartphone } from 'lucide-react';
+import { Download, Upload, Shield, Moon, Smartphone, Trash2 } from 'lucide-react';
 
 interface Props {
   onDataChange: () => void;
@@ -58,6 +58,14 @@ export function Settings({ onDataChange }: Props) {
     if (fileRef.current) fileRef.current.value = '';
   }
 
+  function handleClear() {
+    if (confirm('Tem certeza que deseja apagar TODOS os lançamentos? Esta ação não pode ser desfeita. Seus CLIENTES serão mantidos.')) {
+      clearAllTransactions();
+      toast.success('Todos os lançamentos foram apagados.');
+      onDataChange();
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Dark Mode */}
@@ -107,6 +115,16 @@ export function Settings({ onDataChange }: Props) {
             <p className="text-[11px] text-destructive leading-relaxed">
               <strong>Atenção:</strong> A importação substituirá os dados atuais deste aparelho pelos dados do arquivo de backup.
             </p>
+          </div>
+
+          <div className="pt-4 border-t border-border/30">
+             <Button variant="ghost" onClick={handleClear} className="w-full justify-start gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive h-11">
+                <Trash2 className="w-4 h-4" />
+                <div className="text-left">
+                  <p className="text-xs font-bold">Limpar Lançamentos</p>
+                  <p className="text-[10px] opacity-70">Apagar transações, manter clientes</p>
+                </div>
+             </Button>
           </div>
         </CardContent>
       </Card>

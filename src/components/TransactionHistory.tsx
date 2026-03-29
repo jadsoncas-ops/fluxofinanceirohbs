@@ -616,53 +616,53 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
         </Select>
       </div>
 
-      <div className="flex bg-muted/30 p-1.5 rounded-xl border border-border/40 justify-center items-center gap-4">
-        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2 cursor-pointer">
+      <div className="flex bg-muted/20 p-1.5 rounded-2xl border border-border/40 justify-center items-center gap-6 mb-6">
+        <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-3 cursor-pointer hover:text-primary transition-colors py-1 group-h">
            <input 
              type="checkbox" 
              checked={mostrarArquivados} 
              onChange={e => setMostrarArquivados(e.target.checked)}
-             className="w-4 h-4 rounded border-primary/30 text-primary focus:ring-primary/20"
+             className="w-5 h-5 rounded-lg border-primary/30 text-primary focus:ring-primary/20 transition-all cursor-pointer"
            />
-           Mostrar Concluídos
+           Exibir Concluídos
         </Label>
       </div>
 
       {processesData.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-10 text-muted-foreground bg-muted/20 rounded-lg border border-border/50 border-dashed">
-          <Briefcase className="w-10 h-10 mb-2 opacity-20" />
-          <p className="text-sm font-medium">Nenhum processo em trâmite encontrado.</p>
+        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground bg-muted/10 rounded-[2.5rem] border border-border/30 border-dashed">
+          <Briefcase className="w-16 h-16 mb-4 opacity-10" />
+          <p className="text-xs font-black uppercase tracking-widest opacity-30">Nenhum processo ativo encontrado</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-10">
           {processesData.map((group) => {
             const isUnlinked = group.type === 'unlinked';
             return (
               <Card 
                 key={group.id} 
                 onClick={() => isUnlinked ? null : setActiveProcessClienteId(group.id)}
-                className={`transition-all border-border/50 hover:border-primary/40 shadow-sm hover:shadow-md rounded-2xl overflow-hidden cursor-pointer group ${group.isArchived ? 'opacity-50 grayscale bg-muted/30' : 'bg-card'}`}
+                className={`transition-all border-border/40 hover:border-primary/50 shadow-sm hover:shadow-xl rounded-[2.2rem] overflow-hidden cursor-pointer group active:scale-[0.98] ${group.isArchived ? 'opacity-50 grayscale bg-muted/20' : 'bg-card'}`}
               >
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-xl border ${isUnlinked ? 'bg-amber-500/10 border-amber-500/20 text-amber-600' : 'bg-primary/5 border-primary/20 text-primary'}`}>
-                        {isUnlinked ? <AlertCircle className="w-5 h-5" /> : <FolderClosed className="w-5 h-5" />}
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="flex items-start gap-4 flex-1">
+                      <div className={`p-4 rounded-[1.2rem] border shrink-0 transition-transform group-hover:scale-110 duration-300 ${isUnlinked ? 'bg-amber-500/10 border-amber-500/20 text-amber-600' : 'bg-primary/5 border-primary/20 text-primary'}`}>
+                        {isUnlinked ? <AlertCircle className="w-6 h-6" /> : <FolderClosed className="w-6 h-6" />}
                       </div>
-                      <div>
-                         <h4 className="font-bold text-sm text-foreground tracking-tight">{group.name}</h4>
-                         <div className="flex items-center gap-2 mt-0.5">
-                            <Badge variant="outline" className={`text-[9px] h-4 px-1.5 py-0 border-current bg-background uppercase font-black tracking-widest ${group.status === 'Exigência' ? 'text-destructive' : 'text-primary'}`}>
+                      <div className="min-w-0">
+                         <h4 className="font-black text-[15px] text-foreground tracking-tight leading-tight truncate mb-1.5">{group.name}</h4>
+                         <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline" className={`text-[9px] h-5 px-2 py-0 border-current bg-background/50 uppercase font-black tracking-widest backdrop-blur-sm ${group.status === 'Exigência' ? 'text-destructive' : 'text-primary'}`}>
                               {group.status}
                             </Badge>
-                            {isUnlinked && <span className="text-[10px] text-amber-600 font-bold italic">({group.items.length} pendências)</span>}
+                            {isUnlinked && <span className="text-[10px] text-amber-600 font-bold bg-amber-500/5 px-2 py-0.5 rounded-full">🚨 {group.items.length} pendências</span>}
                          </div>
                       </div>
                     </div>
 
-                    <div className="text-right">
-                       <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-0.5">Contrato</p>
-                       <p className="text-sm font-black text-foreground tabular-nums">
+                    <div className="text-right shrink-0">
+                       <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 mb-0.5">Contrato</p>
+                       <p className="text-lg font-black text-foreground tabular-nums tracking-tighter">
                          R$ {group.valorContrato.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                        </p>
                     </div>

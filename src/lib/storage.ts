@@ -60,6 +60,10 @@ export function addTransaction(tx: Transaction): void {
   saveAll(all);
 }
 
+export function clearAllTransactions(): void {
+  saveAll([]);
+}
+
 export function addTransactions(newTxs: Transaction[]): void {
   const all = loadAll();
   all.push(...newTxs);
