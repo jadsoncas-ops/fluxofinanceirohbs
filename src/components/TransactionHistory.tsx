@@ -201,15 +201,20 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
     if (!activeProcess || !activeProcessClienteId) return [];
     
     const clientTxs = transactions.filter(t => t.clienteId === activeProcessClienteId);
-    const financialNotes: ProcessNote[] = clientTxs.map(t => ({
-      id: `tx-${t.id}`,
-      data: new Date(t.data + 'T12:00:00').getTime(),
-      texto: `💸 ${t.tipo}: R$ ${t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} - ${t.descricao}`
-    }));
+    const combined: any[] = [...activeProcess.notas];
+    clientTxs.forEach(t => {
+      combined.push({
+        id: `tx-${t.id}`,
+        data: new Date(t.data + 'T12:00:00').getTime(),
+        texto: `💸 ${t.tipo}: R$ ${t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} - ${t.descricao}`,
+        transaction: t // Link original para edição
+      });
+    });
 
-    const all = [...activeProcess.notas, ...financialNotes];
-    return all.sort((a, b) => b.data - a.data);
+    return combined.sort((a, b) => b.data - a.data);
   }, [activeProcess, transactions, activeProcessClienteId]);
+
+  const lucroLiquido = clientFinances.recebido - clientFinances.repasses;
 
   function getClientName(id?: string | null) {
     if (!id) return "Sem cliente";
@@ -374,7 +379,7 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
     const children = childrenMap.get(tx.id) || [];
     const hasChildren = children.length > 0 && !isChild;
     const childrenSum = children.reduce((s, c) => s + Math.abs(c.valor), 0);
-    const liquido = isIncome ? (tx.valor - childrenSum) : tx.valor;
+    const liquidez = isIncome ? (tx.valor - childrenSum) : tx.valor;
 
     if (isChild) {
       return (
@@ -434,7 +439,7 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
               <span className="text-xs text-muted-foreground truncate font-medium">{tx.categoria}</span>
             </div>
             <div className="flex items-center gap-2 mt-1 block">
-               <span className="text-[10px] text-muted-foreground bg-muted/30 px-1.5 py-0.5 rounded border border-border/40 font-medium">👤 {getClientName(tx.clienteId)}</span>
+               <span className="text-[10px] text-muted-foreground bg-muted/20 px-1.5 py-0.5 rounded border border-border/40 font-medium">👤 {getClientName(tx.clienteId)}</span>
                {tx.clienteId && (
                  <Button 
                    variant="ghost" 
@@ -442,11 +447,10 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
                    className="h-5 px-1.5 text-[9px] text-primary/70 hover:text-primary hover:bg-primary/5 font-bold uppercase tracking-tighter"
                    onClick={() => setActiveProcessClienteId(tx.clienteId || null)}
                  >
-                   <FolderClosed className="w-3 h-3 mr-1" /> Acompanhar Processo
+                   <FolderClosed className="w-3 h-3 mr-1" /> Gerir Processo
                  </Button>
                )}
-               <span className="text-[10px] text-muted-foreground font-medium opacity-70 border-l border-border/40 pl-2">{new Date(tx.data + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
-               {tx.updatedAt && <span className="text-[9px] text-muted-foreground/60 italic font-medium flex items-center gap-1 border-l border-border/40 pl-2"><Pencil className="w-2.5 h-2.5" /></span>}
+               <span className="text-[10px] text-muted-foreground font-medium opacity-50 border-l border-border/40 pl-2">{new Date(tx.data + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
             </div>
           </div>
           <div className="flex flex-col items-end gap-1.5 shrink-0">
@@ -472,24 +476,7 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
           </div>
         </div>
 
-        {hasChildren && (
-          <div className="mt-4 pt-3 border-t border-border/40 grid grid-cols-3 gap-2 text-center bg-muted/20 p-2.5 rounded-xl border border-border/40 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
-             <div className="flex flex-col items-center justify-center">
-                <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest mb-0.5">Total Recebido</p>
-                <p className="font-bold text-xs text-foreground tabular-nums">R$ {tx.valor.toFixed(2)}</p>
-             </div>
-             <div className="flex flex-col items-center justify-center relative">
-                <div className="absolute left-0 top-1 bottom-1 w-px bg-border/50"></div>
-                <div className="absolute right-0 top-1 bottom-1 w-px bg-border/50"></div>
-                <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest mb-0.5">Repassado</p>
-                <p className="font-bold text-xs text-destructive/80 tabular-nums">- R$ {childrenSum.toFixed(2)}</p>
-             </div>
-             <div className="flex flex-col items-center justify-center">
-                <p className="text-[10px] text-success font-bold uppercase tracking-widest mb-0.5">Líquido P/ Empresa</p>
-                <p className="font-bold text-xs text-success tabular-nums drop-shadow-[0_1px_1px_rgba(0,0,0,0.1)]">R$ {liquido.toFixed(2)}</p>
-             </div>
-          </div>
-        )}
+        {/* Simplificação: resumo financeiro detalhado removido da linha principal, agora focado na Gaveta */}
         
         <div className={`flex items-center gap-2 mt-4 pt-4 border-t border-border/40 border-dashed transition-opacity opacity-80 group-hover:opacity-100 ${hasChildren ? 'justify-between' : 'justify-end'}`}>
           {hasChildren && (
@@ -543,9 +530,6 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
                 </Button>
               </div>
             )}
-            <Button variant="ghost" size="sm" className="h-7 px-2.5 text-[10px] text-muted-foreground hover:bg-muted font-medium hover:text-foreground border border-transparent transition-colors" onClick={() => handleEditClick(tx)}>
-              <Pencil className="w-3.5 h-3.5 mr-1" /> {tx.status === 'Concluído' ? 'Ajustar' : 'Editar'}
-            </Button>
             <Button variant="ghost" size="sm" className="h-7 w-8 px-0 text-destructive/60 hover:bg-destructive/10 hover:text-destructive shrink-0" onClick={() => setDeleteTarget(tx)}>
               <Trash2 className="w-3.5 h-3.5" />
             </Button>
@@ -917,11 +901,20 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
                     ) : (
                       <div className="relative space-y-4 pl-4 before:absolute before:left-1 before:top-2 before:bottom-0 before:w-0.5 before:bg-border/30">
                         {timelineEvents.map(note => {
-                          const isFinancial = note.texto.startsWith('💸');
+                          const isFinancial = !!(note as any).transaction;
                           return (
                             <div key={note.id} className="relative">
-                              <div className={`absolute -left-[1.35rem] top-1.5 w-3 h-3 rounded-full border-2 border-background shadow-sm ${isFinancial ? 'bg-emerald-500' : 'bg-primary'}`}></div>
-                              <div className={`${isFinancial ? 'bg-emerald-500/5' : 'bg-muted/30'} p-3 rounded-xl border border-border/30`}>
+                              <div className={`absolute -left-[1.35rem] top-1.5 w-3 h-3 rounded-full border-2 border-background shadow-sm ${isFinancial ? 'bg-emerald-500 hover:scale-110' : 'bg-primary'} cursor-pointer transition-transform`}></div>
+                              <div 
+                                onClick={() => isFinancial && handleEditClick((note as any).transaction)}
+                                className={`${isFinancial ? 'bg-emerald-500/5 hover:bg-emerald-500/10 cursor-pointer' : 'bg-muted/30'} p-3 rounded-xl border border-border/30 transition-colors`}
+                              >
+                                {isFinancial && (
+                                   <div className="flex items-center justify-between mb-1">
+                                      <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600/80">Lançamento Financeiro</p>
+                                      <Pencil className="w-2.5 h-2.5 text-emerald-600/50" />
+                                   </div>
+                                )}
                                 <p className={`text-xs font-medium leading-relaxed mb-1.5 ${isFinancial ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-foreground/90'}`}>{note.texto}</p>
                                 <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1">
                                   <Clock3 className="w-2.5 h-2.5" />
@@ -934,6 +927,20 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
                       </div>
                     )}
                  </div>
+              </div>
+
+              {/* Lucro Líquido do Processo */}
+              <div className="mt-auto p-6 border-t border-border/30 bg-muted/40 sticky bottom-0">
+                 <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Lucro Líquido do Processo</span>
+                 </div>
+                 <div className="flex items-baseline gap-1.5">
+                    <span className="text-sm font-bold text-success/70">R$</span>
+                    <span className="text-3xl font-black text-success tabular-nums tracking-tighter">
+                      {lucroLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                 </div>
+                 <p className="text-[9px] text-muted-foreground italic mt-1 font-medium italic opacity-60">Calculado: Recebido - Custos de Repasses</p>
               </div>
             </div>
           )}
