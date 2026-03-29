@@ -75,6 +75,8 @@ export interface Process {
   protocolo?: string;
   dataProtocolo?: string;
   valorContrato?: number;
+  driveLink?: string;
+  isArchived?: boolean;
   notas: ProcessNote[];
   createdAt: number;
   updatedAt: number;
