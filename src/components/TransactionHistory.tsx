@@ -22,7 +22,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Process, ProcessStatus, ProcessNote, TransactionType, TransactionStatus } from '@/lib/types';
-import { ClipboardList, Landmark, History, TrendingUp, TrendingDown, DollarSign, FileText, ExternalLink, Archive, Play, Receipt } from 'lucide-react';
+import { ClipboardList, Landmark, History, TrendingUp, TrendingDown, DollarSign, FileText, ExternalLink, Archive, Play, Receipt, Briefcase } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
