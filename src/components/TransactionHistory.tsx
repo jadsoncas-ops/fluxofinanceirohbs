@@ -290,59 +290,55 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
     return sum + tx.valor;
   }, 0);
 
-  const groupedDates = useMemo(() => {
-    const today = new Date();
-    // Ajusta fuso para bater perfeitamente a data local formatada vs UTC
-    const offset = today.getTimezoneOffset() * 60000;
-    const localToday = new Date(today.getTime() - offset);
-    const todayStr = localToday.toISOString().slice(0, 10);
+  const showCompleted = viewType === 'Pendente'; // Não, o usuário pediu um toggle específico no topo.
+  const [mostrarArquivados, setMostrarArquivados] = useState(false);
+
+  const processesData = useMemo(() => {
+    // 1. Get all unique clientIds in the current filtered set
+    const clientIds = new Set<string>();
+    filtered.forEach(tx => {
+      if (tx.clienteId) clientIds.add(tx.clienteId);
+    });
+
+    const groups = [];
     
-    const localYesterday = new Date(localToday);
-    localYesterday.setDate(localToday.getDate() - 1);
-    const yesterdayStr = localYesterday.toISOString().slice(0, 10);
+    // 2. Process groups
+    clientIds.forEach(cId => {
+      const proc = getProcessByClient(cId);
+      const isArchived = proc?.isArchived || proc?.status === 'Finalizado';
+      
+      if (!mostrarArquivados && isArchived) return;
 
-    const currentMonthStr = todayStr.slice(0, 7);
+      const clientTxs = filtered.filter(tx => tx.clienteId === cId);
+      const client = clientes.find(c => c.id === cId);
+      
+      groups.push({
+        type: 'process',
+        id: cId,
+        name: client?.nome || 'Cliente Desconhecido',
+        status: proc?.status || 'A definir',
+        valorContrato: proc?.valorContrato || 0,
+        isArchived,
+        items: clientTxs
+      });
+    });
 
-    // Initial Sorting
-    let sortedList = [...topLevel];
-
-    if (sortBy === 'Data') {
-      sortedList.sort((a, b) => viewType === 'Realizado' ? b.data.localeCompare(a.data) : a.data.localeCompare(b.data));
-    } else if (sortBy === 'Valor') {
-      sortedList.sort((a, b) => b.valor - a.valor);
-    } else if (sortBy === 'Cliente') {
-      sortedList.sort((a, b) => {
-        const cA = getClientName(a.clienteId).toLowerCase();
-        const cB = getClientName(b.clienteId).toLowerCase();
-        return cA.localeCompare(cB);
+    // 3. Unlinked group
+    const unlinked = filtered.filter(tx => !tx.clienteId);
+    if (unlinked.length > 0) {
+      groups.unshift({
+        type: 'unlinked',
+        id: 'unlinked',
+        name: 'Lançamentos Avulsos',
+        status: 'Pendente de Vínculo',
+        valorContrato: 0,
+        isArchived: false,
+        items: unlinked
       });
     }
 
-    if (sortBy === 'Data') {
-      const map = new Map<string, Transaction[]>();
-      map.set('Hoje', []);
-      map.set('Ontem', []);
-      map.set('Este mês', []);
-      map.set('Meses anteriores', []);
-
-      sortedList.forEach(tx => {
-        if (tx.data === todayStr) map.get('Hoje')!.push(tx);
-        else if (tx.data === yesterdayStr) map.get('Ontem')!.push(tx);
-        else if (tx.data.startsWith(currentMonthStr)) map.get('Este mês')!.push(tx);
-        else map.get('Meses anteriores')!.push(tx);
-      });
-
-      return [
-        { label: 'Hoje', items: map.get('Hoje')! },
-        { label: 'Ontem', items: map.get('Ontem')! },
-        { label: 'Este mês', items: map.get('Este mês')! },
-        { label: 'Meses anteriores', items: map.get('Meses anteriores')! },
-      ].filter(g => g.items.length > 0);
-    } 
-
-    // Se nao for agrupado por data, bota num grupo Geral unificado
-    return [{ label: `Ordenado por ${sortBy}`, items: sortedList }];
-  }, [topLevel, viewType, sortBy, clientes]);
+    return groups;
+  }, [filtered, mostrarArquivados, clientes]);
 
   function handleConfirmDelete() {
     if (!deleteTarget) return;
@@ -619,48 +615,59 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
         </Select>
       </div>
 
-      {groupedDates.length === 0 ? (
+      <div className="flex bg-muted/30 p-1.5 rounded-xl border border-border/40 justify-center items-center gap-4">
+        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2 cursor-pointer">
+           <input 
+             type="checkbox" 
+             checked={mostrarArquivados} 
+             onChange={e => setMostrarArquivados(e.target.checked)}
+             className="w-4 h-4 rounded border-primary/30 text-primary focus:ring-primary/20"
+           />
+           Mostrar Concluídos
+        </Label>
+      </div>
+
+      {processesData.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-10 text-muted-foreground bg-muted/20 rounded-lg border border-border/50 border-dashed">
-          <CalendarDays className="w-10 h-10 mb-2 opacity-20" />
-          <p className="text-sm font-medium">Nenhum lançamento {viewType.toLowerCase()} encontrado.</p>
+          <Briefcase className="w-10 h-10 mb-2 opacity-20" />
+          <p className="text-sm font-medium">Nenhum processo em trâmite encontrado.</p>
         </div>
       ) : (
-        <div className="space-y-6">
-          {groupedDates.map(({ label, items }) => {
-            const isAlertGroup = viewType === 'Pendente' && sortBy === 'Data' && (label === 'Ontem' || label === 'Meses anteriores');
+        <div className="space-y-3">
+          {processesData.map((group) => {
+            const isUnlinked = group.type === 'unlinked';
             return (
-              <div key={label} className="relative">
-                <div className="flex items-center gap-3 mb-2 px-1">
-                  <div className={`flex items-center justify-center p-1.5 rounded-md ${isAlertGroup ? 'bg-destructive/10' : 'bg-primary/10'}`}>
-                    {isAlertGroup ? <AlertCircle className="w-4 h-4 text-destructive" /> : <CalendarDays className="w-4 h-4 text-primary" />}
-                  </div>
-                  <h3 className={`text-[13px] font-black uppercase tracking-widest ${isAlertGroup ? 'text-destructive/90' : 'text-muted-foreground/90'}`}>
-                    {label}
-                  </h3>
-                  <div className="h-px flex-1 bg-gradient-to-r from-border/80 to-transparent"></div>
-                </div>
-                
-                <div className="space-y-2">
-                  {items.map(tx => {
-                    const children = childrenMap.get(tx.id) || [];
-                    return (
-                      <div key={tx.id}>
-                        {renderRow(tx)}
-                        {children.length > 0 && expandedParents.has(tx.id) && (
-                          <div className="space-y-0 relative mt-1 mb-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                            <div className="absolute left-[1.125rem] top-0 bottom-3 w-px bg-border/60 z-0"></div>
-                            {children.map(child => (
-                              <div className="relative z-10" key={child.id}>
-                                {renderRow(child, true)}
-                              </div>
-                            ))}
-                          </div>
-                        )}
+              <Card 
+                key={group.id} 
+                onClick={() => isUnlinked ? null : setActiveProcessClienteId(group.id)}
+                className={`transition-all border-border/50 hover:border-primary/40 shadow-sm hover:shadow-md rounded-2xl overflow-hidden cursor-pointer group ${group.isArchived ? 'opacity-50 grayscale bg-muted/30' : 'bg-card'}`}
+              >
+                <CardContent className="p-4">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl border ${isUnlinked ? 'bg-amber-500/10 border-amber-500/20 text-amber-600' : 'bg-primary/5 border-primary/20 text-primary'}`}>
+                        {isUnlinked ? <AlertCircle className="w-5 h-5" /> : <FolderClosed className="w-5 h-5" />}
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
+                      <div>
+                         <h4 className="font-bold text-sm text-foreground tracking-tight">{group.name}</h4>
+                         <div className="flex items-center gap-2 mt-0.5">
+                            <Badge variant="outline" className={`text-[9px] h-4 px-1.5 py-0 border-current bg-background uppercase font-black tracking-widest ${group.status === 'Exigência' ? 'text-destructive' : 'text-primary'}`}>
+                              {group.status}
+                            </Badge>
+                            {isUnlinked && <span className="text-[10px] text-amber-600 font-bold italic">({group.items.length} pendências)</span>}
+                         </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                       <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-0.5">Contrato</p>
+                       <p className="text-sm font-black text-foreground tabular-nums">
+                         R$ {group.valorContrato.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                       </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             );
           })}
         </div>

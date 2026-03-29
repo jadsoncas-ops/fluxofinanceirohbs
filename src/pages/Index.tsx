@@ -12,13 +12,13 @@ import { ClientForm } from '@/components/ClientForm';
 import { getTransactions } from '@/lib/storage';
 import { generateMonthlyReport } from '@/lib/pdf';
 import { Transaction } from '@/lib/types';
-import { LayoutDashboard, List, Settings as SettingsIcon, Plus, FileDown, Building, Users, UserPlus } from 'lucide-react';
+import { LayoutDashboard, Briefcase, Settings as SettingsIcon, Plus, FileDown, Building, Users, UserPlus } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import hbsLogo from '@/assets/hbs-logo.png';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-type Tab = 'dashboard' | 'history' | 'clients' | 'settings';
+type Tab = 'dashboard' | 'processos' | 'clients' | 'settings';
 
 export default function Index() {
   const now = new Date();
@@ -75,7 +75,7 @@ export default function Index() {
 
   const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
     { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { key: 'history', label: 'Histórico', icon: List },
+    { key: 'processos', label: 'Processos', icon: Briefcase },
     { key: 'clients', label: 'Clientes', icon: Users },
     { key: 'settings', label: 'Definições', icon: SettingsIcon },
   ];
@@ -136,7 +136,7 @@ export default function Index() {
         </Button>
         <Button variant="outline" size="sm" className="h-8 text-[11px] sm:text-xs gap-1 sm:gap-1.5 border-border shadow-sm text-foreground/80 hover:text-foreground hidden sm:flex" onClick={() => setTab('clients')}>
           <Users className="w-3.5 h-3.5" />
-          <span>Clientes</span>
+          <span>Gestão CRM</span>
         </Button>
         <Button variant="secondary" size="sm" className="h-8 text-[11px] sm:text-xs gap-1 sm:gap-1.5 bg-muted/50 hover:bg-muted font-bold text-muted-foreground hover:text-foreground shrink-0" onClick={() => setClientFormOpen(true)}>
           <UserPlus className="w-3.5 h-3.5" />
@@ -151,7 +151,7 @@ export default function Index() {
       {/* Content */}
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 pb-20">
         {tab === 'dashboard' && <Dashboard transactions={monthTransactions} month={month} year={year} />}
-        {tab === 'history' && (
+        {tab === 'processos' && (
           <TransactionHistory
             transactions={monthTransactions}
             onEdit={handleEdit}
