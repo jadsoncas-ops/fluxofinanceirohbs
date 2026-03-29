@@ -58,3 +58,24 @@ export interface Client {
   descricao?: string | null;
   createdAt?: number;
 }
+
+export type ProcessStatus = 'Levantamento' | 'Protocolo' | 'Exigência' | 'Finalizado';
+
+export interface ProcessNote {
+  id: string;
+  data: number;
+  texto: string;
+}
+
+export interface Process {
+  id: string;
+  clienteId: string;
+  objeto: string;
+  status: ProcessStatus;
+  protocolo?: string;
+  dataProtocolo?: string;
+  valorContrato?: number;
+  notas: ProcessNote[];
+  createdAt: number;
+  updatedAt: number;
+}

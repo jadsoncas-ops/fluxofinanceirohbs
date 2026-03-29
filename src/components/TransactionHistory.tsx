@@ -3,9 +3,9 @@ import { Transaction, Client } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Pencil, CheckCircle2, Clock3, Trash2, ArrowUpRight, ArrowDownRight, CornerDownRight, CalendarDays, Wallet, CalendarClock, AlertCircle, Plus, ChevronDown, ChevronUp, ArrowDownUp } from 'lucide-react';
+import { Pencil, CheckCircle2, Clock3, Trash2, ArrowUpRight, ArrowDownRight, CornerDownRight, CalendarDays, Wallet, CalendarClock, AlertCircle, Plus, ChevronDown, ChevronUp, ArrowDownUp, FolderClosed, Send, Landmark as OrgaoIcon, Info } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { deleteTransaction, updateTransaction } from '@/lib/storage';
+import { deleteTransaction, updateTransaction, getProcessByClient, updateProcess } from '@/lib/storage';
 import { toast } from 'sonner';
 import {
   DropdownMenu,
@@ -17,6 +17,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getClients } from '@/lib/storage';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Process, ProcessStatus, ProcessNote } from '@/lib/types';
+import { ClipboardList, Landmark, History, TrendingUp, TrendingDown, DollarSign, FileText } from 'lucide-react';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -89,10 +95,67 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
   const [clientes, setClientes] = useState<Client[]>([]);
+  
+  // Estados para Gaveta de Processo
+  const [activeProcessClienteId, setActiveProcessClienteId] = useState<string | null>(null);
+  const [activeProcess, setActiveProcess] = useState<Process | null>(null);
+  const [newNote, setNewNote] = useState('');
 
   useEffect(() => {
     setClientes(getClients());
   }, []);
+
+  useEffect(() => {
+    if (activeProcessClienteId) {
+      const proc = getProcessByClient(activeProcessClienteId);
+      if (proc) {
+        setActiveProcess(proc);
+      } else {
+        // Inicializa novo processo para o cliente
+        setActiveProcess({
+          id: crypto.randomUUID(),
+          clienteId: activeProcessClienteId,
+          objeto: '',
+          status: 'Levantamento',
+          notas: [],
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        });
+      }
+    } else {
+      setActiveProcess(null);
+    }
+  }, [activeProcessClienteId]);
+
+  const handleUpdateProcess = (updates: Partial<Process>) => {
+    if (!activeProcess) return;
+    const updated = { ...activeProcess, ...updates, updatedAt: Date.now() };
+    setActiveProcess(updated);
+    updateProcess(updated);
+  };
+
+  const handleAddNote = () => {
+    if (!newNote.trim() || !activeProcess) return;
+    const note: ProcessNote = {
+      id: crypto.randomUUID(),
+      data: Date.now(),
+      texto: newNote.trim()
+    };
+    handleUpdateProcess({ notas: [note, ...activeProcess.notas] });
+    setNewNote('');
+    toast.success('Nota de histórico adicionada.');
+  };
+
+  const clientFinances = useMemo(() => {
+    if (!activeProcessClienteId) return { contrato: 0, recebido: 0, saldo: 0 };
+    const clientTxs = transactions.filter(t => t.clienteId === activeProcessClienteId);
+    const recebido = clientTxs
+      .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
+      .reduce((sum, t) => sum + t.valor, 0);
+    const contrato = activeProcess?.valorContrato || 0;
+    const saldo = Math.max(0, contrato - recebido);
+    return { contrato, recebido, saldo };
+  }, [transactions, activeProcessClienteId, activeProcess?.valorContrato]);
 
   function getClientName(id?: string | null) {
     if (!id) return "Sem cliente";
@@ -309,6 +372,16 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
             </div>
             <div className="flex items-center gap-2 mt-1 block">
                <span className="text-[10px] text-muted-foreground bg-muted/30 px-1.5 py-0.5 rounded border border-border/40 font-medium">👤 {getClientName(tx.clienteId)}</span>
+               {tx.clienteId && (
+                 <Button 
+                   variant="ghost" 
+                   size="sm" 
+                   className="h-5 px-1.5 text-[9px] text-primary/70 hover:text-primary hover:bg-primary/5 font-bold uppercase tracking-tighter"
+                   onClick={() => setActiveProcessClienteId(tx.clienteId || null)}
+                 >
+                   <FolderClosed className="w-3 h-3 mr-1" /> Acompanhar Processo
+                 </Button>
+               )}
                <span className="text-[10px] text-muted-foreground font-medium opacity-70 border-l border-border/40 pl-2">{new Date(tx.data + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
                {tx.updatedAt && <span className="text-[9px] text-muted-foreground/60 italic font-medium flex items-center gap-1 border-l border-border/40 pl-2"><Pencil className="w-2.5 h-2.5" /></span>}
             </div>
@@ -547,6 +620,164 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Sheet open={!!activeProcessClienteId} onOpenChange={v => !v && setActiveProcessClienteId(null)}>
+        <SheetContent className="w-full sm:max-w-md bg-card p-0 flex flex-col gap-0 border-l border-border/50">
+          <SheetHeader className="p-6 pb-4 border-b border-border/30 bg-muted/20">
+            <div className="flex items-center gap-2 mb-2 text-primary">
+              <ClipboardList className="w-5 h-5" />
+              <SheetTitle className="text-lg font-black tracking-tight uppercase">Gaveta de Processo</SheetTitle>
+            </div>
+            <SheetDescription className="text-xs font-medium text-muted-foreground">
+              Gerencie o trâmite e notas para: <span className="text-foreground font-bold">{getClientName(activeProcessClienteId)}</span>
+            </SheetDescription>
+          </SheetHeader>
+
+          {activeProcess && (
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+              {/* Resumo Financeiro */}
+              <div className="grid grid-cols-3 gap-2">
+                 <div className="bg-muted/30 p-2.5 rounded-xl border border-border/50 flex flex-col justify-center">
+                    <div className="flex items-center gap-1.5 mb-1 text-muted-foreground">
+                      <Info className="w-3.5 h-3.5" />
+                      <span className="text-[9px] font-black uppercase tracking-widest">Contrato</span>
+                    </div>
+                    <div className="flex items-baseline gap-0.5">
+                      <span className="text-[9px] font-bold text-muted-foreground mr-0.5">R$</span>
+                      <input 
+                        type="number" 
+                        value={activeProcess.valorContrato || ''} 
+                        onChange={e => handleUpdateProcess({ valorContrato: parseFloat(e.target.value) || 0 })}
+                        className="bg-transparent border-none text-xs font-black text-foreground focus:outline-none focus:ring-0 p-0 w-full tabular-nums"
+                        placeholder="0,00"
+                      />
+                    </div>
+                 </div>
+                 <div className="bg-emerald-500/5 p-2.5 rounded-xl border border-emerald-500/20 flex flex-col justify-center">
+                    <div className="flex items-center gap-1.5 mb-1 text-emerald-600">
+                      <TrendingUp className="w-3.5 h-3.5" />
+                      <span className="text-[9px] font-black uppercase tracking-widest leading-none">Recebido</span>
+                    </div>
+                    <p className="text-sm font-black text-emerald-600 tabular-nums">R$ {clientFinances.recebido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                 </div>
+                 <div className="bg-amber-500/5 p-2.5 rounded-xl border border-amber-500/20 flex flex-col justify-center">
+                    <div className="flex items-center gap-1.5 mb-1 text-amber-600">
+                      <DollarSign className="w-3.5 h-3.5" />
+                      <span className="text-[9px] font-black uppercase tracking-widest leading-none">Saldo</span>
+                    </div>
+                    <p className="text-sm font-black text-amber-600 tabular-nums">R$ {clientFinances.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                 </div>
+              </div>
+
+              {/* Status de Trâmite */}
+              <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Status de Trâmite</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['Levantamento', 'Protocolo', 'Exigência', 'Finalizado'] as ProcessStatus[]).map(s => (
+                    <Button 
+                      key={s} 
+                      variant="outline" 
+                      onClick={() => handleUpdateProcess({ status: s })}
+                      className={`h-11 rounded-xl text-xs font-bold transition-all border-border/50 ${
+                        activeProcess.status === s 
+                          ? (s === 'Exigência' ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-primary/10 text-primary border-primary/30') 
+                          : 'hover:bg-muted opacity-60'
+                      }`}
+                    >
+                      {s}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Objeto do Serviço */}
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Objeto do Serviço</Label>
+                <Input 
+                  value={activeProcess.objeto} 
+                  onChange={e => handleUpdateProcess({ objeto: e.target.value })}
+                  placeholder="Ex: Regularização Cássia Silva"
+                  className="h-11 bg-muted/20 border-border/50 rounded-xl font-medium focus:bg-background transition-all"
+                />
+              </div>
+
+              {/* Campos de Protocolo */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Protocolo nº</Label>
+                  <div className="relative">
+                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground opacity-50" />
+                    <Input 
+                      value={activeProcess.protocolo || ''} 
+                      onChange={e => handleUpdateProcess({ protocolo: e.target.value })}
+                      placeholder="Nº Processo"
+                      className="h-11 pl-10 bg-muted/20 border-border/50 rounded-xl font-medium"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Data Protocolo</Label>
+                  <Input 
+                    type="date"
+                    value={activeProcess.dataProtocolo || ''} 
+                    onChange={e => handleUpdateProcess({ dataProtocolo: e.target.value })}
+                    className="h-11 bg-muted/20 border-border/50 rounded-xl font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Timeline de Notas */}
+              <div className="space-y-4 pt-4 border-t border-border/30">
+                 <div className="flex items-center gap-2 mb-2">
+                    <History className="w-4 h-4 text-primary" />
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground leading-none">Anotações do Trâmite</Label>
+                 </div>
+                 
+                 <div className="relative">
+                    <Textarea 
+                      value={newNote}
+                      onChange={e => setNewNote(e.target.value)}
+                      placeholder="Adicionar atualização..."
+                      className="min-h-[80px] bg-muted/20 border-border/50 rounded-xl font-medium p-4 pr-12 focus:bg-background transition-all resize-none"
+                    />
+                    <Button 
+                      size="icon" 
+                      onClick={handleAddNote}
+                      disabled={!newNote.trim()}
+                      className="absolute right-2 bottom-2 w-8 h-8 rounded-lg shadow-lg"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                 </div>
+
+                 <div className="space-y-4 pt-2">
+                    {activeProcess.notas.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-6 opacity-30 grayscale">
+                        <History className="w-8 h-8 mb-2" />
+                        <p className="text-[10px] font-black uppercase tracking-widest">Sem notas registradas</p>
+                      </div>
+                    ) : (
+                      <div className="relative space-y-4 pl-4 before:absolute before:left-1 before:top-2 before:bottom-0 before:w-0.5 before:bg-border/30">
+                        {activeProcess.notas.map(note => (
+                          <div key={note.id} className="relative">
+                            <div className="absolute -left-[1.35rem] top-1.5 w-3 h-3 rounded-full border-2 border-background bg-primary shadow-sm"></div>
+                            <div className="bg-muted/30 p-3 rounded-xl border border-border/30">
+                              <p className="text-xs font-medium text-foreground/90 leading-relaxed mb-1.5">{note.texto}</p>
+                              <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1">
+                                <Clock3 className="w-2.5 h-2.5" />
+                                {new Date(note.data).toLocaleString('pt-BR')}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                 </div>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

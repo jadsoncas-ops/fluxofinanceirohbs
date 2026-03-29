@@ -1,4 +1,4 @@
-import { Transaction, Client } from './types';
+import { Transaction, Client, Process } from './types';
 
 const STORAGE_KEY = 'hbs_transactions';
 
@@ -107,7 +107,8 @@ export function deleteTransaction(id: string): void {
 export function exportBackup(): string {
   const data = {
     lancamentos: loadAll(),
-    clientes: loadAllClients()
+    clientes: loadAllClients(),
+    processos: loadAllProcesses()
   };
   return JSON.stringify(data, null, 2);
 }
@@ -151,6 +152,11 @@ export function importBackup(json: string): void {
       });
       saveAll(validatedTxs);
     }
+
+    // Restaurar Processos
+    if (Array.isArray(data.processos)) {
+      saveAllProcesses(data.processos);
+    }
   }
 }
 
@@ -193,4 +199,38 @@ export function deleteClient(id: string): void {
   const all = loadAllClients();
   const filtered = all.filter(c => c.id !== id);
   saveAllClients(filtered);
+}
+
+// --- PROCESSES ---
+const STORAGE_KEY_PROCESSES = 'hbs_processes';
+
+function loadAllProcesses(): Process[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PROCESSES);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveAllProcesses(procs: Process[]) {
+  localStorage.setItem(STORAGE_KEY_PROCESSES, JSON.stringify(procs));
+}
+
+export function getProcessByClient(clienteId: string): Process | null {
+  const all = loadAllProcesses();
+  return all.find(p => p.clienteId === clienteId) || null;
+}
+
+export function updateProcess(proc: Process): void {
+  const all = loadAllProcesses();
+  const idx = all.findIndex(p => p.id === proc.id || p.clienteId === proc.clienteId);
+  if (idx >= 0) {
+    all[idx] = { ...proc, updatedAt: Date.now() };
+  } else {
+    all.push({ ...proc, createdAt: Date.now(), updatedAt: Date.now() });
+  }
+  saveAllProcesses(all);
 }
