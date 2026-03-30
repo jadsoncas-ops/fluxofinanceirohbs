@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Transaction, Client, Process, ProcessStatus, ProcessNote } from '@/lib/types';
-import { getClients, getProcessByClient, getProcesses, updateProcess, deleteProcess, addTransaction, deleteTransaction } from '@/lib/storage';
+import { getClients, getProcessByClient, getProcesses, updateProcess, deleteProcess, addTransaction, deleteTransaction, getTransactions, updateTransaction } from '@/lib/storage';
 import { toast } from 'sonner';
 import {
   Plus, FolderClosed, AlertCircle, ClipboardList, TrendingUp, TrendingDown, DollarSign,
@@ -51,6 +51,10 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
   // Edit note
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteText, setEditingNoteText] = useState('');
+
+  // Edit financial transaction
+  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
+  const [editingTransactionData, setEditingTransactionData] = useState<Partial<Transaction>>({});
 
   // Delete confirmations
   const [deleteProcessOpen, setDeleteProcessOpen] = useState(false);
@@ -159,6 +163,33 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     setQuickForm({ descricao: '', valor: '', data: today });
     onRefresh();
   }, [activeProcess, inlineForm, quickForm, today, onRefresh]);
+
+  // Save financial transaction edit
+  const handleSaveTransactionEdit = useCallback(() => {
+    if (!editingTransactionId || !activeProcess) return;
+    const allTxs = getTransactions();
+    const oldTx = allTxs.find(t => t.id === editingTransactionId);
+    if (!oldTx) return;
+
+    const valor = parseFloat(editingTransactionData.valor?.toString() || '0');
+    if (isNaN(valor) || valor <= 0) { toast.error('Insira um valor válido.'); return; }
+
+    const updatedTx: Transaction = {
+      ...oldTx,
+      descricao: editingTransactionData.descricao || oldTx.descricao,
+      valor,
+      data: editingTransactionData.data || oldTx.data,
+      updatedAt: Date.now(),
+    };
+
+    updateTransaction(updatedTx);
+    setEditingTransactionId(null);
+    setEditingTransactionData({});
+    onRefresh();
+    toast.success('Lançamento atualizado!');
+    // Fecha a gaveta após sucesso para agilidade
+    setTimeout(() => setActiveProcessClienteId(null), 800);
+  }, [editingTransactionId, editingTransactionData, activeProcess, onRefresh]);
 
   // Confirm delete from timeline
   const handleConfirmTimelineDelete = useCallback(() => {
@@ -311,8 +342,8 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     return combined.sort((a, b) => b.data - a.data);
   }, [activeProcess, allTransactions, activeProcessClienteId]);
 
-  const lucroLiquido = clientFinances.recebido - clientFinances.repassesPagos;
-  const lucroPositivo = lucroLiquido >= 0;
+  const lucrosRealizados = clientFinances.recebido - clientFinances.repassesPagos;
+  const lucroPositivo = lucrosRealizados >= 0;
 
   const filterTabs: { key: ProcessViewFilter; label: string; emoji: string }[] = [
     { key: 'tramite', label: 'Em Trâmite', emoji: '🚀' },
@@ -829,71 +860,112 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                       </div>
                     ) : (
                       <div className="relative space-y-3 pl-4 before:absolute before:left-1 before:top-2 before:bottom-0 before:w-0.5 before:bg-border/30">
-                        {timelineEvents.map((event: any) => {
-                          const isFinancial = event.tipo === 'transacao';
-                          const isExpense = event.isExpense;
-                          const isEditing = editingNoteId === event.id;
+                        {timelineEvents.map((item: any) => {
+                          const isFinancial = item.tipo === 'transacao';
+                          const isExpense = item.isExpense;
+                          const isEditingNote = editingNoteId === item.id;
+                          const isEditingTx = editingTransactionId === item.id;
+
                           return (
-                            <div key={event.id} className="relative group/item">
+                            <div key={item.id} className="relative group/item">
                               <div className={`absolute -left-[1.35rem] top-1.5 w-3 h-3 rounded-full border-2 border-background shadow-sm ${isFinancial ? (isExpense ? 'bg-destructive' : 'bg-emerald-500') : 'bg-primary'}`} />
                               <div className={`p-3 rounded-xl border border-border/30 transition-colors ${isFinancial ? (isExpense ? 'bg-destructive/5' : 'bg-emerald-500/5') : 'bg-muted/30'}`}>
-                                {isFinancial && (
-                                  <div className="flex items-center justify-between mb-1">
-                                    <p className={`text-[9px] font-black uppercase tracking-widest ${isExpense ? 'text-destructive/80' : 'text-emerald-600/80'}`}>
-                                      {isExpense ? 'Saída / Repasse' : 'Receita'}
-                                      {event.dataFormatada && <span className="normal-case font-medium ml-1.5 opacity-70">• {event.dataFormatada}</span>}
-                                    </p>
+                                
+                                {/* Header / Labels */}
+                                <div className="flex items-center justify-between mb-1">
+                                  <p className={`text-[9px] font-black uppercase tracking-widest ${isFinancial ? (isExpense ? 'text-destructive/80' : 'text-emerald-600/80') : 'text-primary/70'}`}>
+                                    {isFinancial ? (isExpense ? 'Saída / Repasse' : 'Receita') : 'Atualização Técnica'}
+                                    {item.dataFormatada && <span className="normal-case font-medium ml-1.5 opacity-70">• {item.dataFormatada}</span>}
+                                  </p>
+                                  <div className="flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
                                     <button
-                                      onClick={() => setDeleteTimelineTarget({ id: event.id, tipo: 'transacao', label: event.texto })}
-                                      className="p-1 rounded text-destructive/30 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover/item:opacity-100"
+                                      onClick={() => {
+                                        if (isFinancial) {
+                                          const tx = allTransactions.find(t => t.id === item.id);
+                                          if (tx) {
+                                            setEditingTransactionId(tx.id);
+                                            setEditingTransactionData({ valor: tx.valor, descricao: tx.descricao, data: tx.data });
+                                          }
+                                        } else {
+                                          setEditingNoteId(item.id);
+                                          setEditingNoteText(item.texto);
+                                        }
+                                      }}
+                                      className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                    >
+                                      <Pencil className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      onClick={() => setDeleteTimelineTarget({ id: item.id, tipo: isFinancial ? 'transacao' : 'nota', label: item.texto })}
+                                      className="p-1 rounded text-destructive/30 hover:text-destructive hover:bg-destructive/10 transition-colors"
                                     >
                                       <Trash2 className="w-3 h-3" />
                                     </button>
                                   </div>
-                                )}
+                                </div>
 
-                                {!isFinancial && (
-                                  <div className="flex items-start justify-between gap-2 mb-1">
-                                    {isEditing ? (
-                                      <div className="flex-1 space-y-1.5">
-                                        <Textarea value={editingNoteText} onChange={e => setEditingNoteText(e.target.value)}
-                                          className="min-h-[60px] text-xs bg-background/60 border-border/50 rounded-lg resize-none p-2" autoFocus />
-                                        <div className="flex gap-1.5">
-                                          <Button size="sm" onClick={handleSaveNoteEdit}
-                                            className="h-7 px-3 text-[10px] font-bold rounded-lg gap-1">
-                                            <Check className="w-3 h-3" /> Salvar
-                                          </Button>
-                                          <Button size="sm" variant="ghost" onClick={() => { setEditingNoteId(null); setEditingNoteText(''); }}
-                                            className="h-7 px-3 text-[10px] font-bold rounded-lg">
-                                            <X className="w-3 h-3" />
-                                          </Button>
-                                        </div>
+                                {/* Content or Edit Form */}
+                                {isEditingTx ? (
+                                  <div className="mt-2 space-y-2 animate-in fade-in zoom-in-95 duration-200">
+                                    <Input
+                                      placeholder="Descrição"
+                                      value={editingTransactionData.descricao || ''}
+                                      onChange={e => setEditingTransactionData(d => ({ ...d, descricao: e.target.value }))}
+                                      className="h-8 text-xs bg-background/60 border-border/50 rounded-lg p-2"
+                                    />
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div className="relative">
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-bold">R$</span>
+                                        <Input
+                                          type="number"
+                                          placeholder="0,00"
+                                          value={editingTransactionData.valor || ''}
+                                          onChange={e => setEditingTransactionData(d => ({ ...d, valor: parseFloat(e.target.value) }))}
+                                          className="h-8 pl-6 text-xs bg-background/60 border-border/50 rounded-lg font-bold tabular-nums"
+                                        />
                                       </div>
-                                    ) : (
-                                      <>
-                                        <p className="text-xs font-medium leading-relaxed text-foreground/90 flex-1">{event.texto}</p>
-                                        <div className="flex gap-0.5 opacity-0 group-hover/item:opacity-100 transition-opacity shrink-0">
-                                          <button onClick={() => { setEditingNoteId(event.id); setEditingNoteText(event.texto); }}
-                                            className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
-                                            <Pencil className="w-3 h-3" />
-                                          </button>
-                                          <button onClick={() => setDeleteTimelineTarget({ id: event.id, tipo: 'nota', label: event.texto })}
-                                            className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
-                                            <Trash2 className="w-3 h-3" />
-                                          </button>
-                                        </div>
-                                      </>
-                                    )}
+                                      <Input
+                                        type="date"
+                                        value={editingTransactionData.data || ''}
+                                        onChange={e => setEditingTransactionData(d => ({ ...d, data: e.target.value }))}
+                                        className="h-8 text-[10px] bg-background/60 border-border/50 rounded-lg p-1"
+                                      />
+                                    </div>
+                                    <div className="flex gap-1.5">
+                                      <Button size="sm" onClick={handleSaveTransactionEdit}
+                                        className="h-7 px-3 text-[10px] font-bold rounded-lg gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white">
+                                        <Check className="w-3 h-3" /> Atualizar
+                                      </Button>
+                                      <Button size="sm" variant="ghost" onClick={() => { setEditingTransactionId(null); setEditingTransactionData({}); }}
+                                        className="h-7 px-3 text-[10px] font-bold rounded-lg">
+                                        <X className="w-3 h-3" />
+                                      </Button>
+                                    </div>
                                   </div>
-                                )}
-
-                                {!isEditing && isFinancial && (
-                                  <p className={`text-xs font-bold leading-relaxed ${isExpense ? 'text-destructive' : 'text-emerald-700 dark:text-emerald-400'}`}>{event.texto}</p>
+                                ) : isEditingNote ? (
+                                  <div className="mt-2 space-y-2 animate-in fade-in zoom-in-95 duration-200">
+                                    <Textarea value={editingNoteText} onChange={e => setEditingNoteText(e.target.value)}
+                                      className="min-h-[60px] text-xs bg-background/60 border-border/50 rounded-lg resize-none p-2" autoFocus />
+                                    <div className="flex gap-1.5">
+                                      <Button size="sm" onClick={handleSaveNoteEdit}
+                                        className="h-7 px-3 text-[10px] font-bold rounded-lg gap-1">
+                                        <Check className="w-3 h-3" /> Salvar
+                                      </Button>
+                                      <Button size="sm" variant="ghost" onClick={() => { setEditingNoteId(null); setEditingNoteText(''); }}
+                                        className="h-7 px-3 text-[10px] font-bold rounded-lg">
+                                        <X className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className={`text-xs font-medium leading-relaxed ${isFinancial ? (isExpense ? 'text-destructive' : 'text-emerald-700 dark:text-emerald-400 font-bold') : 'text-foreground/90'}`}>
+                                    {item.texto}
+                                  </p>
                                 )}
 
                                 <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1 mt-1.5">
                                   <Clock3 className="w-2.5 h-2.5" />
-                                  {new Date(event.data).toLocaleString('pt-BR')}
+                                  {new Date(item.data).toLocaleString('pt-BR')}
                                 </p>
                               </div>
                             </div>
@@ -906,14 +978,14 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
 
                 {/* ── Lucro Líquido — always at bottom ── */}
                 <div className={`rounded-2xl border p-4 flex flex-col gap-1 ${lucroPositivo ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-destructive/20 bg-destructive/5'}`}>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Lucro Líquido do Processo</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Lucro Líquido Realizado</span>
                   <div className="flex items-baseline gap-1.5">
                     <span className={`text-sm font-bold ${lucroPositivo ? 'text-emerald-500/70' : 'text-destructive/70'}`}>R$</span>
                     <span className={`text-2xl font-black tabular-nums tracking-tighter ${lucroPositivo ? 'text-emerald-500' : 'text-destructive'}`}>
-                      {lucroLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      {lucrosRealizados.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
-                  <p className="text-[9px] text-muted-foreground italic font-medium">Recebido − Custos de Repasses</p>
+                  <p className="text-[9px] text-muted-foreground italic font-medium">Lucro real (Dinheiro que entrou − Dinheiro que saiu)</p>
                 </div>
 
               </div>
