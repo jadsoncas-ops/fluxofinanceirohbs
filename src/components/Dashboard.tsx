@@ -18,134 +18,15 @@ interface Props {
 
 export function Dashboard({ transactions, month, year }: Props) {
   const { stats, projectProfits, cashFlowPoints, negativeAlert, saldoAtual, saldoProjetadoFuturo, annualData } = useMemo(() => {
-    // 1. LUCRO POR PROJETO
-    const projMap = new Map<string, { receita: number; custo: number }>();
-    const txIdToName = new Map<string, string>();
-
-    // Primeiro mapeia todas as receitas/projetos
-    (transactions || []).forEach(t => {
-      const isReceita = t.tipo === 'Entrada' || t.tipo === 'A Receber';
-      if (isReceita) {
-        const projName = t.descricao.replace(/ \(Restante\)$/, '').trim();
-        txIdToName.set(t.id, projName);
-        if (!projMap.has(projName)) projMap.set(projName, { receita: 0, custo: 0 });
-        projMap.get(projName)!.receita += t.valor;
-      }
-    });
-
-    // Depois computa as despesas (repasses) para abatê-las corretamente da receita
-    (transactions || []).forEach(t => {
-      const isCusto = (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.isRepasse;
-      if (isCusto) {
-        let projName = '';
-        if (t.parentId && txIdToName.has(t.parentId)) {
-           projName = txIdToName.get(t.parentId)!;
-        } else {
-           // Fallback para repasses soltos antigos
-           projName = t.descricao.replace(/ \(Restante\)$/, '').replace(/^Repasse\s*-\s*/i, '').trim();
-        }
-        
-        if (!projMap.has(projName)) projMap.set(projName, { receita: 0, custo: 0 });
-        projMap.get(projName)!.custo += t.valor;
-      }
-    });
-
-    const projectProfits = Array.from(projMap.entries())
-      .map(([name, data]) => ({ name, ...data, lucro: data.receita - data.custo }))
-      .filter(p => p.receita > 0 || p.custo > 0)
-      .sort((a, b) => b.lucro - a.lucro);
-
-    // 2. FLUXO DE CAIXA PROJETADO E ALERTAS
-    const today = new Date().toISOString().slice(0, 10);
-    const sorted = [...transactions].sort((a, b) => a.data.localeCompare(b.data));
-    
-    let runningTotal = 0;
-    let actualBalance = 0;
-    const dateMap = new Map<string, number>();
-    
-    // Calcular a variação por dia e o saldo de itens já concluídos
-    sorted.forEach(t => {
-      const isReceita = t.tipo === 'Entrada' || t.tipo === 'A Receber';
-      const isDespesa = t.tipo === 'Saída' || t.tipo === 'A Pagar';
-      const val = isReceita ? t.valor : (isDespesa ? -t.valor : 0);
-      
-      dateMap.set(t.data, (dateMap.get(t.data) || 0) + val);
-
-      if (t.status === 'Concluído') {
-         actualBalance += isReceita ? t.valor : (isDespesa ? -t.valor : 0);
-      }
-    });
-
-    const uniqueDates = Array.from(dateMap.keys()).sort();
-    const cashFlowPoints: { date: string; balance: number }[] = [];
-    let negativeAlert: { date: string; balance: number } | null = null;
-
-    uniqueDates.forEach(d => {
-      runningTotal += dateMap.get(d)!;
-      const [y, m, day] = d.split('-');
-      cashFlowPoints.push({ date: `${day}/${m}`, balance: runningTotal });
-      
-      if (runningTotal < 0 && d >= today && !negativeAlert) {
-         negativeAlert = { date: `${day}/${m}/${y}`, balance: runningTotal };
-      }
-    });
-
-    // 3. ESTATÍSTICAS MENSAIS — filtro rigoroso por data da transação (mes/ano selecionado)
-    const monthTxs = transactions.filter(t => {
-      const d = new Date(t.data + 'T12:00:00');
-      return d.getMonth() === month && d.getFullYear() === year;
-    });
-
-    // Mapeamento global de recebimentos por processo para filtro de saídas
-    const processRecebidoMap = new Map<string, number>();
-    const clientRecebidoMap = new Map<string, number>();
-    (transactions || []).forEach(t => {
-      if ((t.tipo === 'Entrada' || t.tipo === 'A Receber') && (t.status === 'Concluído' || t.status === 'Parcial')) {
-        const val = t.status === 'Concluído' ? t.valor : 0.0001; // Marker value if only Parcial exists
-        if (t.processId) processRecebidoMap.set(t.processId, (processRecebidoMap.get(t.processId) || 0) + val);
-        if (t.clienteId) clientRecebidoMap.set(t.clienteId, (clientRecebidoMap.get(t.clienteId) || 0) + val);
-      }
-    });
-
     const processes = getProcesses() || [];
-    const archivedProcessIds = new Set(processes.filter(p => p.isArchived).map(p => p.id));
-    const archivedClientIds = new Set(processes.filter(p => p.isArchived).map(p => p.clienteId));
-
-    // Entradas Confirmadas no Mês
-    const entradas = monthTxs.filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído').reduce((s, t) => s + t.valor, 0);
+    const clients = getClients() || [];
     
-    // Função auxiliar para validar se um gasto deve aparecer no Dashboard
-    const shouldShowCostInDashboard = (t: Transaction) => {
-      if (!t.processId && !t.clienteId) return true;
-      if (t.processId) {
-        const recebidoTotal = processRecebidoMap.get(t.processId) || 0;
-        const isArchived = archivedProcessIds.has(t.processId);
-        return recebidoTotal > 0 || isArchived;
-      }
-      if (t.clienteId) {
-        const recebidoTotalCliente = clientRecebidoMap.get(t.clienteId) || 0;
-        const isArchivedCliente = archivedClientIds.has(t.clienteId);
-        return recebidoTotalCliente > 0 || isArchivedCliente;
-      }
-      return true;
-    };
-
-    // Saídas Confirmadas no Mês (Fluxo Real)
-    const saidas = monthTxs.filter(t => 
-      (t.tipo === 'Saída' || t.tipo === 'A Pagar') && 
-      t.status === 'Concluído' &&
-      shouldShowCostInDashboard(t)
-    ).reduce((s, t) => s + t.valor, 0);
-
-    const clients = getClients();
+    // 1. AUDITORIA GLOBAL E PROJEÇÕES (Calculado primeiro para servir de lastro)
     const auditList: { name: string; id: string; saldo: number; custos: number; lucro: number }[] = [];
     const assignedTxIdsAudit = new Set<string>();
 
-    // Cenário Global (Escritório Total) — AUDITORIA 1 A 1
-    (processes || []).filter(p => !p.isArchived).forEach(p => {
+    (processes).filter(p => !p.isArchived).forEach(p => {
       const client = clients.find(c => c.id === p.clienteId);
-      
-      // Filtragem robusta para conciliação com os Cards
       const processTxs = (transactions || []).filter(t => {
         if (t.processId) return t.processId === p.id;
         if (!t.processId && t.clienteId === p.clienteId && !assignedTxIdsAudit.has(t.id)) {
@@ -155,28 +36,18 @@ export function Dashboard({ transactions, month, year }: Props) {
         return false;
       });
 
-      // 1. RECEITAS EFETIVADAS (Para abater do contrato)
       const totalRecebidoP = processTxs
         .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
         .reduce((s, t) => s + t.valor, 0);
       
-      // 2. RECEITAS MANUAIS PENDENTES
       const receitasPendentesParaProc = processTxs
         .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Pendente')
         .reduce((s, t) => s + t.valor, 0);
 
-      // 3. REPASSES PAGOS (Para abater do custo total)
-      const custosPagosProc = processTxs
-        .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status === 'Concluído')
-        .reduce((s, t) => s + t.valor, 0);
-
-      // 4. CUSTOS PENDENTES (Total de custos lançados - o que já foi pago)
       const custosPendentesProc = processTxs
         .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
         .reduce((s, t) => s + t.valor, 0);
 
-      // Regra 1: À RECEBER = (Contrato - Recebido Efetivado) + Manuais Pendentes
-      // Isso sincroniza exatamente com o "Prev:" do Card
       const saldoTotalProc = Math.max(0, (p.valorContrato || 0) - totalRecebidoP) + receitasPendentesParaProc;
       
       if (saldoTotalProc > 0 || custosPendentesProc > 0) {
@@ -194,16 +65,112 @@ export function Dashboard({ transactions, month, year }: Props) {
     const saidasPrevistas = auditList.reduce((sum, p) => sum + p.custos, 0);
     const lucroFuturoPendente = entradasPrevistas - saidasPrevistas;
 
-    // Meta de recebimentos (Termômetro do Mês)
-    // O alvo é a soma de TUDO que estava previsto/marcado para entrar no mês selecionado
+    // 2. LUCRO POR PROJETO (Mês/Ano)
+    const projMap = new Map<string, { receita: number; custo: number }>();
+    const txIdToName = new Map<string, string>();
+
+    (transactions || []).forEach(t => {
+      const isReceita = t.tipo === 'Entrada' || t.tipo === 'A Receber';
+      if (isReceita) {
+        const projName = t.descricao.replace(/ \(Restante\)$/, '').trim();
+        txIdToName.set(t.id, projName);
+        if (!projMap.has(projName)) projMap.set(projName, { receita: 0, custo: 0 });
+        projMap.get(projName)!.receita += t.valor;
+      }
+    });
+
+    (transactions || []).forEach(t => {
+      const isCusto = (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.isRepasse;
+      if (isCusto) {
+        let projName = '';
+        if (t.parentId && txIdToName.has(t.parentId)) {
+           projName = txIdToName.get(t.parentId)!;
+        } else {
+           projName = t.descricao.replace(/ \(Restante\)$/, '').replace(/^Repasse\s*-\s*/i, '').trim();
+        }
+        if (!projMap.has(projName)) projMap.set(projName, { receita: 0, custo: 0 });
+        projMap.get(projName)!.custo += t.valor;
+      }
+    });
+
+    const projectProfits = Array.from(projMap.entries())
+      .map(([name, data]) => ({ name, ...data, lucro: data.receita - data.custo }))
+      .filter(p => p.receita > 0 || p.custo > 0)
+      .sort((a, b) => b.lucro - a.lucro);
+
+    // 3. FLUXO DE CAIXA PROJETADO E ALERTAS
+    const today = new Date().toISOString().slice(0, 10);
+    const sorted = [...transactions].sort((a, b) => a.data.localeCompare(b.data));
+    
+    let runningTotal = 0;
+    let actualBalance = 0;
+    const dateMap = new Map<string, number>();
+    
+    sorted.forEach(t => {
+      const isReceita = t.tipo === 'Entrada' || t.tipo === 'A Receber';
+      const isDespesa = t.tipo === 'Saída' || t.tipo === 'A Pagar';
+      const val = isReceita ? t.valor : (isDespesa ? -t.valor : 0);
+      dateMap.set(t.data, (dateMap.get(t.data) || 0) + val);
+      if (t.status === 'Concluído') actualBalance += val;
+    });
+
+    const uniqueDates = Array.from(dateMap.keys()).sort();
+    const cashFlowPoints: { date: string; balance: number }[] = [];
+    let negativeAlert: { date: string; balance: number } | null = null;
+
+    // Backing (Lastro): Quanto ainda temos para receber de contratos ativos
+    const entriesPotenciaisTotal = entradasPrevistas; 
+
+    uniqueDates.forEach(d => {
+      runningTotal += dateMap.get(d)!;
+      const [y, m, day] = d.split('-');
+      cashFlowPoints.push({ date: `${day}/${m}`, balance: runningTotal });
+      
+      // ALERTA INTELIGENTE: Só avisa se o saldo + lastro de contratos for negativo
+      if (runningTotal + entriesPotenciaisTotal < 0 && d >= today && !negativeAlert) {
+         negativeAlert = { date: `${day}/${m}/${y}`, balance: runningTotal };
+      }
+    });
+
+    // 4. ESTATÍSTICAS MENSAIS — filtro rigoroso por data ou previsão
+    const monthTxs = (transactions || []).filter(t => {
+      const dateToUse = (t.status === 'Pendente' && t.previsaoData) ? t.previsaoData : t.data;
+      const d = new Date(dateToUse + 'T12:00:00');
+      return d.getMonth() === month && d.getFullYear() === year;
+    });
+
+    const processRecebidoMap = new Map<string, number>();
+    const clientRecebidoMap = new Map<string, number>();
+    (transactions || []).forEach(t => {
+      if ((t.tipo === 'Entrada' || t.tipo === 'A Receber') && (t.status === 'Concluído' || t.status === 'Parcial')) {
+        const val = t.status === 'Concluído' ? t.valor : 0.0001;
+        if (t.processId) processRecebidoMap.set(t.processId, (processRecebidoMap.get(t.processId) || 0) + val);
+        if (t.clienteId) clientRecebidoMap.set(t.clienteId, (clientRecebidoMap.get(t.clienteId) || 0) + val);
+      }
+    });
+
+    const archivedProcessIds = new Set(processes.filter(p => p.isArchived).map(p => p.id));
+    const archivedClientIds = new Set(processes.filter(p => p.isArchived).map(p => p.clienteId));
+
+    const entradas = monthTxs.filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído').reduce((s, t) => s + t.valor, 0);
+    
+    const shouldShowCostInDashboard = (t: Transaction) => {
+      if (!t.processId && !t.clienteId) return true;
+      if (t.processId) return (processRecebidoMap.get(t.processId) || 0) > 0 || archivedProcessIds.has(t.processId);
+      if (t.clienteId) return (clientRecebidoMap.get(t.clienteId) || 0) > 0 || archivedClientIds.has(t.clienteId);
+      return true;
+    };
+
+    const saidas = monthTxs.filter(t => 
+      (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status === 'Concluído' && shouldShowCostInDashboard(t)
+    ).reduce((s, t) => s + t.valor, 0);
+
     const totalPrevistoNoMes = monthTxs
       .filter(t => t.tipo === 'Entrada' || t.tipo === 'A Receber')
       .reduce((s, t) => s + t.valor, 0);
 
     const percentRecebido = totalPrevistoNoMes > 0 ? (entradas / totalPrevistoNoMes) * 100 : 0;
     const aReceber = Math.max(0, totalPrevistoNoMes - entradas);
-
-    // Lucro Líquido Realizado (Mês)
     const lucroLiquidoMensal = entradas - saidas;
 
     const stats = { 
@@ -212,6 +179,7 @@ export function Dashboard({ transactions, month, year }: Props) {
       custosFuturos: saidasPrevistas,
       auditList
     };
+
     const saldoAtual = actualBalance;
     const saldoProjetadoFuturo = runningTotal;
 
@@ -606,19 +574,6 @@ export function Dashboard({ transactions, month, year }: Props) {
         </CardContent>
       </Card>
 
-      {/* Provisão de Custos Futuros */}
-      <div className="flex justify-center pt-2 pb-6">
-        <div className="py-2.5 px-6 rounded-2xl bg-muted/30 border border-border/40 flex items-center gap-4 text-muted-foreground/60 transition-all hover:bg-muted/50 group">
-          <div className="flex items-center gap-2">
-            <Clock3 className="w-3.5 h-3.5 group-hover:text-primary transition-colors" />
-            <span className="text-[10px] font-black uppercase tracking-widest leading-none">Provisão de Custos Futuros</span>
-          </div>
-          <div className="w-px h-3 bg-border/40" />
-          <span className="text-sm font-black tabular-nums group-hover:text-foreground transition-colors group-hover:underline decoration-primary decoration-2 underline-offset-4">
-            R$ {stats.custosFuturos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </span>
-        </div>
-      </div>
     </div>
   );
 }

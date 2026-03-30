@@ -13,6 +13,7 @@ export interface Transaction {
   parentId?: string; // Links repasse to parent transaction
   clienteId?: string | null; // Vinculo com o cliente
   processId?: string; // Vinculo com o processo específico (Suporte a múltiplos processos p/ mesmo cliente)
+  previsaoData?: string; // Data esperada p/ o evento (YYYY-MM-DD)
   updatedAt?: number; // Flag visual de edição
   originalTotal?: number; // Memória do valor total do repasse original
 }

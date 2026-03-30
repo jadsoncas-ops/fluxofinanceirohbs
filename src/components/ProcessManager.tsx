@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import {
   Plus, FolderClosed, AlertCircle, ClipboardList, TrendingUp, TrendingDown, DollarSign,
   History, Clock3, FileText, Archive, Play, Trash2, Info, Check,
-  Search, CalendarDays, UserPlus, X, ChevronUp, Pencil
+  Search, CalendarDays, UserPlus, X, ChevronUp, Pencil, CalendarPlus
 } from 'lucide-react';
 import { ClientForm } from './ClientForm';
 import { PartialPaymentModal } from './PartialPaymentModal';
@@ -983,6 +983,24 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                                         <button
                                           onClick={() => {
                                             const tx = allTransactions.find(t => t.id === item.id);
+                                            if (tx) {
+                                              const dateToMove = tx.previsaoData || tx.data;
+                                              const d = new Date(dateToMove + 'T12:00:00');
+                                              d.setMonth(d.getMonth() + 1);
+                                              const nextDate = d.toISOString().slice(0, 10);
+                                              updateTransaction({ ...tx, previsaoData: nextDate, updatedAt: Date.now() });
+                                              onRefresh();
+                                              toast.success('Lançamento postergado para o próximo mês!');
+                                            }
+                                          }}
+                                          title="Postegar para o próximo mês"
+                                          className="p-1 rounded text-primary hover:bg-primary hover:text-white transition-colors"
+                                        >
+                                          <CalendarPlus className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            const tx = allTransactions.find(t => t.id === item.id);
                                             if (tx) setCompleteItem(tx);
                                           }}
                                           title="Baixa Parcial"
@@ -1044,6 +1062,15 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                                         onChange={e => setEditingTransactionData(d => ({ ...d, data: e.target.value }))}
                                         className="h-8 text-[10px] bg-background/60 border-border/50 rounded-lg p-1"
                                       />
+                                      <div className="col-span-2 space-y-1">
+                                        <Label className="text-[8px] font-black uppercase text-muted-foreground pl-1">Previsão Real (Mês/Ano)</Label>
+                                        <Input
+                                          type="date"
+                                          value={editingTransactionData.previsaoData || ''}
+                                          onChange={e => setEditingTransactionData(d => ({ ...d, previsaoData: e.target.value }))}
+                                          className="h-8 text-[10px] bg-background/60 border-stone-500/20 rounded-lg p-1"
+                                        />
+                                      </div>
                                     </div>
                                     <div className="flex gap-1.5">
                                       <Button size="sm" onClick={handleSaveTransactionEdit}
