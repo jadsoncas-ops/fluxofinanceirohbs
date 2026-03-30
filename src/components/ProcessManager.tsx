@@ -104,9 +104,10 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     if (!activeProcess) return;
     updateProcess({ ...activeProcess, updatedAt: Date.now() });
     setHasUnsavedChanges(false);
+    onRefresh(); // atualiza a tela principal imediatamente
     toast.success('Alterações salvas!');
-    onRefresh();
-    setActiveProcessClienteId(null); // fecha o drawer automaticamente
+    // Fecha a gaveta após 1 segundo para o usuário ver o feedback
+    setTimeout(() => setActiveProcessClienteId(null), 1000);
   }, [activeProcess, onRefresh]);
 
   // Add technical note
@@ -238,7 +239,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
         .reduce((s, t) => s + t.valor, 0);
       const valorContrato = proc?.valorContrato || 0;
       const saldo = Math.max(0, valorContrato - recebido);
-      const liquidoReal = recebido - repassesPagos;
+      const liquidoReal = recebido === 0 ? 0 : recebido - repassesPagos;
       const lastNotes = (proc?.notas || [])
         .sort((a, b) => b.data - a.data).slice(0, 3).map(n => n.texto);
 
@@ -643,7 +644,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                   <div className="bg-muted/30 p-3 rounded-xl border border-border/50 flex flex-col justify-center">
                     <div className="flex items-center gap-1.5 mb-1 text-muted-foreground">
                       <DollarSign className="w-3 h-3" />
-                      <span className="text-[9px] font-black uppercase tracking-widest">A Receber</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest">Crédito Futuro</span>
                     </div>
                     <p className={`text-sm font-black tabular-nums ${clientFinances.saldo === 0 && clientFinances.contrato > 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
                       R$ {clientFinances.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
