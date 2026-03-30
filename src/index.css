@@ -88,7 +88,15 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
   }
+}
+
+/* Esconder badges automáticas de plataformas externas */
+#lovable-badge, .lovable-badge, [id*="lovable"] {
+  display: none !important;
 }
 
 @layer utilities {

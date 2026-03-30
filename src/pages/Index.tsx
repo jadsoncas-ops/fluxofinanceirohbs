@@ -75,7 +75,7 @@ export default function Index() {
   ];
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Header */}
       <header className="border-b border-border/40 bg-background/80 backdrop-blur-md sticky top-0 z-30 transition-colors duration-300">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
@@ -134,7 +134,7 @@ export default function Index() {
       )}
 
       {/* Content */}
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 pb-20">
+      <main className="flex-1 max-w-2xl mx-auto w-full px-4 pb-20 overflow-y-auto mt-2">
         {tab === 'dashboard' && (
           <Dashboard 
             transactions={allTransactions} 
