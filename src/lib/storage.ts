@@ -228,6 +228,10 @@ export function getProcessByClient(clienteId: string): Process | null {
   return all.find(p => p.clienteId === clienteId) || null;
 }
 
+export function getProcesses(): Process[] {
+  return loadAllProcesses();
+}
+
 export function updateProcess(proc: Process): void {
   const all = loadAllProcesses();
   const idx = all.findIndex(p => p.id === proc.id || p.clienteId === proc.clienteId);
@@ -241,18 +245,27 @@ export function updateProcess(proc: Process): void {
 
 export function deleteProcessAndData(clienteId: string): void {
   // 1. Apagar transações vinculadas
-  const rawTxs = localStorage.getItem(STORAGE_KEY);
-  if (rawTxs) {
-    const txs: Transaction[] = JSON.parse(rawTxs);
-    const filteredTxs = txs.filter(t => t.clienteId !== clienteId);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filteredTxs));
-  }
+  const txs = loadAll();
+  const filteredTxs = txs.filter(t => t.clienteId !== clienteId);
+  saveAll(filteredTxs);
 
   // 2. Apagar notas do processo e processo em si
-  const rawProcs = localStorage.getItem(STORAGE_KEY_PROCESSES);
-  if (rawProcs) {
-    const procs: Process[] = JSON.parse(rawProcs);
-    const filteredProcs = procs.filter(p => p.clienteId !== clienteId);
-    localStorage.setItem(STORAGE_KEY_PROCESSES, JSON.stringify(filteredProcs));
-  }
+  const procs = loadAllProcesses();
+  const filteredProcs = procs.filter(p => p.clienteId !== clienteId);
+  saveAllProcesses(filteredProcs);
+}
+
+export function deleteProcess(processId: string): void {
+  const all = loadAllProcesses();
+  const proc = all.find(p => p.id === processId);
+  if (!proc) return;
+
+  // Delete all transactions linked to this client
+  const txs = loadAll();
+  const filtered = txs.filter(t => t.clienteId !== proc.clienteId);
+  saveAll(filtered);
+
+  // Delete the process itself
+  const remaining = all.filter(p => p.id !== processId);
+  saveAllProcesses(remaining);
 }

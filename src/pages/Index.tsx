@@ -2,17 +2,16 @@ import { useState, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dashboard } from '@/components/Dashboard';
-import { TransactionHistory } from '@/components/TransactionHistory';
 import { TransactionForm } from '@/components/TransactionForm';
 import { PartialPaymentModal } from '@/components/PartialPaymentModal';
 import { Settings } from '@/components/Settings';
 import { ClientsList } from '@/components/ClientsList';
 import { ClientMigrationModal } from '@/components/ClientMigrationModal';
-import { ClientForm } from '@/components/ClientForm';
+import { ProcessManager } from '@/components/ProcessManager';
 import { getTransactions } from '@/lib/storage';
 import { generateMonthlyReport } from '@/lib/pdf';
-import { Transaction } from '@/lib/types';
-import { LayoutDashboard, Briefcase, Settings as SettingsIcon, Plus, FileDown, Building, Users, UserPlus } from 'lucide-react';
+import { Transaction, TransactionType } from '@/lib/types';
+import { LayoutDashboard, Briefcase, Settings as SettingsIcon, FileDown, Building, Users } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import hbsLogo from '@/assets/hbs-logo.png';
 
@@ -31,12 +30,13 @@ export default function Index() {
   const [parentItem, setParentItem] = useState<Transaction | null>(null);
   const [completeItem, setCompleteItem] = useState<Transaction | null>(null);
   const [migrationOpen, setMigrationOpen] = useState(false);
-  const [clientFormOpen, setClientFormOpen] = useState(false);
+  const [prefilledClienteId, setPrefilledClienteId] = useState<string | undefined>(undefined);
+  const [prefilledTipo, setPrefilledTipo] = useState<TransactionType | undefined>(undefined);
 
   const refresh = useCallback(() => setTxKey(k => k + 1), []);
 
   const allTransactions = useMemo(() => {
-    void txKey; // dependency trigger
+    void txKey;
     return getTransactions();
   }, [txKey]);
 
@@ -60,17 +60,21 @@ export default function Index() {
   function handleEdit(tx: Transaction) {
     setEditItem(tx);
     setParentItem(null);
-    setFormOpen(true);
-  }
-
-  function handleAddRepasse(tx: Transaction) {
-    setParentItem(tx);
-    setEditItem(null);
+    setPrefilledClienteId(undefined);
+    setPrefilledTipo(undefined);
     setFormOpen(true);
   }
 
   function handleExportPdf() {
     generateMonthlyReport(monthTransactions, month, year);
+  }
+
+  function handleOpenTransactionForm(opts: { clienteId?: string; tipo?: TransactionType; parentItem?: Transaction | null }) {
+    setEditItem(null);
+    setParentItem(opts.parentItem || null);
+    setPrefilledClienteId(opts.clienteId);
+    setPrefilledTipo(opts.tipo);
+    setFormOpen(true);
   }
 
   const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
@@ -107,53 +111,45 @@ export default function Index() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="max-w-2xl mx-auto w-full px-4 py-3 flex items-center gap-2">
-        <Select value={String(month)} onValueChange={v => setMonth(Number(v))}>
-          <SelectTrigger className="h-8 text-xs w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {MONTHS.map((m, i) => (
-              <SelectItem key={i} value={String(i)}>{m}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
-          <SelectTrigger className="h-8 text-xs w-20">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {years.map((y: number) => (
-              <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="flex-1" />
-        <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 hidden sm:flex" onClick={handleExportPdf}>
-          <FileDown className="w-3.5 h-3.5" />
-          <span>PDF</span>
-        </Button>
-        <Button variant="outline" size="sm" className="h-8 text-[11px] sm:text-xs gap-1 sm:gap-1.5 border-border shadow-sm text-foreground/80 hover:text-foreground hidden sm:flex" onClick={() => setTab('clients')}>
-          <Users className="w-3.5 h-3.5" />
-          <span>Gestão CRM</span>
-        </Button>
-        <Button variant="secondary" size="sm" className="h-8 text-[11px] sm:text-xs gap-1 sm:gap-1.5 bg-muted/50 hover:bg-muted font-bold text-muted-foreground hover:text-foreground shrink-0" onClick={() => setClientFormOpen(true)}>
-          <UserPlus className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Novo Processo</span>
-        </Button>
-      </div>
+      {/* Filters - only show for Dashboard */}
+      {tab === 'dashboard' && (
+        <div className="max-w-2xl mx-auto w-full px-4 py-3 flex items-center gap-2">
+          <Select value={String(month)} onValueChange={v => setMonth(Number(v))}>
+            <SelectTrigger className="h-8 text-xs w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MONTHS.map((m, i) => (
+                <SelectItem key={i} value={String(i)}>{m}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
+            <SelectTrigger className="h-8 text-xs w-20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {years.map((y: number) => (
+                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex-1" />
+          <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 hidden sm:flex" onClick={handleExportPdf}>
+            <FileDown className="w-3.5 h-3.5" />
+            <span>PDF</span>
+          </Button>
+        </div>
+      )}
 
       {/* Content */}
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 pb-20">
         {tab === 'dashboard' && <Dashboard transactions={monthTransactions} month={month} year={year} />}
         {tab === 'processos' && (
-          <TransactionHistory
-            transactions={monthTransactions}
-            onEdit={handleEdit}
-            onComplete={tx => setCompleteItem(tx)}
-            onDelete={refresh}
-            onAddRepasse={handleAddRepasse}
+          <ProcessManager
+            allTransactions={allTransactions}
+            onRefresh={refresh}
+            onOpenTransactionForm={handleOpenTransactionForm}
           />
         )}
         {tab === 'clients' && <ClientsList />}
@@ -183,10 +179,12 @@ export default function Index() {
       {/* Modals */}
       <TransactionForm
         open={formOpen}
-        onClose={() => { setFormOpen(false); setEditItem(null); setParentItem(null); }}
+        onClose={() => { setFormOpen(false); setEditItem(null); setParentItem(null); setPrefilledClienteId(undefined); setPrefilledTipo(undefined); }}
         onSave={refresh}
         editItem={editItem}
         parentItem={parentItem}
+        prefilledClienteId={prefilledClienteId}
+        prefilledTipo={prefilledTipo}
       />
       <PartialPaymentModal
         open={!!completeItem}
@@ -203,13 +201,6 @@ export default function Index() {
            onComplete={refresh} 
          />
       )}
-      <ClientForm
-         open={clientFormOpen}
-         onClose={() => setClientFormOpen(false)}
-         onSave={(newC) => { 
-           // If they create it here, it will just show up in the history/CRM. No transaction mapping needed.
-         }}
-      />
     </div>
   );
 }
