@@ -28,9 +28,11 @@ interface Props {
   onSave: () => void;
   editItem?: Transaction | null;
   parentItem?: Transaction | null;
+  prefilledClienteId?: string;
+  prefilledTipo?: TransactionType;
 }
 
-export function TransactionForm({ open, onClose, onSave, editItem, parentItem }: Props) {
+export function TransactionForm({ open, onClose, onSave, editItem, parentItem, prefilledClienteId, prefilledTipo }: Props) {
   const [tipo, setTipo] = useState<TransactionType>('Entrada');
   const [categoria, setCategoria] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -89,7 +91,7 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
       setRepasses([emptyRepasse()]);
       setClienteId(null);
     } else {
-      setTipo('Entrada');
+      setTipo(prefilledTipo || 'Entrada');
       setCategoria('');
       setDescricao('');
       setValorTotal('');
@@ -98,9 +100,9 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem }:
       setDataRestante('');
       setHasRepasse(false);
       setRepasses([emptyRepasse()]);
-      setClienteId(null);
+      setClienteId(prefilledClienteId || null);
     }
-  }, [editItem, parentItem, open]);
+  }, [editItem, parentItem, open, prefilledClienteId, prefilledTipo]);
 
   function handleValorTotalChange(val: string) {
     const wasSync = valorTotal === valorRecebido || valorRecebido === '';
