@@ -106,6 +106,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     setHasUnsavedChanges(false);
     toast.success('Alterações salvas!');
     onRefresh();
+    setActiveProcessClienteId(null); // fecha o drawer automaticamente
   }, [activeProcess, onRefresh]);
 
   // Add technical note
@@ -140,18 +141,19 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     if (!activeProcess || !quickForm.valor || !quickForm.descricao.trim() || !quickForm.data) return;
     const valor = parseFloat(quickForm.valor);
     if (isNaN(valor) || valor <= 0) { toast.error('Insira um valor válido.'); return; }
+    // Receitas entram como Concluído; Despesas ficam como Pendente (não abate o Dashboard até confirmação)
     addTransaction({
       id: crypto.randomUUID(),
-      tipo: inlineForm === 'receita' ? 'Entrada' : 'Saída',
+      tipo: inlineForm === 'receita' ? 'Entrada' : 'A Pagar',
       descricao: quickForm.descricao.trim(),
       valor,
       data: quickForm.data,
-      status: 'Concluído',
+      status: inlineForm === 'receita' ? 'Concluído' : 'Pendente',
       categoria: inlineForm === 'receita' ? '🏢 Regularização Total' : '🔄 Outros',
       clienteId: activeProcess.clienteId,
       isRepasse: inlineForm === 'despesa',
     });
-    toast.success(`${inlineForm === 'receita' ? 'Receita' : 'Despesa'} lançada com sucesso!`);
+    toast.success(inlineForm === 'receita' ? 'Receita confirmada no caixa!' : 'Despesa registrada como prevista (não abate o Dashboard até ser marcada como Paga).');
     setInlineForm(null);
     setQuickForm({ descricao: '', valor: '', data: today });
     onRefresh();
@@ -207,12 +209,15 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     processes.forEach(p => clientIds.add(p.clienteId));
     allTransactions.forEach(t => { if (t.clienteId) clientIds.add(t.clienteId); });
 
+    type FinancialStatus = 'PAGO' | 'PARCIAL' | 'PENDENTE';
     const cards: {
       id: string; clienteId: string; name: string;
       status: ProcessStatus | 'A definir'; protocolo?: string;
       dataProtocolo?: string; isArchived: boolean;
-      recebido: number; saldo: number; repasses: number;
-      liquido: number; valorContrato: number;
+      recebido: number; saldo: number;
+      repassesPagos: number; gastoPrevisto: number;
+      liquidoReal: number; valorContrato: number;
+      financialStatus: FinancialStatus;
       lastNotes: string[];
     }[] = [];
 
@@ -223,16 +228,23 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
       const recebido = clientTxs
         .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
         .reduce((s, t) => s + t.valor, 0);
-      const repasses = clientTxs
-        .filter(t => t.tipo === 'Saída' || t.tipo === 'A Pagar' || t.isRepasse)
+      // Gastos confirmados (abatidos do caixa)
+      const repassesPagos = clientTxs
+        .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status === 'Concluído')
+        .reduce((s, t) => s + t.valor, 0);
+      // Gastos pendentes (previstos)
+      const gastoPrevisto = clientTxs
+        .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
         .reduce((s, t) => s + t.valor, 0);
       const valorContrato = proc?.valorContrato || 0;
       const saldo = Math.max(0, valorContrato - recebido);
-      const liquido = recebido - repasses;
+      const liquidoReal = recebido - repassesPagos;
       const lastNotes = (proc?.notas || [])
-        .sort((a, b) => b.data - a.data)
-        .slice(0, 3)
-        .map(n => n.texto);
+        .sort((a, b) => b.data - a.data).slice(0, 3).map(n => n.texto);
+
+      const financialStatus: FinancialStatus =
+        recebido === 0 ? 'PENDENTE' :
+        valorContrato > 0 && saldo === 0 ? 'PAGO' : 'PARCIAL';
 
       cards.push({
         id: proc?.id || cId, clienteId: cId,
@@ -240,7 +252,8 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
         status: proc?.status || 'A definir',
         protocolo: proc?.protocolo, dataProtocolo: proc?.dataProtocolo,
         isArchived: proc?.isArchived || false,
-        recebido, saldo, repasses, liquido, valorContrato, lastNotes,
+        recebido, saldo, repassesPagos, gastoPrevisto,
+        liquidoReal, valorContrato, financialStatus, lastNotes,
       });
     });
     return cards;
@@ -261,19 +274,22 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     }
   }, [processCards, viewFilter, searchTerm]);
 
-  // Finances for drawer
+  // Finances for drawer — separates confirmed vs pending expenses
   const clientFinances = useMemo(() => {
-    if (!activeProcessClienteId) return { contrato: 0, recebido: 0, saldo: 0, repasses: 0 };
+    if (!activeProcessClienteId) return { contrato: 0, recebido: 0, saldo: 0, repassesPagos: 0, gastoPrevisto: 0 };
     const clientTxs = allTransactions.filter(t => t.clienteId === activeProcessClienteId);
     const recebido = clientTxs
       .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
       .reduce((s, t) => s + t.valor, 0);
-    const repasses = clientTxs
-      .filter(t => t.tipo === 'Saída' || t.tipo === 'A Pagar' || t.isRepasse)
+    const repassesPagos = clientTxs
+      .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status === 'Concluído')
+      .reduce((s, t) => s + t.valor, 0);
+    const gastoPrevisto = clientTxs
+      .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
       .reduce((s, t) => s + t.valor, 0);
     const contrato = activeProcess?.valorContrato || 0;
     const saldo = Math.max(0, contrato - recebido);
-    return { contrato, recebido, saldo, repasses };
+    return { contrato, recebido, saldo, repassesPagos, gastoPrevisto };
   }, [allTransactions, activeProcessClienteId, activeProcess?.valorContrato]);
 
   // Combined timeline
@@ -294,7 +310,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     return combined.sort((a, b) => b.data - a.data);
   }, [activeProcess, allTransactions, activeProcessClienteId]);
 
-  const lucroLiquido = clientFinances.recebido - clientFinances.repasses;
+  const lucroLiquido = clientFinances.recebido - clientFinances.repassesPagos;
   const lucroPositivo = lucroLiquido >= 0;
 
   const filterTabs: { key: ProcessViewFilter; label: string; emoji: string }[] = [
@@ -405,36 +421,59 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                   </div>
 
                   {/* Financial summary + delete */}
-                  <div className="flex flex-col items-end gap-1 shrink-0 min-w-[80px]">
+                  <div className="flex flex-col items-end gap-1 shrink-0 min-w-[86px]">
                     <div className="text-right space-y-0.5" onClick={() => setActiveProcessClienteId(card.clienteId)}>
+
+                      {/* Financial Status Badge */}
+                      <div className="flex justify-end mb-1">
+                        {card.financialStatus === 'PAGO' && (
+                          <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-emerald-500/15 text-emerald-600 rounded-full border border-emerald-500/25">✓ PAGO</span>
+                        )}
+                        {card.financialStatus === 'PARCIAL' && (
+                          <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-amber-500/15 text-amber-600 rounded-full border border-amber-500/25">PARCIAL</span>
+                        )}
+                        {card.financialStatus === 'PENDENTE' && (
+                          <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-muted text-muted-foreground rounded-full border border-border/40">PENDENTE</span>
+                        )}
+                      </div>
+
                       {/* Recebido */}
-                      <div className="flex items-center gap-1 justify-end">
-                        <TrendingUp className="w-3 h-3 text-emerald-500 shrink-0" />
-                        <span className="text-xs font-black text-emerald-500 tabular-nums">
+                      <div className="flex items-center gap-1 justify-end" title={card.recebido === 0 ? 'Este valor é uma projeção e não afeta o Dashboard atual' : undefined}>
+                        {card.recebido === 0
+                          ? <Clock3 className="w-3 h-3 text-muted-foreground/50 shrink-0" />
+                          : <TrendingUp className="w-3 h-3 text-emerald-500 shrink-0" />}
+                        <span className={`text-xs font-black tabular-nums ${card.recebido === 0 ? 'text-muted-foreground/50' : 'text-emerald-500'}`}>
                           R$ {card.recebido.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
                         </span>
                       </div>
-                      {/* Repasses (só se > 0) */}
-                      {card.repasses > 0 && (
+
+                      {/* Gastos confirmados */}
+                      {card.repassesPagos > 0 && (
                         <div className="flex items-center gap-1 justify-end">
                           <TrendingDown className="w-3 h-3 text-rose-500 shrink-0" />
                           <span className="text-[10px] font-bold text-rose-500 tabular-nums">
-                            R$ {card.repasses.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                            R$ {card.repassesPagos.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
                           </span>
                         </div>
                       )}
-                      {/* Líquido */}
-                      {(card.recebido > 0 || card.repasses > 0) && (
-                        <div className={`flex items-center gap-1 justify-end border-t border-border/30 pt-0.5 ${card.liquido >= 0 ? 'text-primary' : 'text-destructive'}`}>
+
+                      {/* Gasto Previsto */}
+                      {card.gastoPrevisto > 0 && (
+                        <div className="flex items-center gap-1 justify-end" title="Este valor é uma projeção e não afeta o Dashboard atual">
+                          <span className="text-[9px] text-muted-foreground/60 font-medium italic">
+                            Prev: R$ {card.gastoPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Líquido Real */}
+                      {(card.recebido > 0 || card.repassesPagos > 0) && (
+                        <div className={`flex items-center gap-1 justify-end border-t border-border/30 pt-0.5 ${card.liquidoReal >= 0 ? 'text-primary' : 'text-destructive'}`}>
                           <span className="text-[9px] font-black uppercase tracking-wider">Líq.</span>
                           <span className="text-[11px] font-black tabular-nums">
-                            R$ {card.liquido.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                            R$ {card.liquidoReal.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
                           </span>
                         </div>
-                      )}
-                      {/* PAGO badge */}
-                      {card.valorContrato > 0 && card.saldo === 0 && (
-                        <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 rounded-full border border-emerald-500/20 inline-block mt-0.5">PAGO</span>
                       )}
                     </div>
                     <button
@@ -601,14 +640,17 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                     <span className="text-[8px] text-emerald-600/50 italic mt-0.5">soma automática de receitas</span>
                   </div>
 
-                  <div className={`p-3 rounded-xl border flex flex-col justify-center ${clientFinances.saldo === 0 && clientFinances.contrato > 0 ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
-                    <div className={`flex items-center gap-1.5 mb-1 ${clientFinances.saldo === 0 && clientFinances.contrato > 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  <div className="bg-muted/30 p-3 rounded-xl border border-border/50 flex flex-col justify-center">
+                    <div className="flex items-center gap-1.5 mb-1 text-muted-foreground">
                       <DollarSign className="w-3 h-3" />
-                      <span className="text-[9px] font-black uppercase tracking-widest">Saldo</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest">A Receber</span>
                     </div>
                     <p className={`text-sm font-black tabular-nums ${clientFinances.saldo === 0 && clientFinances.contrato > 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
                       R$ {clientFinances.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
+                    {clientFinances.saldo > 0 && (
+                      <span className="text-[8px] font-bold text-amber-600 mt-0.5">⚠️ Aguardando Recebimento</span>
+                    )}
                     {clientFinances.saldo === 0 && clientFinances.contrato > 0 && (
                       <span className="text-[8px] font-black text-emerald-600 mt-0.5">✓ Contrato quitado</span>
                     )}
@@ -617,11 +659,17 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                   <div className="bg-destructive/5 p-3 rounded-xl border border-destructive/20 flex flex-col justify-center">
                     <div className="flex items-center gap-1.5 mb-1 text-destructive">
                       <TrendingDown className="w-3 h-3" />
-                      <span className="text-[9px] font-black uppercase tracking-widest">Custos</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest">Custos Pagos</span>
                     </div>
                     <p className="text-sm font-black text-destructive tabular-nums">
-                      R$ {clientFinances.repasses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R$ {clientFinances.repassesPagos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
+                    {clientFinances.gastoPrevisto > 0 && (
+                      <span className="text-[8px] text-muted-foreground/70 font-medium italic mt-0.5"
+                        title="Este valor é uma projeção e não afeta o Dashboard atual">
+                        + R$ {clientFinances.gastoPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} previsto
+                      </span>
+                    )}
                   </div>
                 </div>
 
