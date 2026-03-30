@@ -498,7 +498,6 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                   {/* Financial summary + delete */}
                   <div className="flex flex-col items-end gap-1 shrink-0 min-w-[86px]">
                     <div className="text-right space-y-0.5" onClick={() => setActiveProcessId(card.id)}>
-
                       {/* Financial Status Badge */}
                       <div className="flex justify-end mb-1">
                         {card.financialStatus === 'PAGO' && (
@@ -512,44 +511,55 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                         )}
                       </div>
 
-                      {/* Recebido */}
-                      <div className="flex items-center gap-1 justify-end" title={card.recebido === 0 ? 'Este valor é uma projeção e não afeta o Dashboard atual' : undefined}>
-                        {card.recebido === 0
-                          ? <Clock3 className="w-3 h-3 text-muted-foreground/50 shrink-0" />
-                          : <TrendingUp className="w-3 h-3 text-emerald-500 shrink-0" />}
-                        <span className={`text-xs font-black tabular-nums ${card.recebido === 0 ? 'text-muted-foreground/50' : 'text-emerald-500'}`}>
-                          R$ {card.recebido.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
-                        </span>
+                      {/* Realized Layer (Vivid) */}
+                      {(card.recebido > 0 || card.repassesPagos > 0) && (
+                        <div className="space-y-0.5 mb-1.5">
+                          {card.recebido > 0 && (
+                            <div className="flex items-center gap-1 justify-end">
+                              <TrendingUp className="w-2.5 h-2.5 text-emerald-500 shrink-0" />
+                              <span className="text-[10px] font-black text-emerald-500 tabular-nums">
+                                R$ {card.recebido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                          )}
+                          {card.repassesPagos > 0 && (
+                            <div className="flex items-center gap-1 justify-end">
+                              <TrendingDown className="w-2.5 h-2.5 text-rose-500 shrink-0" />
+                              <span className="text-[10px] font-bold text-rose-500 tabular-nums">
+                                R$ {card.repassesPagos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Projections Layer (Muted) */}
+                      <div className="flex flex-col gap-0.5 pt-1.5 border-t border-border/20">
+                        <div className="flex items-center gap-1 justify-end opacity-60">
+                          <Clock3 className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                          <span className="text-[9px] font-bold text-slate-500 tabular-nums">
+                             Prev: R$ {(card.saldo + card.recebidosPendentes).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        {card.gastoPrevisto > 0 && (
+                          <div className="flex items-center gap-1 justify-end opacity-50">
+                            <TrendingDown className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                            <span className="text-[9px] font-bold text-slate-500 tabular-nums">
+                               Prev: R$ {card.gastoPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Gastos confirmados */}
-                      {card.repassesPagos > 0 && (
-                        <div className="flex items-center gap-1 justify-end">
-                          <TrendingDown className="w-3 h-3 text-rose-500 shrink-0" />
-                          <span className="text-[10px] font-bold text-rose-500 tabular-nums">
-                            R$ {card.repassesPagos.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Gasto Previsto */}
-                      {card.gastoPrevisto > 0 && (
-                        <div className="flex items-center gap-1 justify-end" title="Este valor é uma projeção e não afeta o Dashboard atual">
-                          <span className="text-[9px] text-muted-foreground/60 font-medium italic">
-                            Prev: R$ {card.gastoPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Líquido Real */}
-                      {(card.recebido > 0 || card.repassesPagos > 0) && (
-                        <div className={`flex items-center gap-1 justify-end border-t border-border/30 pt-0.5 ${card.liquidoReal >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                          <span className="text-[9px] font-black uppercase tracking-wider">Líq.</span>
-                          <span className="text-[11px] font-black tabular-nums">
-                            R$ {card.liquidoReal.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
-                          </span>
-                        </div>
-                      )}
+                      {/* Liquid Summary */}
+                      <div className="flex flex-col text-right mt-1.5">
+                        {card.liquidoReal !== 0 && (
+                          <span className="text-[10px] font-black leading-none text-emerald-600">LÍQ. R$ {card.liquidoReal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        )}
+                        <span className="text-[8px] font-bold text-primary/40 mt-0.5" title="Expectativa total de lucro ao finalizar o processo">
+                          LÍQ. PREVISTO: R$ {card.lucroFuturo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
                     </div>
                     <button
                       onClick={e => { e.stopPropagation(); setDeleteCardTarget({ processId: card.id, name: card.name }); }}
