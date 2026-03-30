@@ -155,6 +155,7 @@ export function PartialPaymentModal({ open, onClose, onSave, transaction }: Prop
           status: 'Parcial',
           isRepasse: transaction!.isRepasse,
           parentId: transaction!.parentId,
+          processId: transaction!.processId,
           originalTotal: transaction!.originalTotal || transaction!.valor,
         });
       }

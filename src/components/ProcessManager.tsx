@@ -39,7 +39,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
   const [searchTerm, setSearchTerm] = useState('');
 
   // Drawer state
-  const [activeProcessClienteId, setActiveProcessClienteId] = useState<string | null>(null);
+  const [activeProcessId, setActiveProcessId] = useState<string | null>(null);
   const [activeProcess, setActiveProcess] = useState<Process | null>(null);
   const [newNote, setNewNote] = useState('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -58,7 +58,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
 
   // Delete confirmations
   const [deleteProcessOpen, setDeleteProcessOpen] = useState(false);
-  const [deleteCardTarget, setDeleteCardTarget] = useState<{ clienteId: string; name: string } | null>(null);
+  const [deleteCardTarget, setDeleteCardTarget] = useState<{ processId: string; name: string } | null>(null);
   const [deleteTimelineTarget, setDeleteTimelineTarget] = useState<{ id: string; tipo: 'nota' | 'transacao'; label: string } | null>(null);
 
   // New process creation
@@ -69,25 +69,23 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     setClientes(getClients());
   }, [allTransactions]);
 
+  // Sync activeProcess when id changes
   useEffect(() => {
-    if (activeProcessClienteId) {
-      const proc = getProcessByClient(activeProcessClienteId);
-      setActiveProcess(proc ? { ...proc } : {
-        id: crypto.randomUUID(),
-        clienteId: activeProcessClienteId,
-        objeto: '',
-        status: 'Levantamento',
-        notas: [],
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
+    if (activeProcessId) {
+      const all = getProcesses();
+      const proc = all.find(p => p.id === activeProcessId);
+      if (proc) {
+        setActiveProcess({ ...proc });
+      } else {
+        setActiveProcess(null);
+      }
       setHasUnsavedChanges(false);
       setInlineForm(null);
       setQuickForm({ descricao: '', valor: '', data: today });
     } else {
       setActiveProcess(null);
     }
-  }, [activeProcessClienteId]);
+  }, [activeProcessId, today]);
 
   // Local update (buffered — needs Save button)
   const handleLocalUpdate = useCallback((updates: Partial<Process>) => {
@@ -108,10 +106,9 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     if (!activeProcess) return;
     updateProcess({ ...activeProcess, updatedAt: Date.now() });
     setHasUnsavedChanges(false);
-    onRefresh(); // atualiza a tela principal imediatamente
+    onRefresh(); 
     toast.success('Alterações salvas!');
-    // Fecha a gaveta após 1 segundo para o usuário ver o feedback
-    setTimeout(() => setActiveProcessClienteId(null), 1000);
+    setTimeout(() => setActiveProcessId(null), 1000);
   }, [activeProcess, onRefresh]);
 
   // Add technical note
@@ -147,18 +144,23 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     const valor = parseFloat(quickForm.valor);
     if (isNaN(valor) || valor <= 0) { toast.error('Insira um valor válido.'); return; }
     // Receitas entram como Concluído; Despesas ficam como Pendente (não abate o Dashboard até confirmação)
-    addTransaction({
+    
+    const tx: Transaction = {
       id: crypto.randomUUID(),
-      tipo: inlineForm === 'receita' ? 'Entrada' : 'A Pagar',
-      descricao: quickForm.descricao.trim(),
-      valor,
       data: quickForm.data,
-      status: inlineForm === 'receita' ? 'Concluído' : 'Pendente',
-      categoria: inlineForm === 'receita' ? '🏢 Regularização Total' : '🔄 Outros',
-      clienteId: activeProcess.clienteId,
+      tipo: inlineForm === 'receita' ? 'Entrada' : 'Saída',
+      categoria: inlineForm === 'receita' ? 'Recebimento' : 'Custo/Repasse',
+      descricao: quickForm.descricao,
+      valor,
+      status: 'Concluído',
       isRepasse: inlineForm === 'despesa',
-    });
-    toast.success(inlineForm === 'receita' ? 'Receita confirmada no caixa!' : 'Despesa registrada como prevista (não abate o Dashboard até ser marcada como Paga).');
+      clienteId: activeProcess.clienteId,
+      processId: activeProcess.id,
+      updatedAt: Date.now(),
+    };
+    
+    addTransaction(tx);
+    toast.success(inlineForm === 'receita' ? 'Receita confirmada no caixa!' : 'Despesa registrada.');
     setInlineForm(null);
     setQuickForm({ descricao: '', valor: '', data: today });
     onRefresh();
@@ -187,8 +189,6 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     setEditingTransactionData({});
     onRefresh();
     toast.success('Lançamento atualizado!');
-    // Fecha a gaveta após sucesso para agilidade
-    setTimeout(() => setActiveProcessClienteId(null), 800);
   }, [editingTransactionId, editingTransactionData, activeProcess, onRefresh]);
 
   // Confirm delete from timeline
@@ -215,16 +215,15 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     deleteProcess(activeProcess.id);
     toast.success('Processo excluído.');
     setDeleteProcessOpen(false);
-    setActiveProcessClienteId(null);
+    setActiveProcessId(null);
     onRefresh();
   }, [activeProcess, onRefresh]);
 
   // Delete from card
   const handleDeleteCardProcess = useCallback(() => {
     if (!deleteCardTarget) return;
-    const proc = getProcessByClient(deleteCardTarget.clienteId);
-    if (proc) deleteProcess(proc.id);
-    toast.success(`Processo de ${deleteCardTarget.name} excluído.`);
+    deleteProcess(deleteCardTarget.processId);
+    toast.success(`Processo excluído.`);
     setDeleteCardTarget(null);
     onRefresh();
   }, [deleteCardTarget, onRefresh]);
@@ -237,13 +236,10 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
   // Process cards
   const processCards = useMemo(() => {
     const processes = getProcesses();
-    const clientIds = new Set<string>();
-    processes.forEach(p => clientIds.add(p.clienteId));
-    allTransactions.forEach(t => { if (t.clienteId) clientIds.add(t.clienteId); });
-
     type FinancialStatus = 'PAGO' | 'PARCIAL' | 'PENDENTE';
     const cards: {
       id: string; clienteId: string; name: string;
+      objeto: string;
       status: ProcessStatus | 'A definir'; protocolo?: string;
       dataProtocolo?: string; isArchived: boolean;
       recebido: number; saldo: number;
@@ -253,41 +249,52 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
       lastNotes: string[];
     }[] = [];
 
-    clientIds.forEach(cId => {
-      const proc = processes.find(p => p.clienteId === cId);
-      const client = clientes.find(c => c.id === cId);
-      const clientTxs = allTransactions.filter(t => t.clienteId === cId);
+    processes.forEach(proc => {
+      const client = clientes.find(c => c.id === proc.clienteId);
+      const clientTxs = allTransactions.filter(t => t.processId === proc.id || (!t.processId && t.clienteId === proc.clienteId));
+      
       const recebido = clientTxs
         .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
         .reduce((s, t) => s + t.valor, 0);
-      // Gastos confirmados (abatidos do caixa)
+
       const repassesPagos = clientTxs
         .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status === 'Concluído')
         .reduce((s, t) => s + t.valor, 0);
-      // Gastos pendentes (previstos)
+
       const gastoPrevisto = clientTxs
         .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
         .reduce((s, t) => s + t.valor, 0);
-      const valorContrato = proc?.valorContrato || 0;
+      
+      const valorContrato = proc.valorContrato || 0;
       const saldo = Math.max(0, valorContrato - recebido);
       const liquidoReal = recebido === 0 ? 0 : recebido - repassesPagos;
-      const lastNotes = (proc?.notas || [])
+      const lastNotes = (proc.notas || [])
         .sort((a, b) => b.data - a.data).slice(0, 3).map(n => n.texto);
 
-      const financialStatus: FinancialStatus =
-        recebido === 0 ? 'PENDENTE' :
+      const financialStatus: FinancialStatus = 
+        recebido === 0 ? 'PENDENTE' : 
         valorContrato > 0 && saldo === 0 ? 'PAGO' : 'PARCIAL';
 
       cards.push({
-        id: proc?.id || cId, clienteId: cId,
+        id: proc.id, 
+        clienteId: proc.clienteId,
         name: client?.nome || 'Cliente desconhecido',
-        status: proc?.status || 'A definir',
-        protocolo: proc?.protocolo, dataProtocolo: proc?.dataProtocolo,
-        isArchived: proc?.isArchived || false,
-        recebido, saldo, repassesPagos, gastoPrevisto,
-        liquidoReal, valorContrato, financialStatus, lastNotes,
+        objeto: proc.objeto || 'Serviço sem objeto',
+        status: proc.status || 'Levantamento',
+        protocolo: proc.protocolo,
+        dataProtocolo: proc.dataProtocolo,
+        isArchived: proc.isArchived || false,
+        recebido, 
+        saldo, 
+        repassesPagos, 
+        gastoPrevisto,
+        liquidoReal, 
+        valorContrato, 
+        financialStatus, 
+        lastNotes,
       });
     });
+
     return cards;
   }, [allTransactions, clientes]);
 
@@ -297,7 +304,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
   const filteredCards = useMemo(() => {
     const term = searchTerm.toLowerCase();
     let cards = processCards;
-    if (term) cards = cards.filter(c => c.name.toLowerCase().includes(term) || (c.protocolo ?? '').toLowerCase().includes(term));
+    if (term) cards = cards.filter(c => c.name.toLowerCase().includes(term) || c.objeto.toLowerCase().includes(term) || (c.protocolo ?? '').toLowerCase().includes(term));
     switch (viewFilter) {
       case 'tramite': return cards.filter(c => !c.isArchived && c.status !== 'Finalizado');
       case 'concluidos': return cards.filter(c => !c.isArchived && c.status === 'Finalizado');
@@ -306,28 +313,32 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     }
   }, [processCards, viewFilter, searchTerm]);
 
-  // Finances for drawer — separates confirmed vs pending expenses
+  // Client Finances for current process
   const clientFinances = useMemo(() => {
-    if (!activeProcessClienteId) return { contrato: 0, recebido: 0, saldo: 0, repassesPagos: 0, gastoPrevisto: 0 };
-    const clientTxs = allTransactions.filter(t => t.clienteId === activeProcessClienteId);
+    if (!activeProcess) return { recebido: 0, saldo: 0, repassesPagos: 0, gastoPrevisto: 0 };
+    const clientTxs = allTransactions.filter(t => t.processId === activeProcess.id || (!t.processId && t.clienteId === activeProcess.clienteId));
+    
     const recebido = clientTxs
       .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
       .reduce((s, t) => s + t.valor, 0);
+
     const repassesPagos = clientTxs
       .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status === 'Concluído')
       .reduce((s, t) => s + t.valor, 0);
+
     const gastoPrevisto = clientTxs
       .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
       .reduce((s, t) => s + t.valor, 0);
-    const contrato = activeProcess?.valorContrato || 0;
-    const saldo = Math.max(0, contrato - recebido);
-    return { contrato, recebido, saldo, repassesPagos, gastoPrevisto };
-  }, [allTransactions, activeProcessClienteId, activeProcess?.valorContrato]);
+
+    const saldo = Math.max(0, (activeProcess.valorContrato || 0) - recebido);
+
+    return { recebido, saldo, repassesPagos, gastoPrevisto };
+  }, [activeProcess, allTransactions]);
 
   // Combined timeline
   const timelineEvents = useMemo(() => {
-    if (!activeProcess || !activeProcessClienteId) return [];
-    const clientTxs = allTransactions.filter(t => t.clienteId === activeProcessClienteId);
+    if (!activeProcess) return [];
+    const clientTxs = allTransactions.filter(t => t.processId === activeProcess.id || (!t.processId && t.clienteId === activeProcess.clienteId));
     const combined: any[] = activeProcess.notas.map(n => ({
       id: n.id, data: n.data, texto: n.texto, tipo: 'nota' as const,
     }));
@@ -340,7 +351,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
       dataFormatada: new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR'),
     }));
     return combined.sort((a, b) => b.data - a.data);
-  }, [activeProcess, allTransactions, activeProcessClienteId]);
+  }, [activeProcess, allTransactions]);
 
   const lucrosRealizados = clientFinances.recebido - clientFinances.repassesPagos;
   const lucroPositivo = lucrosRealizados >= 0;
@@ -425,8 +436,11 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                   </div>
 
                   {/* Info (clickable) */}
-                  <div className="flex-1 min-w-0" onClick={() => setActiveProcessClienteId(card.clienteId)}>
-                    <h4 className="font-black text-sm text-foreground tracking-tight truncate">{card.name}</h4>
+                  <div className="flex-1 min-w-0" onClick={() => setActiveProcessId(card.id)}>
+                    <div className="flex items-baseline gap-2">
+                      <h4 className="font-black text-sm text-foreground tracking-tight truncate">{card.name}</h4>
+                      <span className="text-[10px] text-primary/60 font-medium truncate">• {card.objeto}</span>
+                    </div>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <Badge variant="outline" className={`text-[9px] h-4 px-1.5 py-0 border-current bg-transparent uppercase font-black tracking-wider ${
                         card.status === 'Exigência' ? 'text-destructive' : card.status === 'Finalizado' ? 'text-success' : 'text-primary'
@@ -454,7 +468,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
 
                   {/* Financial summary + delete */}
                   <div className="flex flex-col items-end gap-1 shrink-0 min-w-[86px]">
-                    <div className="text-right space-y-0.5" onClick={() => setActiveProcessClienteId(card.clienteId)}>
+                    <div className="text-right space-y-0.5" onClick={() => setActiveProcessId(card.id)}>
 
                       {/* Financial Status Badge */}
                       <div className="flex justify-end mb-1">
@@ -462,7 +476,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                           <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-emerald-500/15 text-emerald-600 rounded-full border border-emerald-500/25">✓ PAGO</span>
                         )}
                         {card.financialStatus === 'PARCIAL' && (
-                          <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-amber-500/15 text-amber-600 rounded-full border border-amber-500/25">PARCIAL</span>
+                          <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-amber-500/15 text-amber-600 rounded-full border border-emerald-500/25">PARCIAL</span>
                         )}
                         {card.financialStatus === 'PENDENTE' && (
                           <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-muted text-muted-foreground rounded-full border border-border/40">PENDENTE</span>
@@ -509,7 +523,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                       )}
                     </div>
                     <button
-                      onClick={e => { e.stopPropagation(); setDeleteCardTarget({ clienteId: card.clienteId, name: card.name }); }}
+                      onClick={e => { e.stopPropagation(); setDeleteCardTarget({ processId: card.id, name: card.name }); }}
                       className="p-1.5 rounded-lg text-destructive/30 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100 mt-auto"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -536,7 +550,21 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
             </Button>
             <div className="max-h-52 overflow-y-auto space-y-1.5 pr-1">
               {clientes.map(c => (
-                <button key={c.id} onClick={() => { setSelectClientOpen(false); setActiveProcessClienteId(c.id); }}
+                <button key={c.id} onClick={() => {
+                  setSelectClientOpen(false);
+                  const newProc: Process = {
+                    id: crypto.randomUUID(),
+                    clienteId: c.id,
+                    objeto: 'Novo Serviço',
+                    status: 'Levantamento',
+                    notas: [],
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                  };
+                  updateProcess(newProc);
+                  onRefresh();
+                  setActiveProcessId(newProc.id);
+                }}
                   className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-muted transition-colors border border-border/40">
                   {c.nome}
                 </button>
@@ -550,7 +578,20 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
       <ClientForm open={clientFormOpen} onClose={() => setClientFormOpen(false)}
         onSave={(newClient) => {
           setClientFormOpen(false); setClientes(getClients());
-          if (newClient) setTimeout(() => setActiveProcessClienteId(newClient.id), 100);
+          if (newClient) {
+            const newProc: Process = {
+              id: crypto.randomUUID(),
+              clienteId: newClient.id,
+              objeto: 'Novo Serviço',
+              status: 'Levantamento',
+              notas: [],
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            };
+            updateProcess(newProc);
+            onRefresh();
+            setTimeout(() => setActiveProcessId(newProc.id), 100);
+          }
         }} />
 
       {/* Delete card process */}
@@ -579,7 +620,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base font-black text-destructive">Apagar Processo</AlertDialogTitle>
             <AlertDialogDescription className="text-sm leading-relaxed">
-              Deseja apagar o processo de <span className="font-bold text-foreground">{getClientName(activeProcessClienteId)}</span>?
+              Deseja apagar este processo?
               Isso removerá todas as notas e transações vinculadas.
               <span className="block mt-2 font-bold text-destructive">Esta ação não pode ser desfeita.</span>
             </AlertDialogDescription>
@@ -615,7 +656,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
       </AlertDialog>
 
       {/* ===================== PROCESS DRAWER ===================== */}
-      <Sheet open={!!activeProcessClienteId} onOpenChange={v => !v && setActiveProcessClienteId(null)}>
+      <Sheet open={!!activeProcessId} onOpenChange={v => !v && setActiveProcessId(null)}>
         <SheetContent className="w-full sm:max-w-md bg-card p-0 flex flex-col border-l border-border/50 overflow-hidden">
 
           {/* Header */}
@@ -633,7 +674,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
               )}
             </div>
             <SheetDescription className="text-xs font-medium text-muted-foreground">
-              <span className="text-foreground font-bold">{getClientName(activeProcessClienteId)}</span>
+              <span className="text-foreground font-bold">{getClientName(activeProcess?.clienteId)}</span>
             </SheetDescription>
           </SheetHeader>
 
@@ -677,13 +718,13 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                       <DollarSign className="w-3 h-3" />
                       <span className="text-[9px] font-black uppercase tracking-widest">Crédito Futuro</span>
                     </div>
-                    <p className={`text-sm font-black tabular-nums ${clientFinances.saldo === 0 && clientFinances.contrato > 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    <p className={`text-sm font-black tabular-nums ${clientFinances.saldo === 0 && (activeProcess.valorContrato || 0) > 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
                       R$ {clientFinances.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
                     {clientFinances.saldo > 0 && (
                       <span className="text-[8px] font-bold text-amber-600 mt-0.5">⚠️ Aguardando Recebimento</span>
                     )}
-                    {clientFinances.saldo === 0 && clientFinances.contrato > 0 && (
+                    {clientFinances.saldo === 0 && (activeProcess.valorContrato || 0) > 0 && (
                       <span className="text-[8px] font-black text-emerald-600 mt-0.5">✓ Contrato quitado</span>
                     )}
                   </div>
@@ -806,14 +847,11 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
 
                 {/* ── Objeto & Protocolo ── */}
                 <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Objeto do Serviço</Label>
-                    <Input
-                      value={activeProcess.objeto}
-                      onChange={e => handleLocalUpdate({ objeto: e.target.value })}
-                      placeholder="Ex: Regularização — Cássia Silva"
-                      className="h-10 bg-muted/20 border-border/50 rounded-xl font-medium text-sm"
-                    />
+                  <div className="flex flex-col gap-1 flex-1">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-70">Objeto do Serviço</span>
+                    <Input value={activeProcess.objeto} onChange={e => handleLocalUpdate({ objeto: e.target.value })}
+                      placeholder="Ex: Regularização Casa X, Desmembramento Lote Y..."
+                      className="h-10 bg-muted/20 border-border/50 rounded-xl font-bold text-sm text-primary" />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
@@ -999,7 +1037,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                 className={`flex-1 h-11 rounded-xl font-black text-xs uppercase tracking-widest gap-2 transition-all ${hasUnsavedChanges ? 'shadow-lg' : 'opacity-50'}`}>
                 <Check className="w-4 h-4" /> Salvar Alterações
               </Button>
-              <Button variant="outline" onClick={() => setActiveProcessClienteId(null)}
+              <Button variant="outline" onClick={() => setActiveProcessId(null)}
                 className="h-11 px-4 rounded-xl font-bold text-xs text-muted-foreground border-border/50 hover:bg-muted">
                 <X className="w-4 h-4" />
               </Button>

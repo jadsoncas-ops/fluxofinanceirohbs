@@ -12,6 +12,7 @@ export interface Transaction {
   isRepasse: boolean;
   parentId?: string; // Links repasse to parent transaction
   clienteId?: string | null; // Vinculo com o cliente
+  processId?: string; // Vinculo com o processo específico (Suporte a múltiplos processos p/ mesmo cliente)
   updatedAt?: number; // Flag visual de edição
   originalTotal?: number; // Memória do valor total do repasse original
 }

@@ -234,7 +234,7 @@ export function getProcesses(): Process[] {
 
 export function updateProcess(proc: Process): void {
   const all = loadAllProcesses();
-  const idx = all.findIndex(p => p.id === proc.id || p.clienteId === proc.clienteId);
+  const idx = all.findIndex(p => p.id === proc.id);
   if (idx >= 0) {
     all[idx] = { ...proc, updatedAt: Date.now() };
   } else {
@@ -262,7 +262,10 @@ export function deleteProcess(processId: string): void {
 
   // Delete all transactions linked to this client
   const txs = loadAll();
-  const filtered = txs.filter(t => t.clienteId !== proc.clienteId);
+  const filtered = txs.filter(t => {
+    if (t.processId) return t.processId !== processId;
+    return t.clienteId !== proc.clienteId;
+  });
   saveAll(filtered);
 
   // Delete the process itself
