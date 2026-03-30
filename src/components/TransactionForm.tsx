@@ -28,9 +28,11 @@ interface Props {
   onSave: () => void;
   editItem?: Transaction | null;
   parentItem?: Transaction | null;
+  prefilledClienteId?: string;
+  prefilledTipo?: TransactionType;
 }
 
-export function TransactionForm({ open, onClose, onSave, editItem, parentItem }: Props) {
+export function TransactionForm({ open, onClose, onSave, editItem, parentItem, prefilledClienteId, prefilledTipo }: Props) {
   const [tipo, setTipo] = useState<TransactionType>('Entrada');
   const [categoria, setCategoria] = useState('');
   const [descricao, setDescricao] = useState('');
