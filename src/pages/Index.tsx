@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dashboard } from '@/components/Dashboard';
@@ -11,7 +11,7 @@ import { ProcessManager } from '@/components/ProcessManager';
 import { getTransactions } from '@/lib/storage';
 import { generateMonthlyReport } from '@/lib/pdf';
 import { Transaction } from '@/lib/types';
-import { LayoutDashboard, Briefcase, Settings as SettingsIcon, FileDown, Building, Users } from 'lucide-react';
+import { LayoutDashboard, Briefcase, Settings as SettingsIcon, FileDown, Building, Users, X } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import hbsLogo from '@/assets/hbs-logo.png';
 
@@ -31,8 +31,30 @@ export default function Index() {
   const [completeItem, setCompleteItem] = useState<Transaction | null>(null);
   const [migrationOpen, setMigrationOpen] = useState(false);
   const [activeProcessTab, setActiveProcessTab] = useState<string>('ativos');
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
 
   const refresh = useCallback(() => setTxKey(k => k + 1), []);
+
+  useEffect(() => {
+    const handlePrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBanner(true);
+    };
+    window.addEventListener('beforeinstallprompt', handlePrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handlePrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+      setShowInstallBanner(false);
+    }
+  };
 
   const allTransactions = useMemo(() => {
     void txKey;
@@ -76,6 +98,15 @@ export default function Index() {
 
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden">
+      {showInstallBanner && (
+        <div className="bg-primary p-2 text-primary-foreground flex justify-between items-center px-4 animate-in slide-in-from-top duration-300">
+           <span className="text-[10px] font-black uppercase tracking-widest">Instale o App HBS no seu celular</span>
+           <div className="flex gap-2">
+             <Button size="sm" variant="secondary" onClick={handleInstallClick} className="h-7 text-[9px] font-black uppercase tracking-tighter">Instalar Agora</Button>
+             <Button size="sm" variant="ghost" onClick={() => setShowInstallBanner(false)} className="h-7 w-7 p-0"><X className="w-4 h-4" /></Button>
+           </div>
+        </div>
+      )}
       {/* Header */}
       <header className="border-b border-border/40 bg-background/80 backdrop-blur-md sticky top-0 z-30 transition-colors duration-300">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">

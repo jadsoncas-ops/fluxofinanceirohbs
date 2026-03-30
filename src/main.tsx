@@ -7,4 +7,11 @@ if (localStorage.getItem('theme') === 'dark') {
   document.documentElement.classList.add('dark');
 }
 
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js').catch(err => console.log('SW failed', err));
+  });
+}
+
 createRoot(document.getElementById("root")!).render(<App />);
