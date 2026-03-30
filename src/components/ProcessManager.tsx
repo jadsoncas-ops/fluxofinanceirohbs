@@ -247,6 +247,8 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
       recebido: number; saldo: number;
       repassesPagos: number; gastoPrevisto: number;
       liquidoReal: number; valorContrato: number;
+      recebidosPendentes: number;
+      lucroFuturo: number;
       financialStatus: FinancialStatus;
       lastNotes: string[];
     }[] = [];
@@ -277,9 +279,14 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
       const gastoPrevisto = clientTxs
         .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
         .reduce((s, t) => s + t.valor, 0);
+
+      const recebidosPendentes = clientTxs
+        .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Pendente')
+        .reduce((s, t) => s + t.valor, 0);
       
       const valorContrato = proc.valorContrato || 0;
       const saldo = Math.max(0, valorContrato - recebido);
+      const lucroFuturo = (saldo + recebidosPendentes) - gastoPrevisto;
       const liquidoReal = recebido === 0 ? 0 : recebido - repassesPagos;
       const lastNotes = (proc.notas || [])
         .sort((a, b) => b.data - a.data).slice(0, 3).map(n => n.texto);
@@ -301,6 +308,8 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
         saldo, 
         repassesPagos, 
         gastoPrevisto,
+        recebidosPendentes,
+        lucroFuturo,
         liquidoReal, 
         valorContrato, 
         financialStatus, 
@@ -343,9 +352,14 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
       .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
       .reduce((s, t) => s + t.valor, 0);
 
-    const saldo = Math.max(0, (activeProcess.valorContrato || 0) - recebido);
+    const recebidosPendentes = clientTxs
+      .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Pendente')
+      .reduce((s, t) => s + t.valor, 0);
 
-    return { recebido, saldo, repassesPagos, gastoPrevisto };
+    const saldo = Math.max(0, (activeProcess.valorContrato || 0) - recebido);
+    const lucroFuturo = (saldo + recebidosPendentes) - gastoPrevisto;
+
+    return { recebido, saldo: saldo + recebidosPendentes, repassesPagos, gastoPrevisto, lucroFuturo };
   }, [activeProcess, allTransactions]);
 
   // Combined timeline
@@ -728,20 +742,18 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                     <span className="text-[8px] text-emerald-600/50 italic mt-0.5">soma automática de receitas</span>
                   </div>
 
-                  <div className="bg-muted/30 p-3 rounded-xl border border-border/50 flex flex-col justify-center">
-                    <div className="flex items-center gap-1.5 mb-1 text-muted-foreground">
+                  <div className="bg-sky-500/5 p-3 rounded-xl border border-sky-500/20 flex flex-col justify-center">
+                    <div className="flex items-center gap-1.5 mb-1 text-sky-600">
                       <DollarSign className="w-3 h-3" />
                       <span className="text-[9px] font-black uppercase tracking-widest">Crédito Futuro</span>
                     </div>
-                    <p className={`text-sm font-black tabular-nums ${clientFinances.saldo === 0 && (activeProcess.valorContrato || 0) > 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    <p className="text-sm font-black tabular-nums text-sky-600">
                       R$ {clientFinances.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
-                    {clientFinances.saldo > 0 && (
-                      <span className="text-[8px] font-bold text-amber-600 mt-0.5">⚠️ Aguardando Recebimento</span>
-                    )}
-                    {clientFinances.saldo === 0 && (activeProcess.valorContrato || 0) > 0 && (
-                      <span className="text-[8px] font-black text-emerald-600 mt-0.5">✓ Contrato quitado</span>
-                    )}
+                    <div className="flex flex-col mt-1 border-t border-sky-500/10 pt-1">
+                       <span className="text-[8px] font-black uppercase text-muted-foreground/60">Lucro Futuro Líquido</span>
+                       <span className="text-[10px] font-black text-sky-700">R$ {clientFinances.lucroFuturo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    </div>
                   </div>
 
                   <div className="bg-destructive/5 p-3 rounded-xl border border-destructive/20 flex flex-col justify-center">
