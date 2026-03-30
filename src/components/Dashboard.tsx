@@ -5,8 +5,10 @@ import { Progress } from '@/components/ui/progress';
 import { getTipOfDay } from '@/lib/tips';
 import { getProcesses } from '@/lib/storage';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, ComposedChart, Line, Legend } from 'recharts';
-import { TrendingUp, Wallet, ArrowDownLeft, ArrowUpRight, AlertTriangle, ArrowUpCircle, ArrowDownCircle, Target, Activity, CheckCircle2, BadgeAlert, BarChart3, Clock3, Plus } from 'lucide-react';
+import { TrendingUp, Wallet, ArrowDownLeft, ArrowUpRight, AlertTriangle, ArrowUpCircle, ArrowDownCircle, Target, Activity, CheckCircle2, BadgeAlert, BarChart3, Clock3, Plus, Search, Eye } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from '@/components/ui/sheet';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface Props {
   transactions: Transaction[];
@@ -135,6 +137,8 @@ export function Dashboard({ transactions, month, year }: Props) {
       shouldShowCostInDashboard(t)
     ).reduce((s, t) => s + t.valor, 0);
 
+    const auditList: { name: string; id: string; saldo: number; custos: number; lucro: number }[] = [];
+    
     // Cenário Global (Escritório Total)
     // O Lucro Futuro agora é SEMPRE global para mostrar o potencial dos contratos ativos
     const entradasPrevistas = (processes || []).filter(p => !p.isArchived).reduce((sum, p) => {
@@ -146,8 +150,26 @@ export function Dashboard({ transactions, month, year }: Props) {
         .filter(t => t.processId === p.id && (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Pendente')
         .reduce((s, t) => s + t.valor, 0);
 
+      const saldoRemanescente = Math.max(0, (p.valorContrato || 0) - totalRecebidoP);
+      const saldoTotalProc = saldoRemanescente + receitasPendentesParaProc;
+      
+      // Custos especificos desse processo
+      const custosPendentesProc = (transactions || [])
+        .filter(t => t.processId === p.id && (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
+        .reduce((s, t) => s + t.valor, 0);
+
+      if (saldoTotalProc > 0 || custosPendentesProc > 0) {
+        auditList.push({
+          id: p.id,
+          name: p.objeto || 'Serviço s/ nome',
+          saldo: saldoTotalProc,
+          custos: custosPendentesProc,
+          lucro: saldoTotalProc - custosPendentesProc
+        });
+      }
+
       // (Contrato - Já Recebido) + Previstos Manuais
-      return sum + Math.max(0, (p.valorContrato || 0) - totalRecebidoP) + receitasPendentesParaProc;
+      return sum + saldoTotalProc;
     }, 0);
 
     const saidasPrevistas = (transactions || [])
@@ -171,7 +193,8 @@ export function Dashboard({ transactions, month, year }: Props) {
     const stats = { 
       entradas, saidas, aReceber, percentRecebido, lucroLiquidoMensal,
       entradasPrevistas, saidasPrevistas, lucroFuturoPendente,
-      custosFuturos: saidasPrevistas
+      custosFuturos: saidasPrevistas,
+      auditList
     };
     const saldoAtual = actualBalance;
     const saldoProjetadoFuturo = runningTotal;
@@ -376,8 +399,75 @@ export function Dashboard({ transactions, month, year }: Props) {
             
             {/* Esquerda: Entradas e Saídas (Lógica Global) */}
             <div className="lg:col-span-6 w-full flex flex-col gap-4">
-              <div className="flex items-center gap-2 mb-2 font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em]">
-                <Plus className="w-3 h-3 text-emerald-500" /> Projeções Ativas (Geral)
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em]">
+                  <Plus className="w-3 h-3 text-emerald-500" /> Projeções Ativas (Geral)
+                </div>
+                
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-background/50 border border-border/60 text-[10px] font-black uppercase text-primary hover:bg-primary hover:text-white transition-all shadow-sm">
+                      <Search className="w-3 h-3" /> Detalhar Auditoria
+                    </button>
+                  </SheetTrigger>
+                  <SheetContent className="w-full sm:max-w-xl p-0 overflow-hidden flex flex-col">
+                    <SheetHeader className="p-6 bg-muted/20 border-b">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-2xl bg-primary/10 text-primary border border-primary/20">
+                          <Eye className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <SheetTitle className="text-lg font-black uppercase tracking-widest leading-none">Auditoria de Lucro</SheetTitle>
+                          <SheetDescription className="text-xs font-medium">Breakdown de {stats.auditList.length} processos ativos</SheetDescription>
+                        </div>
+                      </div>
+                    </SheetHeader>
+                    
+                    <div className="flex-1 overflow-y-auto p-4">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-border/50 bg-muted/10">
+                            <TableHead className="text-[10px] font-black uppercase tracking-widest h-10">Processo (Objeto)</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-widest text-right h-10">À Receber</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-widest text-right h-10">Custos Pend.</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-widest text-right h-10">Margem</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {stats.auditList.sort((a,b) => b.lucro - a.lucro).map((p) => (
+                            <TableRow key={p.id} className="hover:bg-muted/30 border-border/30">
+                              <TableCell className="py-3 font-bold text-xs truncate max-w-[180px]">{p.name}</TableCell>
+                              <TableCell className="text-right tabular-nums text-xs font-bold text-emerald-600">R$ {p.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                              <TableCell className="text-right tabular-nums text-xs font-medium text-rose-500">R$ {p.custos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                              <TableCell className="text-right tabular-nums text-xs font-black">R$ {p.lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      
+                      {stats.auditList.length === 0 && (
+                        <div className="py-20 text-center text-muted-foreground italic text-xs">
+                          Nenhum processo com saldo pendente encontrado.
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="p-6 border-t bg-muted/10 shadow-inner">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-[11px] font-black uppercase text-muted-foreground">Total de Entradas:</span>
+                        <span className="text-sm font-black text-emerald-600">R$ {stats.entradasPrevistas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between items-center mb-4">
+                        <span className="text-[11px] font-black uppercase text-muted-foreground">Total de Saídas:</span>
+                        <span className="text-sm font-black text-rose-600">R$ {stats.saidasPrevistas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 rounded-2xl bg-primary/10 border border-primary/20">
+                        <span className="text-xs font-black uppercase text-primary">Lucro Futuro Pendente:</span>
+                        <span className="text-xl font-black text-primary">R$ {stats.lucroFuturoPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    </div>
+                  </SheetContent>
+                </Sheet>
               </div>
               
               <div className="flex bg-emerald-500/5 p-4 rounded-3xl border border-emerald-500/20 shadow-sm hover:shadow-md transition-all duration-300">
