@@ -39,6 +39,7 @@ export default function Index() {
   }, [txKey]);
 
   const monthTransactions = useMemo(() => {
+    if (month === 12 || year === 0) return allTransactions || [];
     return (allTransactions || []).filter(t => {
       const d = new Date(t.data + 'T12:00:00');
       return d.getMonth() === month && d.getFullYear() === year;
@@ -103,13 +104,14 @@ export default function Index() {
       {tab === 'dashboard' && (
         <div className="max-w-2xl mx-auto w-full px-4 py-3 flex items-center gap-2">
           <Select value={String(month)} onValueChange={v => setMonth(Number(v))}>
-            <SelectTrigger className="h-8 text-xs w-32">
+            <SelectTrigger className="h-8 text-xs w-36">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {MONTHS.map((m, i) => (
                 <SelectItem key={i} value={String(i)}>{m}</SelectItem>
               ))}
+              <SelectItem value="12">Visão Geral (Tudo)</SelectItem>
             </SelectContent>
           </Select>
           <Select value={String(year)} onValueChange={v => setYear(Number(v))}>

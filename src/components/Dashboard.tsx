@@ -138,29 +138,50 @@ export function Dashboard({ transactions, month, year }: Props) {
     // 4. VISÃO DE FUTURO (Lógica Global de Processos Ativos)
     const activeProcesses = (processes || []).filter(p => !p.isArchived);
 
-    const entradasPrevistas = activeProcesses.reduce((sum, p) => {
-      const totalRecebidoP = (transactions || [])
-        .filter(t => t.processId === p.id && (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
-        .reduce((s, t) => s + t.valor, 0);
-      
-      const receitasPendentesParaProc = (transactions || [])
-        .filter(t => t.processId === p.id && (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Pendente')
-        .reduce((s, t) => s + t.valor, 0);
+    const isFilterAll = month === 12 || year === 0;
 
-      // Saldo do Contrato + Lançamentos Pendentes Manuais (que podem ser extras ou adiantamentos)
-      return sum + Math.max(0, (p.valorContrato || 0) - totalRecebidoP) + receitasPendentesParaProc;
-    }, 0);
+    let entradasPrevistas = 0;
+    let saidasPrevistas = 0;
 
-    const saidasPrevistas = (transactions || [])
-      .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
-      .reduce((s, t) => s + t.valor, 0);
+    if (isFilterAll) {
+      // Cenário Global (Escritório Total)
+      entradasPrevistas = activeProcesses.reduce((sum, p) => {
+        const totalRecebidoP = (transactions || [])
+          .filter(t => t.processId === p.id && (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
+          .reduce((s, t) => s + t.valor, 0);
+        
+        const receitasPendentesParaProc = (transactions || [])
+          .filter(t => t.processId === p.id && (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Pendente')
+          .reduce((s, t) => s + t.valor, 0);
+
+        return sum + Math.max(0, (p.valorContrato || 0) - totalRecebidoP) + receitasPendentesParaProc;
+      }, 0);
+
+      saidasPrevistas = (transactions || [])
+        .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
+        .reduce((s, t) => s + t.valor, 0);
+    } else {
+      // Cenário Focado no Mês Selecionado
+      // Considera apenas o que está lançado com a data desse mês mas ainda não foi efetivado
+      entradasPrevistas = monthTxs
+        .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído')
+        .reduce((s, t) => s + t.valor, 0);
+        
+      saidasPrevistas = monthTxs
+        .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
+        .reduce((s, t) => s + t.valor, 0);
+    }
 
     const lucroFuturoPendente = entradasPrevistas - saidasPrevistas;
 
-    // Meta de recebimentos
-    const aReceber = monthTxs.filter(t => t.tipo === 'A Receber' && t.status === 'Parcial').reduce((s, t) => s + t.valor, 0);
-    const totalPrevisto = entradas + aReceber;
-    const percentRecebido = totalPrevisto > 0 ? (entradas / totalPrevisto) * 100 : 0;
+    // Meta de recebimentos (Termômetro do Mês)
+    // O alvo é a soma de TUDO que estava previsto/marcado para entrar no mês selecionado
+    const totalPrevistoNoMes = monthTxs
+      .filter(t => t.tipo === 'Entrada' || t.tipo === 'A Receber')
+      .reduce((s, t) => s + t.valor, 0);
+
+    const percentRecebido = totalPrevistoNoMes > 0 ? (entradas / totalPrevistoNoMes) * 100 : 0;
+    const aReceber = Math.max(0, totalPrevistoNoMes - entradas);
 
     // Lucro Líquido Realizado (Mês)
     const lucroLiquidoMensal = entradas - saidas;
