@@ -3,8 +3,9 @@ import { Transaction } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { getTipOfDay } from '@/lib/tips';
+import { getProcesses } from '@/lib/storage';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, ComposedChart, Line, Legend } from 'recharts';
-import { TrendingUp, Wallet, ArrowDownLeft, ArrowUpRight, AlertTriangle, ArrowUpCircle, ArrowDownCircle, Target, Activity, CheckCircle2, BadgeAlert, BarChart3 } from 'lucide-react';
+import { TrendingUp, Wallet, ArrowDownLeft, ArrowUpRight, AlertTriangle, ArrowUpCircle, ArrowDownCircle, Target, Activity, CheckCircle2, BadgeAlert, BarChart3, Clock3 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface Props {
@@ -93,19 +94,44 @@ export function Dashboard({ transactions, month, year }: Props) {
       return d.getMonth() === month && d.getFullYear() === year;
     });
 
-    const entradas = monthTxs.filter(t => t.tipo === 'Entrada' && t.status === 'Concluído').reduce((s, t) => s + t.valor, 0);
-    const saidas = monthTxs.filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status === 'Concluído').reduce((s, t) => s + t.valor, 0);
-    const aReceber = monthTxs.filter(t => t.tipo === 'A Receber').reduce((s, t) => s + t.valor, 0);
-    const aPagar = monthTxs.filter(t => t.tipo === 'A Pagar' && t.status !== 'Concluído').reduce((s, t) => s + t.valor, 0);
+    // Mapeamento global de recebimentos por processo para filtro de saídas
+    const processRecebidoMap = new Map<string, number>();
+    transactions.forEach(t => {
+      if (t.processId && (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído') {
+        processRecebidoMap.set(t.processId, (processRecebidoMap.get(t.processId) || 0) + t.valor);
+      }
+    });
 
-    // Meta de recebimentos usa apenas bruto recebido
+    const processes = getProcesses();
+    const archivedProcessIds = new Set(processes.filter(p => p.isArchived).map(p => p.id));
+
+    // Entradas Confirmadas no Mês
+    const entradas = monthTxs.filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído').reduce((s, t) => s + t.valor, 0);
+    
+    // Saídas Confirmadas no Mês (Apenas de processos com receita real ou arquivados, ou overhead sem processo)
+    const saidas = monthTxs.filter(t => {
+      const isConfirmedGasto = (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status === 'Concluído';
+      if (!isConfirmedGasto) return false;
+      
+      if (!t.processId) return true; // Overhead geral
+      
+      const recebidoTotal = processRecebidoMap.get(t.processId) || 0;
+      const isArchived = archivedProcessIds.has(t.processId || '');
+      
+      return recebidoTotal > 0 || isArchived;
+    }).reduce((s, t) => s + t.valor, 0);
+
+    const aReceber = monthTxs.filter(t => t.tipo === 'A Receber' && t.status !== 'Concluído').reduce((s, t) => s + t.valor, 0);
+    const custosFuturos = monthTxs.filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído').reduce((s, t) => s + t.valor, 0);
+
+    // Meta de recebimentos
     const totalPrevisto = entradas + aReceber;
     const percentRecebido = totalPrevisto > 0 ? (entradas / totalPrevisto) * 100 : 0;
 
-    // Lucro Líquido do Mês = Bruto Recebido - Total Gasto
+    // Lucro Líquido Realizado (Mês)
     const lucroLiquidoMensal = entradas - saidas;
 
-    const stats = { entradas, saidas, aReceber, aPagar, percentRecebido, lucroLiquidoMensal };
+    const stats = { entradas, saidas, aReceber, custosFuturos, percentRecebido, lucroLiquidoMensal };
     const saldoAtual = actualBalance;
     const saldoProjetadoFuturo = runningTotal;
 
@@ -318,7 +344,7 @@ export function Dashboard({ transactions, month, year }: Props) {
               <span className="flex items-center gap-1.5 text-muted-foreground">
                 <ArrowUpRight className="w-4 h-4 text-amber-500/60"/> 
                 Saídas previstas 
-                <span className="font-bold text-foreground/80 flex items-baseline"><span className="text-[10px] mr-0.5">R$</span>{stats.aPagar.toFixed(2)}</span>
+                <span className="font-bold text-foreground/80 flex items-baseline"><span className="text-[10px] mr-0.5">R$</span>{stats.custosFuturos.toFixed(2)}</span>
               </span>
             </div>
 
@@ -398,7 +424,7 @@ export function Dashboard({ transactions, month, year }: Props) {
         </Card>
       </div>
 
-      <Card className="border-amber-500/30 bg-amber-500/[0.05] rounded-2xl shadow-sm mb-4">
+      <Card className="border-amber-500/30 bg-amber-500/[0.05] rounded-2xl shadow-sm">
         <CardContent className="p-4 sm:p-5">
           <div className="flex items-start gap-4">
             <div className="p-2 sm:p-3 bg-amber-500/15 rounded-xl text-amber-600 dark:text-amber-400">
@@ -411,6 +437,20 @@ export function Dashboard({ transactions, month, year }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Provisão de Custos Futuros */}
+      <div className="flex justify-center pt-2 pb-6">
+        <div className="py-2.5 px-6 rounded-2xl bg-muted/30 border border-border/40 flex items-center gap-4 text-muted-foreground/60 transition-all hover:bg-muted/50 group">
+          <div className="flex items-center gap-2">
+            <Clock3 className="w-3.5 h-3.5 group-hover:text-primary transition-colors" />
+            <span className="text-[10px] font-black uppercase tracking-widest leading-none">Provisão de Custos Futuros</span>
+          </div>
+          <div className="w-px h-3 bg-border/40" />
+          <span className="text-sm font-black tabular-nums group-hover:text-foreground transition-colors group-hover:underline decoration-primary decoration-2 underline-offset-4">
+            R$ {stats.custosFuturos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

@@ -132,7 +132,7 @@ export default function Index() {
 
       {/* Content */}
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 pb-20">
-        {tab === 'dashboard' && <Dashboard transactions={monthTransactions} month={month} year={year} />}
+        {tab === 'dashboard' && <Dashboard transactions={allTransactions} month={month} year={year} />}
         {tab === 'processos' && (
           <ProcessManager
             allTransactions={allTransactions}
