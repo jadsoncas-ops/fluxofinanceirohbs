@@ -16,6 +16,7 @@ import {
   Search, CalendarDays, UserPlus, X, ChevronUp, Pencil
 } from 'lucide-react';
 import { ClientForm } from './ClientForm';
+import { PartialPaymentModal } from './PartialPaymentModal';
 
 type ProcessViewFilter = 'tramite' | 'concluidos' | 'arquivados';
 type InlineForm = 'receita' | 'despesa' | null;
@@ -63,6 +64,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
   const [deleteTimelineTarget, setDeleteTimelineTarget] = useState<{ id: string; tipo: 'nota' | 'transacao'; label: string } | null>(null);
 
   // New process creation
+  const [completeItem, setCompleteItem] = useState<Transaction | null>(null);
   const [clientFormOpen, setClientFormOpen] = useState(false);
   const [selectClientOpen, setSelectClientOpen] = useState(false);
 
@@ -359,6 +361,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
       texto: `${t.tipo === 'Entrada' || t.tipo === 'A Receber' ? '💰' : '💸'} ${t.tipo}: R$ ${t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} — ${t.descricao}`,
       tipo: 'transacao' as const,
       status: t.status,
+      parentId: t.parentId,
       isExpense: t.tipo === 'Saída' || t.tipo === 'A Pagar',
       dataFormatada: new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR'),
     }));
@@ -940,20 +943,32 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                                   </p>
                                   <div className="flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
                                     {isPendente && (
-                                      <button
-                                        onClick={() => {
-                                          const tx = allTransactions.find(t => t.id === item.id);
-                                          if (tx) {
-                                            updateTransaction({ ...tx, status: 'Concluído', updatedAt: Date.now() });
-                                            onRefresh();
-                                            toast.success('Lançamento efetivado no Dashboard!');
-                                          }
-                                        }}
-                                        title="Confirmar Pagamento / Efetivar"
-                                        className="p-1 rounded text-emerald-600 hover:bg-emerald-500 hover:text-white transition-colors"
-                                      >
-                                        <Check className="w-3.5 h-3.5" />
-                                      </button>
+                                      <>
+                                        <button
+                                          onClick={() => {
+                                            const tx = allTransactions.find(t => t.id === item.id);
+                                            if (tx) {
+                                              updateTransaction({ ...tx, status: 'Concluído', updatedAt: Date.now() });
+                                              onRefresh();
+                                              toast.success('Lançamento efetivado no Dashboard!');
+                                            }
+                                          }}
+                                          title="Confirmar Pagamento Integral"
+                                          className="p-1 rounded text-emerald-600 hover:bg-emerald-500 hover:text-white transition-colors"
+                                        >
+                                          <Check className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            const tx = allTransactions.find(t => t.id === item.id);
+                                            if (tx) setCompleteItem(tx);
+                                          }}
+                                          title="Baixa Parcial"
+                                          className="p-1 rounded text-amber-600 hover:bg-amber-500 hover:text-white transition-colors"
+                                        >
+                                          <Clock3 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </>
                                     )}
                                     <button
                                       onClick={() => {
@@ -1043,6 +1058,11 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                                 <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1 mt-1.5">
                                   <Clock3 className="w-2.5 h-2.5" />
                                   {new Date(item.data).toLocaleString('pt-BR')}
+                                  {item.parentId && (
+                                    <span className="ml-2 text-primary/50 flex items-center gap-1">
+                                      🔗 Lançamento Vinculado
+                                    </span>
+                                  )}
                                 </p>
                               </div>
                             </div>
@@ -1084,6 +1104,13 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
           )}
         </SheetContent>
       </Sheet>
+
+      <PartialPaymentModal
+        open={!!completeItem}
+        onClose={() => setCompleteItem(null)}
+        onSave={onRefresh}
+        transaction={completeItem}
+      />
     </div>
   );
 }
