@@ -249,9 +249,20 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
       lastNotes: string[];
     }[] = [];
 
+    const assignedTxIds = new Set<string>();
     processes.forEach(proc => {
       const client = clientes.find(c => c.id === proc.clienteId);
-      const clientTxs = allTransactions.filter(t => t.processId === proc.id || (!t.processId && t.clienteId === proc.clienteId));
+      
+      // Filtro Rigoroso: Se o lançamento tem processId, é amarrado a ele. 
+      // Se não tem (legado), amarramos apenas ao primeiro processo encontrado desse cliente para evitar duplicidade.
+      const clientTxs = allTransactions.filter(t => {
+        if (t.processId) return t.processId === proc.id;
+        if (!t.processId && t.clienteId === proc.clienteId && !assignedTxIds.has(t.id)) {
+          assignedTxIds.add(t.id);
+          return true;
+        }
+        return false;
+      });
       
       const recebido = clientTxs
         .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')

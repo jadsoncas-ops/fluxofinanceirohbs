@@ -96,12 +96,16 @@ export function Dashboard({ transactions, month, year }: Props) {
 
     // Mapeamento global de recebimentos por processo para filtro de saídas
     // Mapeamento global de recebimentos por processo e por cliente (para fallback legado)
+    // Mapeamento global de recebimentos por processo e por cliente (para fallback legado)
+    // Incluímos 'Parcial' no mapa apenas para validar se o processo é ATIVO (shouldShowCost), 
+    // mas a soma de 'entradas' no Dashboard continua puramente Concluído.
     const processRecebidoMap = new Map<string, number>();
     const clientRecebidoMap = new Map<string, number>();
     transactions.forEach(t => {
-      if ((t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído') {
-        if (t.processId) processRecebidoMap.set(t.processId, (processRecebidoMap.get(t.processId) || 0) + t.valor);
-        if (t.clienteId) clientRecebidoMap.set(t.clienteId, (clientRecebidoMap.get(t.clienteId) || 0) + t.valor);
+      if ((t.tipo === 'Entrada' || t.tipo === 'A Receber') && (t.status === 'Concluído' || t.status === 'Parcial')) {
+        const val = t.status === 'Concluído' ? t.valor : 0.0001; // Marker value if only Parcial exists
+        if (t.processId) processRecebidoMap.set(t.processId, (processRecebidoMap.get(t.processId) || 0) + val);
+        if (t.clienteId) clientRecebidoMap.set(t.clienteId, (clientRecebidoMap.get(t.clienteId) || 0) + val);
       }
     });
 
@@ -142,14 +146,15 @@ export function Dashboard({ transactions, month, year }: Props) {
       shouldShowCostInDashboard(t)
     ).reduce((s, t) => s + t.valor, 0);
 
-    // Provisão de Custos Futuros (Filtro rigoroso: se o processo é pendente de entrada, não aparece nem na provisão do dashboard)
+    // Provisão de Custos Futuros (Lançamentos PARCIAIS - Pendentes são ignorados no Dashboard)
     const custosFuturos = monthTxs.filter(t => 
       (t.tipo === 'Saída' || t.tipo === 'A Pagar') && 
-      t.status !== 'Concluído' &&
+      t.status === 'Parcial' &&
       shouldShowCostInDashboard(t)
     ).reduce((s, t) => s + t.valor, 0);
 
-    const aReceber = monthTxs.filter(t => t.tipo === 'A Receber' && t.status !== 'Concluído').reduce((s, t) => s + t.valor, 0);
+    // Recebíveis (Apenas o que já teve algum pagamento - PARCIAL)
+    const aReceber = monthTxs.filter(t => t.tipo === 'A Receber' && t.status === 'Parcial').reduce((s, t) => s + t.valor, 0);
 
     // Meta de recebimentos
     const totalPrevisto = entradas + aReceber;

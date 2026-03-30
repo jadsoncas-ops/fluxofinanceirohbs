@@ -260,11 +260,17 @@ export function deleteProcess(processId: string): void {
   const proc = all.find(p => p.id === processId);
   if (!proc) return;
 
-  // Delete all transactions linked to this client
+  // Delete transactions: prioritize processId; for legacy (no processId), only delete if it's the last process for this client
   const txs = loadAll();
   const filtered = txs.filter(t => {
     if (t.processId) return t.processId !== processId;
-    return t.clienteId !== proc.clienteId;
+    
+    // Legacy check
+    const isThisClient = t.clienteId === proc.clienteId;
+    const hasOtherProcs = all.some(p => p.clienteId === proc.clienteId && p.id !== processId);
+    if (isThisClient && hasOtherProcs) return true; // Keep legacy if other processes exist
+    
+    return !isThisClient;
   });
   saveAll(filtered);
 
