@@ -140,11 +140,7 @@ export default function Index() {
         </Button>
         <Button variant="secondary" size="sm" className="h-8 text-[11px] sm:text-xs gap-1 sm:gap-1.5 bg-muted/50 hover:bg-muted font-bold text-muted-foreground hover:text-foreground shrink-0" onClick={() => setClientFormOpen(true)}>
           <UserPlus className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Novo Cliente</span>
-        </Button>
-        <Button size="sm" className="h-8 text-[11px] sm:text-xs gap-1 sm:gap-1.5 font-bold shadow-sm shrink-0" onClick={() => { setEditItem(null); setParentItem(null); setFormOpen(true); }}>
-          <Plus className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Novo Lançamento</span>
+          <span className="hidden sm:inline">Novo Processo</span>
         </Button>
       </div>
 

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Pencil, CheckCircle2, Clock3, Trash2, ArrowUpRight, ArrowDownRight, CornerDownRight, CalendarDays, Wallet, CalendarClock, AlertCircle, Plus, ChevronDown, ChevronUp, ArrowDownUp, FolderClosed, Send, Landmark as OrgaoIcon, Info } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { deleteTransaction, updateTransaction, getProcessByClient, updateProcess } from '@/lib/storage';
+import { deleteTransaction, updateTransaction, getProcessByClient, updateProcess, deleteProcessAndData } from '@/lib/storage';
 import { toast } from 'sonner';
 import {
   DropdownMenu,
@@ -96,7 +96,7 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
   const [clientes, setClientes] = useState<Client[]>([]);
-  const [processFilter, setProcessFilter] = useState<'Ativos' | 'Arquivados'>('Ativos');
+  const [processFilterMode, setProcessFilterMode] = useState<'Em Trâmite' | 'Concluídos' | 'Arquivados'>('Em Trâmite');
   
   // Estados para Gaveta de Processo
   const [activeProcessClienteId, setActiveProcessClienteId] = useState<string | null>(null);
@@ -172,9 +172,6 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
        updatedAt: Date.now()
     };
 
-    // Use parents props callback or directly add via storage (which is better for persistence)
-    // But since the parent component manages the list, it's better if we update the list too.
-    // Actually, calling addTransaction works but we need a refresh. Index.tsx uses refresh().
     import('@/lib/storage').then(s => {
        s.addTransaction(newTx);
        toast.success(`${launchData.tipo} lançada com sucesso!`);
@@ -197,6 +194,18 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
     const saldo = Math.max(0, contrato - recebido);
     return { contrato, recebido, saldo, repasses };
   }, [transactions, activeProcessClienteId, activeProcess?.valorContrato]);
+
+
+  const handleDeleteFullProcess = () => {
+    if (!activeProcess || !activeProcessClienteId) return;
+    const clientName = getClientName(activeProcessClienteId);
+    if (confirm(`Deseja apagar o processo de ${clientName}? Isso removerá também todas as notas e transações vinculadas. Esta ação não pode ser desfeita.`)) {
+      deleteProcessAndData(activeProcessClienteId);
+      toast.success('Processo e dados vinculados removidos.');
+      setActiveProcessClienteId(null);
+      onDelete(); // Refresh
+    }
+  };
 
   const timelineEvents = useMemo(() => {
     if (!activeProcess || !activeProcessClienteId) return [];
@@ -234,13 +243,13 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
-  const viewFiltered = transactions.filter(tx => {
+  const viewFilteredTransactions = transactions.filter(tx => {
     // Se o clienteId tiver um processo arquivado, filtramos dependendo do tab
     if (tx.clienteId) {
       const proc = getProcessByClient(tx.clienteId);
-      if (processFilter === 'Ativos' && proc?.isArchived) return false;
-      if (processFilter === 'Arquivados' && !proc?.isArchived) return false;
-    } else if (processFilter === 'Arquivados') {
+      if (processFilterMode === 'Em Trâmite' && proc?.isArchived) return false;
+      if (processFilterMode === 'Arquivados' && !proc?.isArchived) return false;
+    } else if (processFilterMode === 'Arquivados') {
       return false; // Transações sem cliente não são arquiváveis sozinhas
     }
 
@@ -249,68 +258,78 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
   });
 
   const filtered = useMemo(() => {
-    // 1. Get base items for the filter
-    const baseItems = viewFiltered.filter(tx => {
+    const baseItems = viewFilteredTransactions.filter(tx => {
       if (filter === 'Receitas') return tx.tipo === 'Entrada' || tx.tipo === 'A Receber';
       if (filter === 'Despesas') return (tx.tipo === 'Saída' || tx.tipo === 'A Pagar');
       return true;
     });
 
     if (filter === 'Receitas') {
-       // Automatically include repasses linked to these receitas so they show up in the tree
        const parentIdsInView = new Set(baseItems.map(t => t.id));
-       const linkedRepasses = viewFiltered.filter(t => t.parentId && parentIdsInView.has(t.parentId) && t.isRepasse);
-       // Avoid duplicates if some repasse already matched (unlikely given the !isRepasse above but safer)
+       const linkedRepasses = viewFilteredTransactions.filter(t => t.parentId && parentIdsInView.has(t.parentId) && t.isRepasse);
        const existingIds = new Set(baseItems.map(t => t.id));
        const toAdd = linkedRepasses.filter(r => !existingIds.has(r.id));
        return [...baseItems, ...toAdd];
     }
     
     return baseItems;
-  }, [viewFiltered, filter]);
+  }, [viewFilteredTransactions, filter]);
 
-  const childrenMap = new Map<string, Transaction[]>();
-  const parentIdsInFiltered = new Set(filtered.map(t => t.id));
-  const nestedChildIds = new Set<string>();
+  const childrenMap = useMemo(() => {
+    const map = new Map<string, Transaction[]>();
+    const parentIdsInFiltered = new Set(filtered.map(t => t.id));
+    
+    filtered.forEach(tx => {
+      if (tx.parentId && parentIdsInFiltered.has(tx.parentId)) {
+        const existing = map.get(tx.parentId) || [];
+        existing.push(tx);
+        map.set(tx.parentId, existing);
+      }
+    });
+    return map;
+  }, [filtered]);
 
-  filtered.forEach(tx => {
-    if (tx.parentId && parentIdsInFiltered.has(tx.parentId)) {
-      nestedChildIds.add(tx.id);
-      const existing = childrenMap.get(tx.parentId) || [];
-      existing.push(tx);
-      childrenMap.set(tx.parentId, existing);
-    }
-  });
-
-  const topLevel = filtered.filter(tx => !nestedChildIds.has(tx.id));
-
-  const totalFiltered = filtered.reduce((sum, tx) => {
-    const isIncome = tx.tipo === 'Entrada' || tx.tipo === 'A Receber';
-    // No Histórico, agora exibimos o Bruto nos totais das abas para bater com o que está listado.
-    // O usuário verá os repasses na lista e o total os incluirá.
-    return sum + tx.valor;
-  }, 0);
-
-  const showCompleted = viewType === 'Pendente'; // Não, o usuário pediu um toggle específico no topo.
-  const [mostrarArquivados, setMostrarArquivados] = useState(false);
+  const totalFiltered = useMemo(() => {
+    return filtered.reduce((sum, tx) => sum + tx.valor, 0);
+  }, [filtered]);
 
   const processesData = useMemo(() => {
-    // 1. Get all unique clientIds in the current filtered set
+    // Todos os IDs de clientes que possuem transações no período
     const clientIds = new Set<string>();
-    filtered.forEach(tx => {
+    transactions.forEach(tx => {
       if (tx.clienteId) clientIds.add(tx.clienteId);
     });
 
-    const groups = [];
+    const groups: any[] = [];
     
-    // 2. Process groups
+    // 1. Grupo A Organizar (sempre no topo se existir)
+    const unlinkedTxs = transactions.filter(tx => !tx.clienteId);
+    if (unlinkedTxs.length > 0) {
+       groups.push({
+         type: 'unlinked',
+         id: 'unlinked',
+         name: 'A Organizar (Lançamentos Avulsos)',
+         items: unlinkedTxs,
+         summary: { recebido: 0, saldo: 0 }
+       });
+    }
+
+    // 2. Processos filtrados
     clientIds.forEach(cId => {
       const proc = getProcessByClient(cId);
-      const isArchived = proc?.isArchived || proc?.status === 'Finalizado';
-      
-      if (!mostrarArquivados && isArchived) return;
+      const isArchived = proc?.isArchived;
+      const isConcluido = proc?.status === 'Finalizado';
 
-      const clientTxs = filtered.filter(tx => tx.clienteId === cId);
+      // Lógica do filtro
+      if (processFilterMode === 'Arquivados' && !isArchived) return;
+      if (processFilterMode === 'Concluídos' && (isArchived || !isConcluido)) return;
+      if (processFilterMode === 'Em Trâmite' && (isArchived || isConcluido)) return;
+
+      const clientTxs = transactions.filter(tx => tx.clienteId === cId);
+      const recebido = clientTxs
+        .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
+        .reduce((sum, t) => sum + t.valor, 0);
+      const contrato = proc?.valorContrato || 0;
       const client = clientes.find(c => c.id === cId);
       
       groups.push({
@@ -318,28 +337,14 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
         id: cId,
         name: client?.nome || 'Cliente Desconhecido',
         status: proc?.status || 'A definir',
-        valorContrato: proc?.valorContrato || 0,
-        isArchived,
-        items: clientTxs
+        dataProtocolo: proc?.dataProtocolo,
+        summary: { recebido, saldo: Math.max(0, contrato - recebido) },
+        isArchived
       });
     });
 
-    // 3. Unlinked group
-    const unlinked = filtered.filter(tx => !tx.clienteId);
-    if (unlinked.length > 0) {
-      groups.unshift({
-        type: 'unlinked',
-        id: 'unlinked',
-        name: 'Lançamentos Avulsos',
-        status: 'Pendente de Vínculo',
-        valorContrato: 0,
-        isArchived: false,
-        items: unlinked
-      });
-    }
-
     return groups;
-  }, [filtered, mostrarArquivados, clientes]);
+  }, [transactions, processFilterMode, clientes]);
 
   function handleConfirmDelete() {
     if (!deleteTarget) return;
@@ -577,14 +582,14 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
 
       <div className="flex bg-muted/30 p-1 rounded-lg border border-border/40 max-w-fit mx-auto">
         <button 
-          onClick={() => setProcessFilter('Ativos')}
-          className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${processFilter === 'Ativos' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:bg-muted'}`}
+          onClick={() => setProcessFilterMode('Em Trâmite')}
+          className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${processFilterMode === 'Em Trâmite' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:bg-muted'}`}
         >
           🚀 Ativos
         </button>
         <button 
-          onClick={() => setProcessFilter('Arquivados')}
-          className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${processFilter === 'Arquivados' ? 'bg-slate-700 text-white shadow-sm' : 'text-muted-foreground hover:bg-muted'}`}
+          onClick={() => setProcessFilterMode('Arquivados')}
+          className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${processFilterMode === 'Arquivados' ? 'bg-slate-700 text-white shadow-sm' : 'text-muted-foreground hover:bg-muted'}`}
         >
           📂 Arquivados
         </button>
@@ -616,22 +621,22 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
         </Select>
       </div>
 
-      <div className="flex bg-muted/20 p-1.5 rounded-2xl border border-border/40 justify-center items-center gap-6 mb-6">
-        <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-3 cursor-pointer hover:text-primary transition-colors py-1 group-h">
-           <input 
-             type="checkbox" 
-             checked={mostrarArquivados} 
-             onChange={e => setMostrarArquivados(e.target.checked)}
-             className="w-5 h-5 rounded-lg border-primary/30 text-primary focus:ring-primary/20 transition-all cursor-pointer"
-           />
-           Exibir Concluídos
-        </Label>
+      <div className="flex bg-muted/20 p-1 rounded-2xl border border-border/40 justify-center items-center gap-1 mb-6 max-w-sm mx-auto">
+        {(['Em Trâmite', 'Concluídos', 'Arquivados'] as const).map(mode => (
+          <button 
+            key={mode}
+            onClick={() => setProcessFilterMode(mode)}
+            className={`flex-1 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${processFilterMode === mode ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:bg-muted'}`}
+          >
+            {mode}
+          </button>
+        ))}
       </div>
 
       {processesData.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground bg-muted/10 rounded-[2.5rem] border border-border/30 border-dashed">
           <Briefcase className="w-16 h-16 mb-4 opacity-10" />
-          <p className="text-xs font-black uppercase tracking-widest opacity-30">Nenhum processo ativo encontrado</p>
+          <p className="text-xs font-black uppercase tracking-widest opacity-30">Nenhum processo nesta categoria</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-10">
@@ -644,28 +649,41 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
                 className={`transition-all border-border/40 hover:border-primary/50 shadow-sm hover:shadow-xl rounded-[2.2rem] overflow-hidden cursor-pointer group active:scale-[0.98] ${group.isArchived ? 'opacity-50 grayscale bg-muted/20' : 'bg-card'}`}
               >
                 <CardContent className="p-6">
-                  <div className="flex justify-between items-start gap-4">
-                    <div className="flex items-start gap-4 flex-1">
-                      <div className={`p-4 rounded-[1.2rem] border shrink-0 transition-transform group-hover:scale-110 duration-300 ${isUnlinked ? 'bg-amber-500/10 border-amber-500/20 text-amber-600' : 'bg-primary/5 border-primary/20 text-primary'}`}>
-                        {isUnlinked ? <AlertCircle className="w-6 h-6" /> : <FolderClosed className="w-6 h-6" />}
-                      </div>
-                      <div className="min-w-0">
-                         <h4 className="font-black text-[15px] text-foreground tracking-tight leading-tight truncate mb-1.5">{group.name}</h4>
-                         <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant="outline" className={`text-[9px] h-5 px-2 py-0 border-current bg-background/50 uppercase font-black tracking-widest backdrop-blur-sm ${group.status === 'Exigência' ? 'text-destructive' : 'text-primary'}`}>
-                              {group.status}
-                            </Badge>
-                            {isUnlinked && <span className="text-[10px] text-amber-600 font-bold bg-amber-500/5 px-2 py-0.5 rounded-full">🚨 {group.items.length} pendências</span>}
-                         </div>
+                  <div className="flex flex-col gap-4">
+                    <div className="flex justify-between items-start gap-4">
+                      <div className="flex items-start gap-4 flex-1">
+                        <div className={`p-4 rounded-[1.2rem] border shrink-0 transition-transform group-hover:scale-110 duration-300 ${isUnlinked ? 'bg-amber-500/10 border-amber-500/20 text-amber-600' : 'bg-primary/5 border-primary/20 text-primary'}`}>
+                          {isUnlinked ? <AlertCircle className="w-6 h-6" /> : <FolderClosed className="w-6 h-6" />}
+                        </div>
+                        <div className="min-w-0">
+                           <h4 className="font-black text-[15px] text-foreground tracking-tight leading-tight truncate mb-1">{group.name}</h4>
+                           <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline" className={`text-[9px] h-5 px-2 py-0 border-current bg-background/50 uppercase font-black tracking-widest backdrop-blur-sm ${group.status === 'Exigência' ? 'text-destructive' : 'text-primary'}`}>
+                                {group.status}
+                              </Badge>
+                              {group.dataProtocolo && (
+                                <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest">
+                                  📂 {new Date(group.dataProtocolo + 'T12:00:00').toLocaleDateString('pt-BR')}
+                                </span>
+                              )}
+                              {isUnlinked && <span className="text-[10px] text-amber-600 font-bold bg-amber-500/5 px-2 py-0.5 rounded-full">🚨 {group.items.length} pendências</span>}
+                           </div>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="text-right shrink-0">
-                       <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 mb-0.5">Contrato</p>
-                       <p className="text-lg font-black text-foreground tabular-nums tracking-tighter">
-                         R$ {group.valorContrato.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                       </p>
-                    </div>
+                    {!isUnlinked && (
+                      <div className="flex items-center gap-4 pt-4 border-t border-border/30">
+                         <div className="flex-1">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 mb-0.5">Recebido</p>
+                            <p className="text-sm font-black text-emerald-600 tabular-nums">R$ {group.summary.recebido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                         </div>
+                         <div className="flex-1 text-right">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 mb-0.5">Saldo</p>
+                            <p className="text-sm font-black text-amber-600 tabular-nums">R$ {group.summary.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                         </div>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -694,12 +712,17 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
       <Sheet open={!!activeProcessClienteId} onOpenChange={v => !v && setActiveProcessClienteId(null)}>
         <SheetContent className="w-full sm:max-w-md bg-card p-0 flex flex-col gap-0 border-l border-border/50">
           <SheetHeader className="p-6 pb-4 border-b border-border/30 bg-muted/20">
-            <div className="flex items-center gap-2 mb-2 text-primary">
-              <ClipboardList className="w-5 h-5" />
-              <SheetTitle className="text-lg font-black tracking-tight uppercase">Gaveta de Processo</SheetTitle>
+            <div className="flex items-center justify-between gap-4">
+               <div className="flex items-center gap-2 text-primary">
+                 <ClipboardList className="w-5 h-5" />
+                 <SheetTitle className="text-lg font-black tracking-tight uppercase">Ficha do Processo</SheetTitle>
+               </div>
+               <Button variant="ghost" size="icon" onClick={handleDeleteFullProcess} className="text-destructive/50 hover:text-destructive hover:bg-destructive/10">
+                  <Trash2 className="w-5 h-5" />
+               </Button>
             </div>
             <SheetDescription className="text-xs font-medium text-muted-foreground">
-              Gerencie o trâmite e notas para: <span className="text-foreground font-bold">{getClientName(activeProcessClienteId)}</span>
+              Acompanhamento total de: <span className="text-foreground font-bold">{getClientName(activeProcessClienteId)}</span>
             </SheetDescription>
           </SheetHeader>
 
@@ -746,55 +769,54 @@ export function TransactionHistory({ transactions, onEdit, onComplete, onDelete,
                  </div>
               </div>
 
-              {/* Botão Lançar e Arquivar */}
-              <div className="flex gap-2">
-                 <Button 
-                   onClick={() => setShowLaunchForm(!showLaunchForm)}
-                   className="flex-1 h-10 rounded-xl bg-primary hover:bg-primary/90 text-[11px] font-black uppercase tracking-widest gap-2 shadow-sm"
-                 >
-                   <Plus className="w-4 h-4" /> Lançar Valor
-                 </Button>
-                 {activeProcess.status === 'Finalizado' && (
-                   <Button 
-                     variant="outline"
-                     onClick={() => handleUpdateProcess({ isArchived: !activeProcess.isArchived })}
-                     className={`flex-1 h-10 rounded-xl text-[11px] font-black uppercase tracking-widest gap-2 ${activeProcess.isArchived ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' : 'bg-slate-500/10 text-slate-600 border-slate-500/20'}`}
-                   >
-                     {activeProcess.isArchived ? <><Play className="w-4 h-4" /> Reativar</> : <><Archive className="w-4 h-4" /> Arquivar</>}
-                   </Button>
+              {/* Seção Financeira Unificada */}
+              <div className="space-y-4 pt-4 border-t border-border/30">
+                 <div className="flex items-center gap-2 mb-2">
+                    <Receipt className="w-4 h-4 text-emerald-600" />
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground leading-none">Lançamentos Financeiros</Label>
+                 </div>
+                 
+                 <div className="grid grid-cols-2 gap-3">
+                    <Button 
+                      onClick={() => { setShowLaunchForm(true); setLaunchData({...launchData, tipo: 'Entrada'}); }}
+                      className="bg-emerald-600 hover:bg-emerald-700 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest gap-2"
+                    >
+                      <Plus className="w-4 h-4" /> Receita
+                    </Button>
+                    <Button 
+                      onClick={() => { setShowLaunchForm(true); setLaunchData({...launchData, tipo: 'Saída'}); }}
+                      className="bg-destructive hover:bg-destructive/90 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest gap-2"
+                    >
+                      <Plus className="w-4 h-4" /> Despesa / Repasse
+                    </Button>
+                 </div>
+
+                 {showLaunchForm && (
+                   <div className="bg-muted/30 p-4 rounded-2xl border border-divider space-y-3 animate-in fade-in slide-in-from-top-2">
+                      <div className={`text-[9px] font-black uppercase tracking-widest mb-1 ${launchData.tipo === 'Entrada' ? 'text-emerald-600' : 'text-destructive'}`}>
+                        Novo Lançamento: {launchData.tipo === 'Entrada' ? 'Receita' : 'Despesa/Repasse'}
+                      </div>
+                      <Input 
+                        placeholder="Descrição curta (ex: Sinal de pagamento)" 
+                        value={launchData.descricao}
+                        onChange={e => setLaunchData({...launchData, descricao: e.target.value})}
+                        className="h-10 bg-background text-xs" />
+                      <div className="relative">
+                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground opacity-50">R$</span>
+                         <Input 
+                           type="number"
+                           placeholder="Valor"
+                           value={launchData.valor || ''}
+                           onChange={e => setLaunchData({...launchData, valor: parseFloat(e.target.value) || 0 })}
+                           className="h-10 pl-8 bg-background text-xs font-bold" />
+                      </div>
+                      <div className="flex gap-2">
+                         <Button variant="ghost" onClick={() => setShowLaunchForm(false)} className="flex-1 h-10 text-[10px] font-black uppercase tracking-widest">Cancelar</Button>
+                         <Button onClick={handleQuickLaunch} className="flex-1 h-10 text-[10px] font-black uppercase tracking-widest">Confirmar</Button>
+                      </div>
+                   </div>
                  )}
               </div>
-
-              {/* Mini formulário de lançamento */}
-              {showLaunchForm && (
-                <div className="bg-muted/30 p-4 rounded-xl border border-border/50 space-y-3 animate-in fade-in slide-in-from-top-2">
-                   <div className="grid grid-cols-2 gap-2">
-                      <button 
-                        onClick={() => setLaunchData({...launchData, tipo: 'Entrada'})}
-                        className={`py-2 rounded-lg text-xs font-bold ${launchData.tipo === 'Entrada' ? 'bg-success text-white' : 'bg-muted text-muted-foreground'}`}>Receita</button>
-                      <button 
-                        onClick={() => setLaunchData({...launchData, tipo: 'Saída'})}
-                        className={`py-2 rounded-lg text-xs font-bold ${launchData.tipo === 'Saída' ? 'bg-destructive text-white' : 'bg-muted text-muted-foreground'}`}>Despesa</button>
-                   </div>
-                   <Input 
-                     placeholder="Descrição (ex: Parcelamento)" 
-                     value={launchData.descricao}
-                     onChange={e => setLaunchData({...launchData, descricao: e.target.value})}
-                     className="h-10 bg-background text-xs" />
-                   <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground opacity-50">R$</span>
-                      <Input 
-                        type="number"
-                        placeholder="Valor"
-                        value={launchData.valor || ''}
-                        onChange={e => setLaunchData({...launchData, valor: parseFloat(e.target.value) || 0 })}
-                        className="h-10 pl-8 bg-background text-xs font-bold" />
-                   </div>
-                   <Button size="sm" onClick={handleQuickLaunch} className="w-full h-10 font-black uppercase tracking-widest text-[10px]">
-                      Confirmar Lançamento
-                   </Button>
-                </div>
-              )}
 
               {/* Status de Trâmite */}
               <div className="space-y-3">
