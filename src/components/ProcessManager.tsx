@@ -211,7 +211,8 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
       id: string; clienteId: string; name: string;
       status: ProcessStatus | 'A definir'; protocolo?: string;
       dataProtocolo?: string; isArchived: boolean;
-      recebido: number; saldo: number; repasses: number; valorContrato: number;
+      recebido: number; saldo: number; repasses: number;
+      liquido: number; valorContrato: number;
       lastNotes: string[];
     }[] = [];
 
@@ -227,7 +228,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
         .reduce((s, t) => s + t.valor, 0);
       const valorContrato = proc?.valorContrato || 0;
       const saldo = Math.max(0, valorContrato - recebido);
-      // Last 3 technical notes (not financial)
+      const liquido = recebido - repasses;
       const lastNotes = (proc?.notas || [])
         .sort((a, b) => b.data - a.data)
         .slice(0, 3)
@@ -239,7 +240,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
         status: proc?.status || 'A definir',
         protocolo: proc?.protocolo, dataProtocolo: proc?.dataProtocolo,
         isArchived: proc?.isArchived || false,
-        recebido, saldo, repasses, valorContrato, lastNotes,
+        recebido, saldo, repasses, liquido, valorContrato, lastNotes,
       });
     });
     return cards;
@@ -404,27 +405,41 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                   </div>
 
                   {/* Financial summary + delete */}
-                  <div className="flex flex-col items-end gap-1.5 shrink-0">
-                    <div className="text-right" onClick={() => setActiveProcessClienteId(card.clienteId)}>
+                  <div className="flex flex-col items-end gap-1 shrink-0 min-w-[80px]">
+                    <div className="text-right space-y-0.5" onClick={() => setActiveProcessClienteId(card.clienteId)}>
+                      {/* Recebido */}
                       <div className="flex items-center gap-1 justify-end">
-                        <TrendingUp className="w-3 h-3 text-emerald-500" />
+                        <TrendingUp className="w-3 h-3 text-emerald-500 shrink-0" />
                         <span className="text-xs font-black text-emerald-500 tabular-nums">
                           R$ {card.recebido.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
                         </span>
                       </div>
-                      {card.valorContrato > 0 && (
-                        card.saldo === 0 ? (
-                          <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 rounded-full border border-emerald-500/20">PAGO</span>
-                        ) : (
-                          <span className="text-[9px] text-muted-foreground font-medium block">
-                            Saldo: R$ {card.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                      {/* Repasses (só se > 0) */}
+                      {card.repasses > 0 && (
+                        <div className="flex items-center gap-1 justify-end">
+                          <TrendingDown className="w-3 h-3 text-rose-500 shrink-0" />
+                          <span className="text-[10px] font-bold text-rose-500 tabular-nums">
+                            R$ {card.repasses.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
                           </span>
-                        )
+                        </div>
+                      )}
+                      {/* Líquido */}
+                      {(card.recebido > 0 || card.repasses > 0) && (
+                        <div className={`flex items-center gap-1 justify-end border-t border-border/30 pt-0.5 ${card.liquido >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                          <span className="text-[9px] font-black uppercase tracking-wider">Líq.</span>
+                          <span className="text-[11px] font-black tabular-nums">
+                            R$ {card.liquido.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                          </span>
+                        </div>
+                      )}
+                      {/* PAGO badge */}
+                      {card.valorContrato > 0 && card.saldo === 0 && (
+                        <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 rounded-full border border-emerald-500/20 inline-block mt-0.5">PAGO</span>
                       )}
                     </div>
                     <button
                       onClick={e => { e.stopPropagation(); setDeleteCardTarget({ clienteId: card.clienteId, name: card.name }); }}
-                      className="p-1.5 rounded-lg text-destructive/30 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
+                      className="p-1.5 rounded-lg text-destructive/30 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100 mt-auto"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

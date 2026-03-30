@@ -87,27 +87,25 @@ export function Dashboard({ transactions, month, year }: Props) {
       }
     });
 
-    // 3. ESTATÍSTICAS MENSAIS
+    // 3. ESTATÍSTICAS MENSAIS — filtro rigoroso por data da transação (mes/ano selecionado)
     const monthTxs = transactions.filter(t => {
       const d = new Date(t.data + 'T12:00:00');
       return d.getMonth() === month && d.getFullYear() === year;
     });
 
     const entradas = monthTxs.filter(t => t.tipo === 'Entrada' && t.status === 'Concluído').reduce((s, t) => s + t.valor, 0);
-    const saidas = monthTxs.filter(t => t.tipo === 'Saída' && t.status === 'Concluído').reduce((s, t) => s + t.valor, 0);
+    const saidas = monthTxs.filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status === 'Concluído').reduce((s, t) => s + t.valor, 0);
     const aReceber = monthTxs.filter(t => t.tipo === 'A Receber').reduce((s, t) => s + t.valor, 0);
-    const aPagar = monthTxs.filter(t => t.tipo === 'A Pagar').reduce((s, t) => s + t.valor, 0);
+    const aPagar = monthTxs.filter(t => t.tipo === 'A Pagar' && t.status !== 'Concluído').reduce((s, t) => s + t.valor, 0);
 
+    // Meta de recebimentos usa apenas bruto recebido
     const totalPrevisto = entradas + aReceber;
     const percentRecebido = totalPrevisto > 0 ? (entradas / totalPrevisto) * 100 : 0;
 
-    // 4. BÚSSOLA FINANCEIRA
-    // A bússola gora cálcula on the fly no componente usando o saldoAtual global (que já desconta despesas, repasses e retiradas)
-    
-    const margemSeguranca = saidas * 1.2;
-    const caixaDisponivelReal = entradas - saidas;
+    // Lucro Líquido do Mês = Bruto Recebido - Total Gasto
+    const lucroLiquidoMensal = entradas - saidas;
 
-    const stats = { entradas, saidas, aReceber, aPagar, percentRecebido };
+    const stats = { entradas, saidas, aReceber, aPagar, percentRecebido, lucroLiquidoMensal };
     const saldoAtual = actualBalance;
     const saldoProjetadoFuturo = runningTotal;
 
@@ -178,20 +176,32 @@ export function Dashboard({ transactions, month, year }: Props) {
           <div className="lg:col-span-7 flex flex-col justify-center">
             <div className="flex flex-col gap-1.5 mb-5 md:mb-6">
               <h2 className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-white/90 drop-shadow-sm">
-                <span className="text-xl">🧭</span> Bússola Financeira
+                <span className="text-xl">📊</span> Resultado do Mês
               </h2>
               <p className="text-xs text-white/60 italic font-medium leading-relaxed">
-                Cálculo enraizado no seu caixa líquido real de <span className="font-bold text-white/80">Hoje</span>
+                Receitas realizadas <span className="font-bold text-white/80">menos</span> despesas do período
               </p>
             </div>
 
             <div className="flex flex-col justify-center">
-              <p className="text-xs sm:text-sm font-semibold text-emerald-400 mb-1 lg:mb-2 uppercase tracking-widest flex items-center gap-2"><Wallet className="w-4 h-4"/> Saldo Atual Disponível</p>
-              <div className={`flex items-baseline flex-wrap ${saldoAtual >= 0 ? 'text-white' : 'text-rose-400'}`}>
-                <span className="text-xl sm:text-2xl lg:text-3xl font-bold mr-2 opacity-80 drop-shadow-md">R$</span>
+              <p className="text-xs sm:text-sm font-semibold text-emerald-400 mb-1 lg:mb-2 uppercase tracking-widest flex items-center gap-2">
+                <Wallet className="w-4 h-4"/> Lucro Líquido do Mês
+              </p>
+              <div className={`flex items-baseline flex-wrap gap-2 ${stats.lucroLiquidoMensal >= 0 ? 'text-white' : 'text-rose-400'}`}>
+                <span className="text-xl sm:text-2xl lg:text-3xl font-bold opacity-80 drop-shadow-md">R$</span>
                 <span className="text-5xl sm:text-6xl md:text-7xl lg:text-[5rem] font-black tabular-nums tracking-tighter drop-shadow-lg leading-none break-all">
-                  {Math.max(0, saldoAtual).toFixed(2)}
+                  {stats.lucroLiquidoMensal.toFixed(2)}
                 </span>
+              </div>
+              <div className="flex gap-4 mt-3">
+                <div className="text-xs text-white/60">
+                  <span className="text-white/40 text-[10px] uppercase tracking-widest block">Bruto Recebido</span>
+                  <span className="font-bold text-emerald-400">R$ {stats.entradas.toFixed(2)}</span>
+                </div>
+                <div className="text-xs text-white/60">
+                  <span className="text-white/40 text-[10px] uppercase tracking-widest block">Total Gasto</span>
+                  <span className="font-bold text-rose-400">R$ {stats.saidas.toFixed(2)}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -200,13 +210,14 @@ export function Dashboard({ transactions, month, year }: Props) {
           <div className="lg:col-span-5 w-full bg-black/20 rounded-2xl p-4 sm:p-5 border border-white/5 backdrop-blur-sm shadow-inner overflow-hidden">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-6 h-6 shrink-0 rounded overflow-hidden bg-white/10 flex items-center justify-center text-[11px] shadow-sm">🏢</div> 
-              <p className="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-emerald-400/90 leading-tight">Se você guardar p/ Empresa:</p>
+              <p className="text-[11px] sm:text-xs font-bold uppercase tracking-widest text-emerald-400/90 leading-tight">Se você guardar p/ Empresa (sobre o Líquido):</p>
             </div>
             
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               {[10, 15, 20, 30].map(pct => {
-                const valorGuardado = Math.max(0, saldoAtual) * (pct / 100);
-                const sobrando = Math.max(0, saldoAtual) - valorGuardado;
+                const base = Math.max(0, stats.lucroLiquidoMensal);
+                const valorGuardado = base * (pct / 100);
+                const sobrando = base - valorGuardado;
                 return (
                   <div key={pct} className="bg-white/5 hover:bg-white/10 transition-colors cursor-default rounded-xl p-3 sm:p-3.5 border border-white/5 flex flex-col justify-between shadow-[0_2px_10px_rgba(0,0,0,0.1)] h-full">
                     <div className="flex justify-between items-center mb-1.5">
