@@ -135,42 +135,24 @@ export function Dashboard({ transactions, month, year }: Props) {
       shouldShowCostInDashboard(t)
     ).reduce((s, t) => s + t.valor, 0);
 
-    // 4. VISÃO DE FUTURO (Lógica Global de Processos Ativos)
-    const activeProcesses = (processes || []).filter(p => !p.isArchived);
-
-    const isFilterAll = month === 12 || year === 0;
-
-    let entradasPrevistas = 0;
-    let saidasPrevistas = 0;
-
-    if (isFilterAll) {
-      // Cenário Global (Escritório Total)
-      entradasPrevistas = activeProcesses.reduce((sum, p) => {
-        const totalRecebidoP = (transactions || [])
-          .filter(t => t.processId === p.id && (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
-          .reduce((s, t) => s + t.valor, 0);
-        
-        const receitasPendentesParaProc = (transactions || [])
-          .filter(t => t.processId === p.id && (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Pendente')
-          .reduce((s, t) => s + t.valor, 0);
-
-        return sum + Math.max(0, (p.valorContrato || 0) - totalRecebidoP) + receitasPendentesParaProc;
-      }, 0);
-
-      saidasPrevistas = (transactions || [])
-        .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
+    // Cenário Global (Escritório Total)
+    // O Lucro Futuro agora é SEMPRE global para mostrar o potencial dos contratos ativos
+    const entradasPrevistas = (processes || []).filter(p => !p.isArchived).reduce((sum, p) => {
+      const totalRecebidoP = (transactions || [])
+        .filter(t => t.processId === p.id && (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
         .reduce((s, t) => s + t.valor, 0);
-    } else {
-      // Cenário Focado no Mês Selecionado
-      // Considera apenas o que está lançado com a data desse mês mas ainda não foi efetivado
-      entradasPrevistas = monthTxs
-        .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído')
+      
+      const receitasPendentesParaProc = (transactions || [])
+        .filter(t => t.processId === p.id && (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Pendente')
         .reduce((s, t) => s + t.valor, 0);
-        
-      saidasPrevistas = monthTxs
-        .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
-        .reduce((s, t) => s + t.valor, 0);
-    }
+
+      // (Contrato - Já Recebido) + Previstos Manuais
+      return sum + Math.max(0, (p.valorContrato || 0) - totalRecebidoP) + receitasPendentesParaProc;
+    }, 0);
+
+    const saidasPrevistas = (transactions || [])
+      .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
+      .reduce((s, t) => s + t.valor, 0);
 
     const lucroFuturoPendente = entradasPrevistas - saidasPrevistas;
 
@@ -185,11 +167,10 @@ export function Dashboard({ transactions, month, year }: Props) {
 
     // Lucro Líquido Realizado (Mês)
     const lucroLiquidoMensal = entradas - saidas;
-    const projecaoTotal = lucroLiquidoMensal + lucroFuturoPendente;
 
     const stats = { 
       entradas, saidas, aReceber, percentRecebido, lucroLiquidoMensal,
-      entradasPrevistas, saidasPrevistas, lucroFuturoPendente, projecaoTotal,
+      entradasPrevistas, saidasPrevistas, lucroFuturoPendente,
       custosFuturos: saidasPrevistas
     };
     const saldoAtual = actualBalance;
@@ -387,55 +368,56 @@ export function Dashboard({ transactions, month, year }: Props) {
         <Progress value={stats.percentRecebido} className="h-2.5 rounded-full" />
       </div>
 
-      {/* NÍVEL 3: Visão de Futuro Avançada (Lucro Pendente e Projeção Total) */}
+      {/* NÍVEL 3: Visão de Futuro Avançada (Lucro Pendente) */}
       <Card className="border-border/40 bg-muted/20 shadow-sm rounded-3xl mt-4 overflow-hidden relative">
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl opacity-50"></div>
         <CardContent className="p-6 sm:p-8">
           <div className="flex flex-col lg:grid lg:grid-cols-12 gap-8 items-center">
             
-            {/* Esquerda: Entradas e Saídas Futuras */}
-            <div className="lg:col-span-4 w-full space-y-4">
+            {/* Esquerda: Entradas e Saídas (Lógica Global) */}
+            <div className="lg:col-span-6 w-full flex flex-col gap-4">
               <div className="flex items-center gap-2 mb-2 font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em]">
-                <Plus className="w-3 h-3 text-emerald-500" /> Projeções Ativas
+                <Plus className="w-3 h-3 text-emerald-500" /> Projeções Ativas (Geral)
               </div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center bg-background/50 p-3 rounded-2xl border border-border/30">
-                  <span className="text-xs text-muted-foreground flex items-center gap-2"><ArrowDownLeft className="w-3.5 h-3.5 text-emerald-500"/> Entradas Previstas</span>
-                  <span className="font-bold text-sm tabular-nums text-foreground">R$ {stats.entradasPrevistas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              
+              <div className="flex bg-emerald-500/5 p-4 rounded-3xl border border-emerald-500/20 shadow-sm hover:shadow-md transition-all duration-300">
+                <div className="p-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 mr-3 shrink-0">
+                  <ArrowUpCircle className="w-5 h-5 text-emerald-600" />
                 </div>
-                <div className="flex justify-between items-center bg-background/50 p-3 rounded-2xl border border-border/30">
-                  <span className="text-xs text-muted-foreground flex items-center gap-2"><ArrowUpRight className="w-3.5 h-3.5 text-rose-500"/> Saídas Previstas</span>
-                  <span className="font-bold text-sm tabular-nums text-foreground">R$ {stats.saidasPrevistas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                <div className="flex-1 min-w-0">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600/60 mb-1 leading-none">Entradas Previstas</span>
+                  <div className="text-xl font-black text-emerald-600 tabular-nums tracking-tight">
+                    <span className="text-sm opacity-50 mr-1">R$</span>{stats.entradasPrevistas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex bg-rose-500/5 p-4 rounded-3xl border border-rose-500/20 shadow-sm hover:shadow-md transition-all duration-300">
+                <div className="p-2.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 mr-3 shrink-0">
+                  <ArrowDownCircle className="w-5 h-5 text-rose-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500/60 mb-1 leading-none">Saídas Previstas</span>
+                  <div className="text-xl font-black text-rose-600 tabular-nums tracking-tight">
+                    <span className="text-sm opacity-50 mr-1">R$</span>{stats.saidasPrevistas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Centro: Lucro Futuro Pendente (O "Net") */}
-            <div className="lg:col-span-4 w-full flex flex-col items-center justify-center py-4 px-6 bg-primary/[0.03] rounded-[2.5rem] border border-primary/10 relative shadow-inner">
+            {/* Direita: Lucro Futuro Pendente (O "Net") */}
+            <div className="lg:col-span-6 w-full flex flex-col items-center justify-center p-8 bg-primary/[0.03] rounded-[2.5rem] border border-primary/10 relative shadow-inner space-y-4">
                <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent rounded-[2.5rem]"></div>
-               <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary mb-3 relative z-10">Lucro Futuro Pendente</span>
-               <div className={`text-3xl sm:text-4xl font-black tabular-nums tracking-tighter relative z-10 ${stats.lucroFuturoPendente >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                 <span className="text-lg opacity-50 mr-1.5">R$</span>{stats.lucroFuturoPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+               <div className="flex items-center gap-2 relative z-10">
+                 <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Lucro Futuro Pendente</span>
+                 <Target className="w-3 h-3 text-primary/50" />
                </div>
-               <p className="text-[9px] font-bold text-muted-foreground/60 mt-3 text-center uppercase tracking-widest leading-relaxed relative z-10 max-w-[200px]">
-                 O que sobrará para você após todas as baixas e recebimentos
+               <div className={`text-4xl sm:text-5xl font-black tabular-nums tracking-tighter relative z-10 ${stats.lucroFuturoPendente >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                 <span className="text-xl opacity-50 mr-2">R$</span>{stats.lucroFuturoPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+               </div>
+               <p className="text-[10px] font-bold text-muted-foreground/80 text-center uppercase tracking-widest leading-relaxed relative z-10 max-w-[250px] pt-2 border-t border-primary/10">
+                 Quanto você ainda lucrará ao finalizar todos os contratos atuais.
                </p>
-            </div>
-
-            {/* Direita: Projeção de Caixa Total */}
-            <div className="lg:col-span-4 w-full flex flex-col gap-2">
-              <div className="flex items-center gap-2 font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] justify-end">
-                Cenário Final <Target className="w-3 h-3 text-primary ml-1" />
-              </div>
-              <div className={`flex flex-col items-end p-5 rounded-3xl border shadow-sm transition-all duration-300 ${stats.projecaoTotal >= 0 ? 'bg-primary/5 border-primary/20' : 'bg-rose-500/5 border-rose-500/20'}`}>
-                <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest mb-1 leading-none">Projeção Total de Caixa</span>
-                <span className={`text-2xl font-black tabular-nums tracking-tight ${stats.projecaoTotal >= 0 ? 'text-foreground' : 'text-rose-500'}`}>
-                  R$ {stats.projecaoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </span>
-                <div className="mt-2 h-1 w-full bg-border/40 rounded-full overflow-hidden">
-                   <div className={`h-full transition-all duration-500 ${stats.projecaoTotal >= 0 ? 'bg-primary' : 'bg-rose-500'}`} style={{ width: '100%' }}></div>
-                </div>
-              </div>
             </div>
 
           </div>
