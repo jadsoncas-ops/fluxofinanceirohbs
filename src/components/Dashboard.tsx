@@ -139,27 +139,46 @@ export function Dashboard({ transactions, month, year }: Props) {
 
     const clients = getClients();
     const auditList: { name: string; id: string; saldo: number; custos: number; lucro: number }[] = [];
-    
+    const assignedTxIdsAudit = new Set<string>();
+
     // Cenário Global (Escritório Total) — AUDITORIA 1 A 1
     (processes || []).filter(p => !p.isArchived).forEach(p => {
       const client = clients.find(c => c.id === p.clienteId);
       
-      const totalRecebidoP = (transactions || [])
-        .filter(t => t.processId === p.id && (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
+      // Filtragem robusta para conciliação com os Cards
+      const processTxs = (transactions || []).filter(t => {
+        if (t.processId) return t.processId === p.id;
+        if (!t.processId && t.clienteId === p.clienteId && !assignedTxIdsAudit.has(t.id)) {
+          assignedTxIdsAudit.add(t.id);
+          return true;
+        }
+        return false;
+      });
+
+      // 1. RECEITAS EFETIVADAS (Para abater do contrato)
+      const totalRecebidoP = processTxs
+        .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
         .reduce((s, t) => s + t.valor, 0);
       
-      const receitasPendentesParaProc = (transactions || [])
-        .filter(t => t.processId === p.id && (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Pendente')
+      // 2. RECEITAS MANUAIS PENDENTES
+      const receitasPendentesParaProc = processTxs
+        .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Pendente')
         .reduce((s, t) => s + t.valor, 0);
 
-      // Regra: À RECEBER = (Contrato - Já Pago) + Previstos Pendentes Manuais
+      // 3. REPASSES PAGOS (Para abater do custo total)
+      const custosPagosProc = processTxs
+        .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status === 'Concluído')
+        .reduce((s, t) => s + t.valor, 0);
+
+      // 4. CUSTOS PENDENTES (Total de custos lançados - o que já foi pago)
+      const custosPendentesProc = processTxs
+        .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
+        .reduce((s, t) => s + t.valor, 0);
+
+      // Regra 1: À RECEBER = (Contrato - Recebido Efetivado) + Manuais Pendentes
+      // Isso sincroniza exatamente com o "Prev:" do Card
       const saldoTotalProc = Math.max(0, (p.valorContrato || 0) - totalRecebidoP) + receitasPendentesParaProc;
       
-      // Regra: CUSTOS PEND. = (Todos os Repasses) - (Repasses Pagos/Efetivados)
-      const custosPendentesProc = (transactions || [])
-        .filter(t => t.processId === p.id && (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
-        .reduce((s, t) => s + t.valor, 0);
-
       if (saldoTotalProc > 0 || custosPendentesProc > 0) {
         auditList.push({
           id: p.id,
