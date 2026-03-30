@@ -24,6 +24,7 @@ interface QuickForm {
   descricao: string;
   valor: string;
   data: string;
+  efetivado: boolean;
 }
 
 interface Props {
@@ -46,7 +47,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
 
   // Inline launch form
   const [inlineForm, setInlineForm] = useState<InlineForm>(null);
-  const [quickForm, setQuickForm] = useState<QuickForm>({ descricao: '', valor: '', data: today });
+  const [quickForm, setQuickForm] = useState<QuickForm>({ descricao: '', valor: '', data: today, efetivado: true });
 
   // Edit note
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -81,7 +82,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
       }
       setHasUnsavedChanges(false);
       setInlineForm(null);
-      setQuickForm({ descricao: '', valor: '', data: today });
+      setQuickForm({ descricao: '', valor: '', data: today, efetivado: true });
     } else {
       setActiveProcess(null);
     }
@@ -143,7 +144,6 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     if (!activeProcess || !quickForm.valor || !quickForm.descricao.trim() || !quickForm.data) return;
     const valor = parseFloat(quickForm.valor);
     if (isNaN(valor) || valor <= 0) { toast.error('Insira um valor válido.'); return; }
-    // Receitas entram como Concluído; Despesas ficam como Pendente (não abate o Dashboard até confirmação)
     
     const tx: Transaction = {
       id: crypto.randomUUID(),
@@ -152,7 +152,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
       categoria: inlineForm === 'receita' ? 'Recebimento' : 'Custo/Repasse',
       descricao: quickForm.descricao,
       valor,
-      status: 'Concluído',
+      status: quickForm.efetivado ? 'Concluído' : 'Pendente',
       isRepasse: inlineForm === 'despesa',
       clienteId: activeProcess.clienteId,
       processId: activeProcess.id,
@@ -160,9 +160,9 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     };
     
     addTransaction(tx);
-    toast.success(inlineForm === 'receita' ? 'Receita confirmada no caixa!' : 'Despesa registrada.');
+    toast.success(tx.status === 'Concluído' ? 'Caixa atualizado!' : 'Lançamento previsto na Gaveta.');
     setInlineForm(null);
-    setQuickForm({ descricao: '', valor: '', data: today });
+    setQuickForm({ descricao: '', valor: '', data: today, efetivado: true });
     onRefresh();
   }, [activeProcess, inlineForm, quickForm, today, onRefresh]);
 
@@ -358,6 +358,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
       data: new Date(t.data + 'T12:00:00').getTime(),
       texto: `${t.tipo === 'Entrada' || t.tipo === 'A Receber' ? '💰' : '💸'} ${t.tipo}: R$ ${t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} — ${t.descricao}`,
       tipo: 'transacao' as const,
+      status: t.status,
       isExpense: t.tipo === 'Saída' || t.tipo === 'A Pagar',
       dataFormatada: new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR'),
     }));
@@ -762,13 +763,13 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Lançamentos Financeiros</Label>
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => { setInlineForm(inlineForm === 'receita' ? null : 'receita'); setQuickForm({ descricao: '', valor: '', data: today }); }}
+                      onClick={() => { setInlineForm(inlineForm === 'receita' ? null : 'receita'); setQuickForm({ descricao: '', valor: '', data: today, efetivado: true }); }}
                       className={`flex-1 h-10 rounded-xl text-[11px] font-black uppercase tracking-widest gap-1.5 transition-all ${inlineForm === 'receita' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-emerald-600/10 text-emerald-600 hover:bg-emerald-600 hover:text-white border border-emerald-600/20'}`}
                     >
                       {inlineForm === 'receita' ? <ChevronUp className="w-4 h-4" /> : <Plus className="w-4 h-4" />} Receita
                     </Button>
                     <Button
-                      onClick={() => { setInlineForm(inlineForm === 'despesa' ? null : 'despesa'); setQuickForm({ descricao: '', valor: '', data: today }); }}
+                      onClick={() => { setInlineForm(inlineForm === 'despesa' ? null : 'despesa'); setQuickForm({ descricao: '', valor: '', data: today, efetivado: true }); }}
                       variant="outline"
                       className={`flex-1 h-10 rounded-xl text-[11px] font-black uppercase tracking-widest gap-1.5 transition-all ${inlineForm === 'despesa' ? 'bg-destructive text-destructive-foreground border-destructive shadow-lg' : 'border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground'}`}
                     >
@@ -789,6 +790,16 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                         className="h-10 bg-background/60 border-border/60 rounded-lg text-sm"
                         autoFocus
                       />
+                      <div className="flex items-center gap-2 py-0.5">
+                        <input
+                          type="checkbox"
+                          id="efetivado"
+                          checked={quickForm.efetivado}
+                          onChange={e => setQuickForm(f => ({ ...f, efetivado: e.target.checked }))}
+                          className="w-4 h-4 rounded border-border/60 text-primary focus:ring-primary/20"
+                        />
+                        <Label htmlFor="efetivado" className="text-xs font-bold cursor-pointer text-foreground/80">Marcar como Efetivado / Pago</Label>
+                      </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-bold">R$</span>
@@ -818,7 +829,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                         >
                           <Check className="w-4 h-4" /> Confirmar Lançamento
                         </Button>
-                        <Button variant="ghost" onClick={() => { setInlineForm(null); setQuickForm({ descricao: '', valor: '', data: today }); }}
+                        <Button variant="ghost" onClick={() => { setInlineForm(null); setQuickForm({ descricao: '', valor: '', data: today, efetivado: true }); }}
                           className="h-10 w-10 px-0 rounded-lg text-muted-foreground hover:bg-muted shrink-0">
                           <X className="w-4 h-4" />
                         </Button>
@@ -912,21 +923,38 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                         {timelineEvents.map((item: any) => {
                           const isFinancial = item.tipo === 'transacao';
                           const isExpense = item.isExpense;
+                          const isPendente = isFinancial && item.status !== 'Concluído';
                           const isEditingNote = editingNoteId === item.id;
                           const isEditingTx = editingTransactionId === item.id;
 
                           return (
                             <div key={item.id} className="relative group/item">
-                              <div className={`absolute -left-[1.35rem] top-1.5 w-3 h-3 rounded-full border-2 border-background shadow-sm ${isFinancial ? (isExpense ? 'bg-destructive' : 'bg-emerald-500') : 'bg-primary'}`} />
-                              <div className={`p-3 rounded-xl border border-border/30 transition-colors ${isFinancial ? (isExpense ? 'bg-destructive/5' : 'bg-emerald-500/5') : 'bg-muted/30'}`}>
+                              <div className={`absolute -left-[1.35rem] top-1.5 w-3 h-3 rounded-full border-2 border-background shadow-sm ${isFinancial ? (isPendente ? 'bg-slate-300' : (isExpense ? 'bg-destructive' : 'bg-emerald-500')) : 'bg-primary'}`} />
+                              <div className={`p-3 rounded-xl border border-border/30 transition-colors ${isFinancial ? (isPendente ? 'bg-muted/10 border-dashed border-muted-foreground/20 opacity-80' : (isExpense ? 'bg-destructive/5' : 'bg-emerald-500/5')) : 'bg-muted/30'}`}>
                                 
                                 {/* Header / Labels */}
                                 <div className="flex items-center justify-between mb-1">
-                                  <p className={`text-[9px] font-black uppercase tracking-widest ${isFinancial ? (isExpense ? 'text-destructive/80' : 'text-emerald-600/80') : 'text-primary/70'}`}>
-                                    {isFinancial ? (isExpense ? 'Saída / Repasse' : 'Receita') : 'Atualização Técnica'}
+                                  <p className={`text-[9px] font-black uppercase tracking-widest ${isFinancial ? (isPendente ? 'text-muted-foreground' : (isExpense ? 'text-destructive/80' : 'text-emerald-600/80')) : 'text-primary/70'}`}>
+                                    {isFinancial ? (isPendente ? `⏳ Previsto (${item.isExpense ? 'Saída' : 'Entrada'})` : (isExpense ? 'Saída / Repasse' : 'Receita')) : 'Atualização Técnica'}
                                     {item.dataFormatada && <span className="normal-case font-medium ml-1.5 opacity-70">• {item.dataFormatada}</span>}
                                   </p>
                                   <div className="flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                    {isPendente && (
+                                      <button
+                                        onClick={() => {
+                                          const tx = allTransactions.find(t => t.id === item.id);
+                                          if (tx) {
+                                            updateTransaction({ ...tx, status: 'Concluído', updatedAt: Date.now() });
+                                            onRefresh();
+                                            toast.success('Lançamento efetivado no Dashboard!');
+                                          }
+                                        }}
+                                        title="Confirmar Pagamento / Efetivar"
+                                        className="p-1 rounded text-emerald-600 hover:bg-emerald-500 hover:text-white transition-colors"
+                                      >
+                                        <Check className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
                                     <button
                                       onClick={() => {
                                         if (isFinancial) {

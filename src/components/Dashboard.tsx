@@ -95,10 +95,6 @@ export function Dashboard({ transactions, month, year }: Props) {
     });
 
     // Mapeamento global de recebimentos por processo para filtro de saídas
-    // Mapeamento global de recebimentos por processo e por cliente (para fallback legado)
-    // Mapeamento global de recebimentos por processo e por cliente (para fallback legado)
-    // Incluímos 'Parcial' no mapa apenas para validar se o processo é ATIVO (shouldShowCost), 
-    // mas a soma de 'entradas' no Dashboard continua puramente Concluído.
     const processRecebidoMap = new Map<string, number>();
     const clientRecebidoMap = new Map<string, number>();
     (transactions || []).forEach(t => {
@@ -118,23 +114,17 @@ export function Dashboard({ transactions, month, year }: Props) {
     
     // Função auxiliar para validar se um gasto deve aparecer no Dashboard
     const shouldShowCostInDashboard = (t: Transaction) => {
-      // Gastos "Órfãos" (sem processo e sem cliente) são considerados Overhead e sempre aparecem
       if (!t.processId && !t.clienteId) return true;
-
-      // Se há processId vinculado, buscamos a receita REALIZADA desse processo específico
       if (t.processId) {
         const recebidoTotal = processRecebidoMap.get(t.processId) || 0;
         const isArchived = archivedProcessIds.has(t.processId);
         return recebidoTotal > 0 || isArchived;
       }
-
-      // Fallback para dados legados baseados apenas no clienteId
       if (t.clienteId) {
         const recebidoTotalCliente = clientRecebidoMap.get(t.clienteId) || 0;
         const isArchivedCliente = archivedClientIds.has(t.clienteId);
         return recebidoTotalCliente > 0 || isArchivedCliente;
       }
-
       return true;
     };
 
@@ -147,16 +137,22 @@ export function Dashboard({ transactions, month, year }: Props) {
 
     // 4. VISÃO DE FUTURO (Lógica Global de Processos Ativos)
     const activeProcesses = (processes || []).filter(p => !p.isArchived);
-    
+
     const entradasPrevistas = activeProcesses.reduce((sum, p) => {
       const totalRecebidoP = (transactions || [])
         .filter(t => t.processId === p.id && (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
         .reduce((s, t) => s + t.valor, 0);
-      return sum + Math.max(0, (p.valorContrato || 0) - totalRecebidoP);
+      
+      const receitasPendentesParaProc = (transactions || [])
+        .filter(t => t.processId === p.id && (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Pendente')
+        .reduce((s, t) => s + t.valor, 0);
+
+      // Saldo do Contrato + Lançamentos Pendentes Manuais (que podem ser extras ou adiantamentos)
+      return sum + Math.max(0, (p.valorContrato || 0) - totalRecebidoP) + receitasPendentesParaProc;
     }, 0);
 
     const saidasPrevistas = (transactions || [])
-      .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído' && shouldShowCostInDashboard(t))
+      .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
       .reduce((s, t) => s + t.valor, 0);
 
     const lucroFuturoPendente = entradasPrevistas - saidasPrevistas;
