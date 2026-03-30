@@ -139,31 +139,41 @@ export function Dashboard({ transactions, month, year }: Props) {
     };
 
     // Saídas Confirmadas no Mês (Fluxo Real)
-    // Regra: Somente se o gasto for Concluído E o processo correspondente não for PENDENTE (Recebido > 0 ou Arquivado)
     const saidas = monthTxs.filter(t => 
       (t.tipo === 'Saída' || t.tipo === 'A Pagar') && 
       t.status === 'Concluído' &&
       shouldShowCostInDashboard(t)
     ).reduce((s, t) => s + t.valor, 0);
 
-    // Provisão de Custos Futuros (Lançamentos PARCIAIS - Pendentes são ignorados no Dashboard)
-    const custosFuturos = monthTxs.filter(t => 
-      (t.tipo === 'Saída' || t.tipo === 'A Pagar') && 
-      t.status === 'Parcial' &&
-      shouldShowCostInDashboard(t)
-    ).reduce((s, t) => s + t.valor, 0);
+    // 4. VISÃO DE FUTURO (Lógica Global de Processos Ativos)
+    const activeProcesses = processes.filter(p => !p.isArchived);
+    
+    const entradasPrevistas = activeProcesses.reduce((sum, p) => {
+      const totalRecebidoP = transactions
+        .filter(t => t.processId === p.id && (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
+        .reduce((s, t) => s + t.valor, 0);
+      return sum + Math.max(0, (p.valorContrato || 0) - totalRecebidoP);
+    }, 0);
 
-    // Recebíveis (Apenas o que já teve algum pagamento - PARCIAL)
-    const aReceber = monthTxs.filter(t => t.tipo === 'A Receber' && t.status === 'Parcial').reduce((s, t) => s + t.valor, 0);
+    const saidasPrevistas = transactions
+      .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído' && shouldShowCostInDashboard(t))
+      .reduce((s, t) => s + t.valor, 0);
+
+    const lucroFuturoPendente = entradasPrevistas - saidasPrevistas;
 
     // Meta de recebimentos
+    const aReceber = monthTxs.filter(t => t.tipo === 'A Receber' && t.status === 'Parcial').reduce((s, t) => s + t.valor, 0);
     const totalPrevisto = entradas + aReceber;
     const percentRecebido = totalPrevisto > 0 ? (entradas / totalPrevisto) * 100 : 0;
 
     // Lucro Líquido Realizado (Mês)
     const lucroLiquidoMensal = entradas - saidas;
+    const projecaoTotal = lucroLiquidoMensal + lucroFuturoPendente;
 
-    const stats = { entradas, saidas, aReceber, custosFuturos, percentRecebido, lucroLiquidoMensal };
+    const stats = { 
+      entradas, saidas, aReceber, percentRecebido, lucroLiquidoMensal,
+      entradasPrevistas, saidasPrevistas, lucroFuturoPendente, projecaoTotal
+    };
     const saldoAtual = actualBalance;
     const saldoProjetadoFuturo = runningTotal;
 
@@ -359,37 +369,57 @@ export function Dashboard({ transactions, month, year }: Props) {
         <Progress value={stats.percentRecebido} className="h-2.5 rounded-full" />
       </div>
 
-      {/* NÍVEL 3: Futuro (Previsto) em linha compacta */}
-      <Card className="border-border/30 bg-muted/40 shadow-none hover:bg-muted/60 transition-colors duration-300 rounded-xl mt-4">
-        <CardContent className="p-5">
-          <div className="flex flex-col xl:flex-row items-center justify-center xl:justify-between gap-4 text-sm">
+      {/* NÍVEL 3: Visão de Futuro Avançada (Lucro Pendente e Projeção Total) */}
+      <Card className="border-border/40 bg-muted/20 shadow-sm rounded-3xl mt-4 overflow-hidden relative">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl opacity-50"></div>
+        <CardContent className="p-6 sm:p-8">
+          <div className="flex flex-col lg:grid lg:grid-cols-12 gap-8 items-center">
             
-            <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2">
-              <span className="font-bold text-muted-foreground uppercase text-[11px] tracking-wider flex items-center gap-1.5"><Target className="w-3.5 h-3.5"/> Visão de Futuro</span>
-              <span className="hidden md:inline text-border">•</span>
-              <span className="flex items-center gap-1.5 text-muted-foreground">
-                <ArrowDownLeft className="w-4 h-4 text-primary/60"/> 
-                Entradas previstas 
-                <span className="font-bold text-foreground/80 flex items-baseline"><span className="text-[10px] mr-0.5">R$</span>{stats.aReceber.toFixed(2)}</span>
-              </span>
-              <span className="hidden md:inline text-border">•</span>
-              <span className="flex items-center gap-1.5 text-muted-foreground">
-                <ArrowUpRight className="w-4 h-4 text-amber-500/60"/> 
-                Saídas previstas 
-                <span className="font-bold text-foreground/80 flex items-baseline"><span className="text-[10px] mr-0.5">R$</span>{stats.custosFuturos.toFixed(2)}</span>
-              </span>
+            {/* Esquerda: Entradas e Saídas Futuras */}
+            <div className="lg:col-span-4 w-full space-y-4">
+              <div className="flex items-center gap-2 mb-2 font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em]">
+                <Plus className="w-3 h-3 text-emerald-500" /> Projeções Ativas
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center bg-background/50 p-3 rounded-2xl border border-border/30">
+                  <span className="text-xs text-muted-foreground flex items-center gap-2"><ArrowDownLeft className="w-3.5 h-3.5 text-emerald-500"/> Entradas Previstas</span>
+                  <span className="font-bold text-sm tabular-nums text-foreground">R$ {stats.entradasPrevistas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between items-center bg-background/50 p-3 rounded-2xl border border-border/30">
+                  <span className="text-xs text-muted-foreground flex items-center gap-2"><ArrowUpRight className="w-3.5 h-3.5 text-rose-500"/> Saídas Previstas</span>
+                  <span className="font-bold text-sm tabular-nums text-foreground">R$ {stats.saidasPrevistas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
             </div>
 
-            <div className={`flex flex-col sm:flex-row items-center gap-2 px-4 py-2 rounded-lg border w-full xl:w-auto justify-center ${saldoProjetadoFuturo >= 0 ? 'bg-background/80 border-border/50 text-muted-foreground' : 'bg-rose-500/5 border-rose-500/20 text-rose-600'}`}>
-              <span className="font-medium text-xs">Projeção de Caixa (Com pagamentos futuros):</span>
-              <span className="font-bold text-foreground flex items-baseline">
-                <span className="text-[10px] mr-0.5 opacity-60">R$</span>{saldoProjetadoFuturo.toFixed(2)}
-              </span>
+            {/* Centro: Lucro Futuro Pendente (O "Net") */}
+            <div className="lg:col-span-4 w-full flex flex-col items-center justify-center py-4 px-6 bg-primary/[0.03] rounded-[2.5rem] border border-primary/10 relative shadow-inner">
+               <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent rounded-[2.5rem]"></div>
+               <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary mb-3 relative z-10">Lucro Futuro Pendente</span>
+               <div className={`text-3xl sm:text-4xl font-black tabular-nums tracking-tighter relative z-10 ${stats.lucroFuturoPendente >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                 <span className="text-lg opacity-50 mr-1.5">R$</span>{stats.lucroFuturoPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+               </div>
+               <p className="text-[9px] font-bold text-muted-foreground/60 mt-3 text-center uppercase tracking-widest leading-relaxed relative z-10 max-w-[200px]">
+                 O que sobrará para você após todas as baixas e recebimentos
+               </p>
             </div>
-          </div>
-          
-          <div className="mt-4 text-center flex flex-col items-center justify-center text-[10px] sm:text-[11px] text-muted-foreground/70 border-t border-border/40 pt-3">
-            <span className="bg-muted px-2 py-0.5 rounded-md mb-1 font-semibold uppercase tracking-widest text-muted-foreground">O que falta entrar e sair para a sua conta fechar</span>
+
+            {/* Direita: Projeção de Caixa Total */}
+            <div className="lg:col-span-4 w-full flex flex-col gap-2">
+              <div className="flex items-center gap-2 font-bold text-muted-foreground uppercase text-[10px] tracking-[0.2em] justify-end">
+                Cenário Final <Target className="w-3 h-3 text-primary ml-1" />
+              </div>
+              <div className={`flex flex-col items-end p-5 rounded-3xl border shadow-sm transition-all duration-300 ${stats.projecaoTotal >= 0 ? 'bg-primary/5 border-primary/20' : 'bg-rose-500/5 border-rose-500/20'}`}>
+                <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest mb-1 leading-none">Projeção Total de Caixa</span>
+                <span className={`text-2xl font-black tabular-nums tracking-tight ${stats.projecaoTotal >= 0 ? 'text-foreground' : 'text-rose-500'}`}>
+                  R$ {stats.projecaoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+                <div className="mt-2 h-1 w-full bg-border/40 rounded-full overflow-hidden">
+                   <div className={`h-full transition-all duration-500 ${stats.projecaoTotal >= 0 ? 'bg-primary' : 'bg-rose-500'}`} style={{ width: '100%' }}></div>
+                </div>
+              </div>
+            </div>
+
           </div>
         </CardContent>
       </Card>
