@@ -21,7 +21,7 @@ export function Dashboard({ transactions, month, year }: Props) {
     const txIdToName = new Map<string, string>();
 
     // Primeiro mapeia todas as receitas/projetos
-    transactions.forEach(t => {
+    (transactions || []).forEach(t => {
       const isReceita = t.tipo === 'Entrada' || t.tipo === 'A Receber';
       if (isReceita) {
         const projName = t.descricao.replace(/ \(Restante\)$/, '').trim();
@@ -32,7 +32,7 @@ export function Dashboard({ transactions, month, year }: Props) {
     });
 
     // Depois computa as despesas (repasses) para abatê-las corretamente da receita
-    transactions.forEach(t => {
+    (transactions || []).forEach(t => {
       const isCusto = (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.isRepasse;
       if (isCusto) {
         let projName = '';
@@ -101,7 +101,7 @@ export function Dashboard({ transactions, month, year }: Props) {
     // mas a soma de 'entradas' no Dashboard continua puramente Concluído.
     const processRecebidoMap = new Map<string, number>();
     const clientRecebidoMap = new Map<string, number>();
-    transactions.forEach(t => {
+    (transactions || []).forEach(t => {
       if ((t.tipo === 'Entrada' || t.tipo === 'A Receber') && (t.status === 'Concluído' || t.status === 'Parcial')) {
         const val = t.status === 'Concluído' ? t.valor : 0.0001; // Marker value if only Parcial exists
         if (t.processId) processRecebidoMap.set(t.processId, (processRecebidoMap.get(t.processId) || 0) + val);
@@ -109,7 +109,7 @@ export function Dashboard({ transactions, month, year }: Props) {
       }
     });
 
-    const processes = getProcesses();
+    const processes = getProcesses() || [];
     const archivedProcessIds = new Set(processes.filter(p => p.isArchived).map(p => p.id));
     const archivedClientIds = new Set(processes.filter(p => p.isArchived).map(p => p.clienteId));
 
@@ -146,16 +146,16 @@ export function Dashboard({ transactions, month, year }: Props) {
     ).reduce((s, t) => s + t.valor, 0);
 
     // 4. VISÃO DE FUTURO (Lógica Global de Processos Ativos)
-    const activeProcesses = processes.filter(p => !p.isArchived);
+    const activeProcesses = (processes || []).filter(p => !p.isArchived);
     
     const entradasPrevistas = activeProcesses.reduce((sum, p) => {
-      const totalRecebidoP = transactions
+      const totalRecebidoP = (transactions || [])
         .filter(t => t.processId === p.id && (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
         .reduce((s, t) => s + t.valor, 0);
       return sum + Math.max(0, (p.valorContrato || 0) - totalRecebidoP);
     }, 0);
 
-    const saidasPrevistas = transactions
+    const saidasPrevistas = (transactions || [])
       .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído' && shouldShowCostInDashboard(t))
       .reduce((s, t) => s + t.valor, 0);
 
@@ -182,7 +182,7 @@ export function Dashboard({ transactions, month, year }: Props) {
     const monthsNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     const annualData = monthsNames.map(m => ({ name: m, Receita: 0, Saída: 0, Resultado: 0 }));
 
-    transactions.forEach(t => {
+    (transactions || []).forEach(t => {
       if (t.status === 'Concluído') {
         const date = new Date(t.data + 'T12:00:00');
         if (date.getFullYear() === year) {

@@ -350,7 +350,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
   const timelineEvents = useMemo(() => {
     if (!activeProcess) return [];
     const clientTxs = allTransactions.filter(t => t.processId === activeProcess.id || (!t.processId && t.clienteId === activeProcess.clienteId));
-    const combined: any[] = activeProcess.notas.map(n => ({
+    const combined: any[] = (activeProcess.notas || []).map(n => ({
       id: n.id, data: n.data, texto: n.texto, tipo: 'nota' as const,
     }));
     clientTxs.forEach(t => combined.push({
