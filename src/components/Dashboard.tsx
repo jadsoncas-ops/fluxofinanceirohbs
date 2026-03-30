@@ -95,34 +95,61 @@ export function Dashboard({ transactions, month, year }: Props) {
     });
 
     // Mapeamento global de recebimentos por processo para filtro de saídas
+    // Mapeamento global de recebimentos por processo e por cliente (para fallback legado)
     const processRecebidoMap = new Map<string, number>();
+    const clientRecebidoMap = new Map<string, number>();
     transactions.forEach(t => {
-      if (t.processId && (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído') {
-        processRecebidoMap.set(t.processId, (processRecebidoMap.get(t.processId) || 0) + t.valor);
+      if ((t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído') {
+        if (t.processId) processRecebidoMap.set(t.processId, (processRecebidoMap.get(t.processId) || 0) + t.valor);
+        if (t.clienteId) clientRecebidoMap.set(t.clienteId, (clientRecebidoMap.get(t.clienteId) || 0) + t.valor);
       }
     });
 
     const processes = getProcesses();
     const archivedProcessIds = new Set(processes.filter(p => p.isArchived).map(p => p.id));
+    const archivedClientIds = new Set(processes.filter(p => p.isArchived).map(p => p.clienteId));
 
     // Entradas Confirmadas no Mês
     const entradas = monthTxs.filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído').reduce((s, t) => s + t.valor, 0);
     
-    // Saídas Confirmadas no Mês (Apenas de processos com receita real ou arquivados, ou overhead sem processo)
-    const saidas = monthTxs.filter(t => {
-      const isConfirmedGasto = (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status === 'Concluído';
-      if (!isConfirmedGasto) return false;
-      
-      if (!t.processId) return true; // Overhead geral
-      
-      const recebidoTotal = processRecebidoMap.get(t.processId) || 0;
-      const isArchived = archivedProcessIds.has(t.processId || '');
-      
-      return recebidoTotal > 0 || isArchived;
-    }).reduce((s, t) => s + t.valor, 0);
+    // Função auxiliar para validar se um gasto deve aparecer no Dashboard
+    const shouldShowCostInDashboard = (t: Transaction) => {
+      // Gastos "Órfãos" (sem processo e sem cliente) são considerados Overhead e sempre aparecem
+      if (!t.processId && !t.clienteId) return true;
+
+      // Se há processId vinculado, buscamos a receita REALIZADA desse processo específico
+      if (t.processId) {
+        const recebidoTotal = processRecebidoMap.get(t.processId) || 0;
+        const isArchived = archivedProcessIds.has(t.processId);
+        return recebidoTotal > 0 || isArchived;
+      }
+
+      // Fallback para dados legados baseados apenas no clienteId
+      if (t.clienteId) {
+        const recebidoTotalCliente = clientRecebidoMap.get(t.clienteId) || 0;
+        const isArchivedCliente = archivedClientIds.has(t.clienteId);
+        return recebidoTotalCliente > 0 || isArchivedCliente;
+      }
+
+      return true;
+    };
+
+    // Saídas Confirmadas no Mês (Fluxo Real)
+    // Regra: Somente se o gasto for Concluído E o processo correspondente não for PENDENTE (Recebido > 0 ou Arquivado)
+    const saidas = monthTxs.filter(t => 
+      (t.tipo === 'Saída' || t.tipo === 'A Pagar') && 
+      t.status === 'Concluído' &&
+      shouldShowCostInDashboard(t)
+    ).reduce((s, t) => s + t.valor, 0);
+
+    // Provisão de Custos Futuros (Filtro rigoroso: se o processo é pendente de entrada, não aparece nem na provisão do dashboard)
+    const custosFuturos = monthTxs.filter(t => 
+      (t.tipo === 'Saída' || t.tipo === 'A Pagar') && 
+      t.status !== 'Concluído' &&
+      shouldShowCostInDashboard(t)
+    ).reduce((s, t) => s + t.valor, 0);
 
     const aReceber = monthTxs.filter(t => t.tipo === 'A Receber' && t.status !== 'Concluído').reduce((s, t) => s + t.valor, 0);
-    const custosFuturos = monthTxs.filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído').reduce((s, t) => s + t.valor, 0);
 
     // Meta de recebimentos
     const totalPrevisto = entradas + aReceber;
