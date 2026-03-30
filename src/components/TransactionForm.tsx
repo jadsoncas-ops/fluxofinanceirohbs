@@ -91,7 +91,7 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem, p
       setRepasses([emptyRepasse()]);
       setClienteId(null);
     } else {
-      setTipo('Entrada');
+      setTipo(prefilledTipo || 'Entrada');
       setCategoria('');
       setDescricao('');
       setValorTotal('');
@@ -100,9 +100,9 @@ export function TransactionForm({ open, onClose, onSave, editItem, parentItem, p
       setDataRestante('');
       setHasRepasse(false);
       setRepasses([emptyRepasse()]);
-      setClienteId(null);
+      setClienteId(prefilledClienteId || null);
     }
-  }, [editItem, parentItem, open]);
+  }, [editItem, parentItem, open, prefilledClienteId, prefilledTipo]);
 
   function handleValorTotalChange(val: string) {
     const wasSync = valorTotal === valorRecebido || valorRecebido === '';
