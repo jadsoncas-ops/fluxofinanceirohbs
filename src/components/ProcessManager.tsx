@@ -345,20 +345,15 @@ export function ProcessManager({ allTransactions, onRefresh, activeTab = 'ativos
     let cards = processCards;
     if (term) cards = cards.filter(c => c.name.toLowerCase().includes(term) || c.objeto.toLowerCase().includes(term) || (c.protocolo ?? '').toLowerCase().includes(term));
     
-    // Novas Regras de Abas:
+    // Novas Regras de Abas Exclusivas:
+    const isArquivado = (c: any) => c.status === 'Finalizado' || c.isArchived;
+    const isConcluido = (c: any) => !isArquivado(c) && (c.saldo === 0 && c.recebidosPendentes === 0);
+    const isAtivo = (c: any) => !isArquivado(c) && (c.saldo > 0 || c.recebidosPendentes > 0);
+
     switch (activeTab) {
-      case 'ativos': 
-        // ATIVOS: Status não é 'Finalizado' OU ainda tem saldo a receber
-        return cards.filter(c => !c.isArchived && (c.status !== 'Finalizado' || c.saldo > 0 || c.recebidosPendentes > 0));
-      
-      case 'concluidos': 
-        // CONCLUÍDOS: Financeiro quitado mas trâmite ainda não finalizado
-        return cards.filter(c => !c.isArchived && (c.saldo === 0 && c.recebidosPendentes === 0) && c.status !== 'Finalizado');
-      
-      case 'arquivados': 
-        // ARQUIVADOS: Finalizado e Quitado
-        return cards.filter(c => c.isArchived || (c.status === 'Finalizado' && c.saldo === 0 && c.recebidosPendentes === 0));
-      
+      case 'ativos': return cards.filter(isAtivo);
+      case 'concluidos': return cards.filter(isConcluido);
+      case 'arquivados': return cards.filter(isArquivado);
       default: return cards;
     }
   }, [processCards, activeTab, searchTerm]);
@@ -413,10 +408,22 @@ export function ProcessManager({ allTransactions, onRefresh, activeTab = 'ativos
   const lucrosRealizados = clientFinances.recebido - clientFinances.repassesPagos;
   const lucroPositivo = lucrosRealizados >= 0;
 
+  const counts = useMemo(() => {
+    const isArquivado = (c: any) => c.status === 'Finalizado' || c.isArchived;
+    const isConcluido = (c: any) => !isArquivado(c) && (c.saldo === 0 && c.recebidosPendentes === 0);
+    const isAtivo = (c: any) => !isArquivado(c) && (c.saldo > 0 || c.recebidosPendentes > 0);
+
+    return {
+      ativos: processCards.filter(isAtivo).length,
+      concluidos: processCards.filter(isConcluido).length,
+      arquivados: processCards.filter(isArquivado).length
+    };
+  }, [processCards]);
+
   const filterTabs = [
-    { key: 'ativos', label: 'Ativos', emoji: '🚀' },
-    { key: 'concluidos', label: 'Concluídos', emoji: '💰' },
-    { key: 'arquivados', label: 'Arquivados', emoji: '📂' },
+    { key: 'ativos', label: `Ativos (${counts.ativos})`, emoji: '🚀' },
+    { key: 'concluidos', label: `Concluídos (${counts.concluidos})`, emoji: '💰' },
+    { key: 'arquivados', label: `Arquivados (${counts.arquivados})`, emoji: '📂' },
   ];
 
   return (
