@@ -14,9 +14,10 @@ interface Props {
   transactions: Transaction[];
   month: number;
   year: number;
+  onProjectClick?: () => void;
 }
 
-export function Dashboard({ transactions, month, year }: Props) {
+export function Dashboard({ transactions, month, year, onProjectClick }: Props) {
   const { stats, projectProfits, cashFlowPoints, negativeAlert, saldoAtual, saldoProjetadoFuturo, annualData } = useMemo(() => {
     const processes = getProcesses() || [];
     const clients = getClients() || [];

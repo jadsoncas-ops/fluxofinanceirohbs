@@ -10,6 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Transaction, Client, Process, ProcessStatus, ProcessNote } from '@/lib/types';
 import { getClients, getProcessByClient, getProcesses, updateProcess, deleteProcess, addTransaction, deleteTransaction, getTransactions, updateTransaction } from '@/lib/storage';
 import { toast } from 'sonner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Plus, FolderClosed, AlertCircle, ClipboardList, TrendingUp, TrendingDown, DollarSign,
   History, Clock3, FileText, Archive, Play, Trash2, Info, Check,
@@ -31,9 +32,11 @@ interface QuickForm {
 interface Props {
   allTransactions: Transaction[];
   onRefresh: () => void;
+  activeTab?: string;
+  onTabChange?: (tab: string) => void;
 }
 
-export function ProcessManager({ allTransactions, onRefresh }: Props) {
+export function ProcessManager({ allTransactions, onRefresh, activeTab = 'ativos', onTabChange }: Props) {
   const today = new Date().toISOString().slice(0, 10);
 
   const [clientes, setClientes] = useState<Client[]>([]);
@@ -65,8 +68,9 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
 
   // New process creation
   const [completeItem, setCompleteItem] = useState<Transaction | null>(null);
-  const [clientFormOpen, setClientFormOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   const [selectClientOpen, setSelectClientOpen] = useState(false);
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
 
   useEffect(() => {
     setClientes(getClients());
@@ -99,6 +103,19 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
   // Immediate persist (status, archive, notes)
   const handleImmediateUpdate = useCallback((updates: Partial<Process>) => {
     if (!activeProcess) return;
+    
+    // Regra: Ao colocar status "Finalizado", perguntamos se deseja arquivar (se quitado)
+    if (updates.status === 'Finalizado' && !activeProcess.isArchived) {
+      // Usar a mesma lógica de cálculo dos cards: contrato - recebido
+      const clientTxs = (getTransactions() || []).filter(t => t.processId === activeProcess.id || (!t.processId && t.clienteId === activeProcess.clienteId));
+      const recebidoTotal = clientTxs.filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído').reduce((s, t) => s + t.valor, 0);
+      const isPaid = (activeProcess.valorContrato || 0) > 0 && Math.max(0, activeProcess.valorContrato! - recebidoTotal) === 0;
+
+      if (isPaid) {
+        setArchiveConfirmOpen(true);
+      }
+    }
+
     const updated = { ...activeProcess, ...updates, updatedAt: Date.now() };
     setActiveProcess(updated);
     updateProcess(updated);
@@ -327,13 +344,24 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     const term = searchTerm.toLowerCase();
     let cards = processCards;
     if (term) cards = cards.filter(c => c.name.toLowerCase().includes(term) || c.objeto.toLowerCase().includes(term) || (c.protocolo ?? '').toLowerCase().includes(term));
-    switch (viewFilter) {
-      case 'tramite': return cards.filter(c => !c.isArchived && c.status !== 'Finalizado');
-      case 'concluidos': return cards.filter(c => !c.isArchived && c.status === 'Finalizado');
-      case 'arquivados': return cards.filter(c => c.isArchived);
+    
+    // Novas Regras de Abas:
+    switch (activeTab) {
+      case 'ativos': 
+        // ATIVOS: Status não é 'Finalizado' OU ainda tem saldo a receber
+        return cards.filter(c => !c.isArchived && (c.status !== 'Finalizado' || c.saldo > 0 || c.recebidosPendentes > 0));
+      
+      case 'concluidos': 
+        // CONCLUÍDOS: Financeiro quitado mas trâmite ainda não finalizado
+        return cards.filter(c => !c.isArchived && (c.saldo === 0 && c.recebidosPendentes === 0) && c.status !== 'Finalizado');
+      
+      case 'arquivados': 
+        // ARQUIVADOS: Finalizado e Quitado
+        return cards.filter(c => c.isArchived || (c.status === 'Finalizado' && c.saldo === 0 && c.recebidosPendentes === 0));
+      
       default: return cards;
     }
-  }, [processCards, viewFilter, searchTerm]);
+  }, [processCards, activeTab, searchTerm]);
 
   // Client Finances for current process
   const clientFinances = useMemo(() => {
@@ -385,9 +413,9 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
   const lucrosRealizados = clientFinances.recebido - clientFinances.repassesPagos;
   const lucroPositivo = lucrosRealizados >= 0;
 
-  const filterTabs: { key: ProcessViewFilter; label: string; emoji: string }[] = [
-    { key: 'tramite', label: 'Em Trâmite', emoji: '🚀' },
-    { key: 'concluidos', label: 'Concluídos', emoji: '✅' },
+  const filterTabs = [
+    { key: 'ativos', label: 'Ativos', emoji: '🚀' },
+    { key: 'concluidos', label: 'Concluídos', emoji: '💰' },
     { key: 'arquivados', label: 'Arquivados', emoji: '📂' },
   ];
 
@@ -417,9 +445,9 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
       {/* Filter Tabs */}
       <div className="flex bg-muted/60 p-1 rounded-xl border border-border/60 shadow-inner">
         {filterTabs.map(tab => (
-          <button key={tab.key} onClick={() => setViewFilter(tab.key)}
+          <button key={tab.key} onClick={() => onTabChange?.(tab.key)}
             className={`flex-1 flex justify-center items-center gap-1.5 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-lg transition-all ${
-              viewFilter === tab.key ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:text-foreground hover:bg-muted/80'
+              activeTab === tab.key ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:text-foreground hover:bg-muted/80'
             }`}>
             <span>{tab.emoji}</span> {tab.label}
           </button>
@@ -449,15 +477,20 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground bg-muted/10 rounded-2xl border border-border/30 border-dashed">
           <FolderClosed className="w-16 h-16 mb-4 opacity-10" />
           <p className="text-xs font-black uppercase tracking-widest opacity-30">
-            {viewFilter === 'tramite' ? 'Nenhum processo em trâmite' : viewFilter === 'concluidos' ? 'Nenhum processo concluído' : 'Nenhum processo arquivado'}
+            {activeTab === 'ativos' ? 'Nenhum processo em trâmite' : activeTab === 'concluidos' ? 'Nenhum processo concluído' : 'Nenhum processo arquivado'}
           </p>
         </div>
       ) : (
         <div className="space-y-3">
           {filteredCards.map(card => (
             <Card key={card.id}
-              className={`transition-all border-border/40 hover:border-primary/40 shadow-sm hover:shadow-md rounded-2xl overflow-hidden cursor-pointer group active:scale-[0.99] ${card.isArchived ? 'opacity-60 grayscale' : 'bg-card'}`}>
-              <CardContent className="p-4">
+              className={`group overflow-hidden rounded-2xl border border-border/40 transition-all duration-300 hover:shadow-md relative cursor-pointer active:scale-[0.99] ${card.isArchived ? 'grayscale opacity-60' : 'bg-card hover:border-primary/40'}`}>
+              {card.financialStatus === 'PAGO' && (
+                <div className="absolute top-0 right-0 z-10">
+                   <div className="bg-emerald-500 text-white text-[8px] font-black tracking-widest px-2 py-1 rounded-bl-xl shadow-sm uppercase">💰 Financeiro Quitado</div>
+                </div>
+              )}
+              <CardContent className="p-4" onClick={() => setActiveProcessId(card.id)}>
                 <div className="flex gap-3">
                   {/* Icon */}
                   <div className="p-2.5 rounded-xl bg-primary/5 border border-primary/20 shrink-0 self-start transition-transform group-hover:scale-110 duration-300 mt-0.5">
@@ -1160,6 +1193,31 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
         onSave={onRefresh}
         transaction={completeItem}
       />
+      {/* Archive Confirmation (when finalizing) */}
+      <AlertDialog open={archiveConfirmOpen} onOpenChange={setArchiveConfirmOpen}>
+        <AlertDialogContent className="rounded-3xl border-border/50">
+          <AlertDialogHeader>
+            <div className="mx-auto bg-emerald-500/10 p-4 rounded-full mb-2">
+              <Archive className="w-8 h-8 text-emerald-600" />
+            </div>
+            <AlertDialogTitle className="text-center font-black uppercase tracking-widest text-lg">Deseja Arquivar?</AlertDialogTitle>
+            <AlertDialogDescription className="text-center text-sm font-medium leading-relaxed">
+              O financeiro deste contrato está 100% quitado (💰). <br /> Ao arquivar, ele será movido para a aba de **Arquivados**.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 mt-2">
+            <AlertDialogCancel className="rounded-xl border-border/40 font-bold h-11 flex-1">Apenas Finalizar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              handleImmediateUpdate({ isArchived: true });
+              setArchiveConfirmOpen(false);
+              setActiveProcessId(null);
+            }} className="rounded-xl bg-emerald-500 hover:bg-emerald-600 font-black uppercase tracking-widest text-xs h-11 flex-1 shadow-lg shadow-emerald-500/20">
+              <Archive className="w-4 h-4 mr-2" /> Sim, Arquivar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }

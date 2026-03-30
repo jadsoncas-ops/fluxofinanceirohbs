@@ -30,6 +30,7 @@ export default function Index() {
   const [parentItem, setParentItem] = useState<Transaction | null>(null);
   const [completeItem, setCompleteItem] = useState<Transaction | null>(null);
   const [migrationOpen, setMigrationOpen] = useState(false);
+  const [activeProcessTab, setActiveProcessTab] = useState<string>('ativos');
 
   const refresh = useCallback(() => setTxKey(k => k + 1), []);
 
@@ -134,11 +135,20 @@ export default function Index() {
 
       {/* Content */}
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 pb-20">
-        {tab === 'dashboard' && <Dashboard transactions={allTransactions} month={month} year={year} />}
+        {tab === 'dashboard' && (
+          <Dashboard 
+            transactions={allTransactions} 
+            month={month} 
+            year={year} 
+            onProjectClick={() => { setTab('processos'); setActiveProcessTab('ativos'); }}
+          />
+        )}
         {tab === 'processos' && (
           <ProcessManager
             allTransactions={allTransactions}
             onRefresh={refresh}
+            activeTab={activeProcessTab}
+            onTabChange={setActiveProcessTab}
           />
         )}
         {tab === 'clients' && <ClientsList />}
