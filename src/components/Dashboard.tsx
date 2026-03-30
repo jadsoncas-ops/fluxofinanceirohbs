@@ -499,36 +499,9 @@ export function Dashboard({ transactions, month, year, onProjectClick }: Props) 
         </CardContent>
       </Card>
 
-      {/* Gráfico e Dica do Dia */}
+      {/* Dica do Dia */}
       <div className="grid grid-cols-1 gap-6 pt-2">
-        <Card className="border-border/50 shadow-sm rounded-2xl">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2"><Activity className="w-4 h-4 text-primary" /> Fluxo de Caixa Projetado</CardTitle>
-            <CardDescription className="text-xs">Evolução do Saldo Projetado nos Próximos Dias</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-48 w-full mt-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={cashFlowPoints} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} dy={5} />
-                  <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip 
-                    formatter={(val: number) => [`R$ ${val.toFixed(2)}`, 'Saldo']}
-                    contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', fontSize: '12px', zIndex: 100 }}
-                  />
-                  <Area type="monotone" dataKey="balance" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorBalance)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Desempenho Anual (Gráfico de Barras Agrupadas + Linha de Lucro) */}
 
         {/* Desempenho Anual (Gráfico de Barras Agrupadas + Linha de Lucro) */}
         <Card className="border-border/50 shadow-sm rounded-2xl">

@@ -617,7 +617,7 @@ export function ProcessManager({ allTransactions, onRefresh, activeTab = 'ativos
           </AlertDialogHeader>
           <div className="space-y-3 py-2">
             <Button variant="outline" className="w-full justify-start gap-2 h-10 font-bold text-primary border-primary/20 bg-primary/5"
-              onClick={() => { setSelectClientOpen(false); setClientFormOpen(true); }}>
+              onClick={() => { setSelectClientOpen(false); setFormOpen(true); }}>
               <UserPlus className="w-4 h-4" /> Cadastrar Novo Cliente
             </Button>
             <div className="max-h-52 overflow-y-auto space-y-1.5 pr-1">
@@ -647,9 +647,9 @@ export function ProcessManager({ allTransactions, onRefresh, activeTab = 'ativos
         </AlertDialogContent>
       </AlertDialog>
 
-      <ClientForm open={clientFormOpen} onClose={() => setClientFormOpen(false)}
+      <ClientForm open={formOpen} onClose={() => setFormOpen(false)}
         onSave={(newClient) => {
-          setClientFormOpen(false); setClientes(getClients());
+          setFormOpen(false); setClientes(getClients());
           if (newClient) {
             const newProc: Process = {
               id: crypto.randomUUID(),
