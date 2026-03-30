@@ -421,8 +421,8 @@ export function ProcessManager({ allTransactions, onRefresh, activeTab = 'ativos
   }, [processCards]);
 
   const filterTabs = [
-    { key: 'ativos', label: `Ativos (${counts.ativos})`, emoji: '🚀' },
-    { key: 'concluidos', label: `Concluídos (${counts.concluidos})`, emoji: '💰' },
+    { key: 'ativos', label: `Iniciados (${counts.ativos})`, emoji: '🚀' },
+    { key: 'concluidos', label: `Protocolados (${counts.concluidos})`, emoji: '💰' },
     { key: 'arquivados', label: `Arquivados (${counts.arquivados})`, emoji: '📂' },
   ];
 
@@ -740,17 +740,25 @@ export function ProcessManager({ allTransactions, onRefresh, activeTab = 'ativos
 
           {/* Header */}
           <SheetHeader className="p-5 pb-3 border-b border-border/30 bg-muted/20 shrink-0">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 text-primary">
                 <ClipboardList className="w-5 h-5" />
-                <SheetTitle className="text-base font-black tracking-tight uppercase">Gaveta de Processo</SheetTitle>
+                <SheetTitle className="text-sm font-black tracking-tight uppercase">Gaveta de Processo</SheetTitle>
               </div>
+
+              {/* Lixeira centralizada no espaço vazio */}
               {activeProcess && (
-                <button onClick={() => setDeleteProcessOpen(true)}
-                  className="p-1.5 rounded-lg text-destructive/50 hover:text-destructive hover:bg-destructive/10 transition-colors">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex-1 flex justify-center">
+                  <button onClick={() => setDeleteProcessOpen(true)}
+                    className="p-1.5 rounded-lg text-destructive/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    title="Excluir Processo">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               )}
+
+              {/* Espaçamento para não bater no X de fechar do Sheet */}
+              <div className="w-8" /> 
             </div>
             <SheetDescription className="text-xs font-medium text-muted-foreground">
               <span className="text-foreground font-bold">{getClientName(activeProcess?.clienteId)}</span>
