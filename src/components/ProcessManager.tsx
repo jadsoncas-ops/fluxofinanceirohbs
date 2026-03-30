@@ -8,12 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Transaction, Client, Process, ProcessStatus, ProcessNote } from '@/lib/types';
-import { getClients, getProcessByClient, getProcesses, updateProcess, deleteProcess, addTransaction } from '@/lib/storage';
+import { getClients, getProcessByClient, getProcesses, updateProcess, deleteProcess, addTransaction, deleteTransaction } from '@/lib/storage';
 import { toast } from 'sonner';
 import {
   Plus, FolderClosed, AlertCircle, ClipboardList, TrendingUp, TrendingDown, DollarSign,
   History, Clock3, FileText, Archive, Play, Trash2, Info, Check,
-  Search, CalendarDays, UserPlus, X, ChevronDown, ChevronUp
+  Search, CalendarDays, UserPlus, X, ChevronUp, Pencil
 } from 'lucide-react';
 import { ClientForm } from './ClientForm';
 
@@ -23,6 +23,7 @@ type InlineForm = 'receita' | 'despesa' | null;
 interface QuickForm {
   descricao: string;
   valor: string;
+  data: string;
 }
 
 interface Props {
@@ -31,6 +32,8 @@ interface Props {
 }
 
 export function ProcessManager({ allTransactions, onRefresh }: Props) {
+  const today = new Date().toISOString().slice(0, 10);
+
   const [clientes, setClientes] = useState<Client[]>([]);
   const [viewFilter, setViewFilter] = useState<ProcessViewFilter>('tramite');
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,13 +42,20 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
   const [activeProcessClienteId, setActiveProcessClienteId] = useState<string | null>(null);
   const [activeProcess, setActiveProcess] = useState<Process | null>(null);
   const [newNote, setNewNote] = useState('');
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [deleteCardTarget, setDeleteCardTarget] = useState<{ clienteId: string; name: string } | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Inline launch form
   const [inlineForm, setInlineForm] = useState<InlineForm>(null);
-  const [quickForm, setQuickForm] = useState<QuickForm>({ descricao: '', valor: '' });
+  const [quickForm, setQuickForm] = useState<QuickForm>({ descricao: '', valor: '', data: today });
+
+  // Edit note
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState('');
+
+  // Delete confirmations
+  const [deleteProcessOpen, setDeleteProcessOpen] = useState(false);
+  const [deleteCardTarget, setDeleteCardTarget] = useState<{ clienteId: string; name: string } | null>(null);
+  const [deleteTimelineTarget, setDeleteTimelineTarget] = useState<{ id: string; tipo: 'nota' | 'transacao'; label: string } | null>(null);
 
   // New process creation
   const [clientFormOpen, setClientFormOpen] = useState(false);
@@ -58,36 +68,30 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
   useEffect(() => {
     if (activeProcessClienteId) {
       const proc = getProcessByClient(activeProcessClienteId);
-      if (proc) {
-        setActiveProcess({ ...proc });
-      } else {
-        setActiveProcess({
-          id: crypto.randomUUID(),
-          clienteId: activeProcessClienteId,
-          objeto: '',
-          status: 'Levantamento',
-          notas: [],
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        });
-      }
+      setActiveProcess(proc ? { ...proc } : {
+        id: crypto.randomUUID(),
+        clienteId: activeProcessClienteId,
+        objeto: '',
+        status: 'Levantamento',
+        notas: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
       setHasUnsavedChanges(false);
       setInlineForm(null);
-      setQuickForm({ descricao: '', valor: '' });
+      setQuickForm({ descricao: '', valor: '', data: today });
     } else {
       setActiveProcess(null);
-      setHasUnsavedChanges(false);
     }
   }, [activeProcessClienteId]);
 
-  // Mark changes without persisting immediately
+  // Local update (buffered — needs Save button)
   const handleLocalUpdate = useCallback((updates: Partial<Process>) => {
-    if (!activeProcess) return;
     setActiveProcess(prev => prev ? { ...prev, ...updates } : null);
     setHasUnsavedChanges(true);
-  }, [activeProcess]);
+  }, []);
 
-  // Persist immediately (status, notes, archive)
+  // Immediate persist (status, archive, notes)
   const handleImmediateUpdate = useCallback((updates: Partial<Process>) => {
     if (!activeProcess) return;
     const updated = { ...activeProcess, ...updates, updatedAt: Date.now() };
@@ -96,23 +100,18 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     onRefresh();
   }, [activeProcess, onRefresh]);
 
-  // Save all pending changes
   const handleSaveChanges = useCallback(() => {
     if (!activeProcess) return;
-    const updated = { ...activeProcess, updatedAt: Date.now() };
-    updateProcess(updated);
+    updateProcess({ ...activeProcess, updatedAt: Date.now() });
     setHasUnsavedChanges(false);
-    toast.success('Alterações salvas com sucesso!');
+    toast.success('Alterações salvas!');
     onRefresh();
   }, [activeProcess, onRefresh]);
 
+  // Add technical note
   const handleAddNote = useCallback(() => {
     if (!newNote.trim() || !activeProcess) return;
-    const note: ProcessNote = {
-      id: crypto.randomUUID(),
-      data: Date.now(),
-      texto: newNote.trim(),
-    };
+    const note: ProcessNote = { id: crypto.randomUUID(), data: Date.now(), texto: newNote.trim() };
     const updated = { ...activeProcess, notas: [note, ...activeProcess.notas], updatedAt: Date.now() };
     setActiveProcess(updated);
     updateProcess(updated);
@@ -121,49 +120,76 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     toast.success('Nota adicionada.');
   }, [newNote, activeProcess, onRefresh]);
 
-  // Inline quick launch
+  // Edit note
+  const handleSaveNoteEdit = useCallback(() => {
+    if (!activeProcess || !editingNoteId || !editingNoteText.trim()) return;
+    const notas = activeProcess.notas.map(n =>
+      n.id === editingNoteId ? { ...n, texto: editingNoteText.trim() } : n
+    );
+    const updated = { ...activeProcess, notas, updatedAt: Date.now() };
+    setActiveProcess(updated);
+    updateProcess(updated);
+    setEditingNoteId(null);
+    setEditingNoteText('');
+    onRefresh();
+    toast.success('Nota atualizada.');
+  }, [activeProcess, editingNoteId, editingNoteText, onRefresh]);
+
+  // Quick financial launch
   const handleQuickLaunch = useCallback(() => {
-    if (!activeProcess || !quickForm.valor || !quickForm.descricao.trim()) return;
+    if (!activeProcess || !quickForm.valor || !quickForm.descricao.trim() || !quickForm.data) return;
     const valor = parseFloat(quickForm.valor);
-    if (isNaN(valor) || valor <= 0) {
-      toast.error('Insira um valor válido.');
-      return;
-    }
-    const tipo = inlineForm === 'receita' ? 'Entrada' : 'Saída';
-    const today = new Date().toISOString().slice(0, 10);
+    if (isNaN(valor) || valor <= 0) { toast.error('Insira um valor válido.'); return; }
     addTransaction({
       id: crypto.randomUUID(),
-      tipo,
+      tipo: inlineForm === 'receita' ? 'Entrada' : 'Saída',
       descricao: quickForm.descricao.trim(),
       valor,
-      data: today,
+      data: quickForm.data,
       status: 'Concluído',
-      categoria: inlineForm === 'receita' ? 'Receita' : 'Despesa',
+      categoria: inlineForm === 'receita' ? '🏢 Regularização Total' : '🔄 Outros',
       clienteId: activeProcess.clienteId,
       isRepasse: inlineForm === 'despesa',
     });
-    toast.success(`${tipo === 'Entrada' ? 'Receita' : 'Despesa'} lançada com sucesso!`);
+    toast.success(`${inlineForm === 'receita' ? 'Receita' : 'Despesa'} lançada com sucesso!`);
     setInlineForm(null);
-    setQuickForm({ descricao: '', valor: '' });
+    setQuickForm({ descricao: '', valor: '', data: today });
     onRefresh();
-  }, [activeProcess, inlineForm, quickForm, onRefresh]);
+  }, [activeProcess, inlineForm, quickForm, today, onRefresh]);
 
+  // Confirm delete from timeline
+  const handleConfirmTimelineDelete = useCallback(() => {
+    if (!deleteTimelineTarget || !activeProcess) return;
+    if (deleteTimelineTarget.tipo === 'nota') {
+      const notas = activeProcess.notas.filter(n => n.id !== deleteTimelineTarget.id);
+      const updated = { ...activeProcess, notas, updatedAt: Date.now() };
+      setActiveProcess(updated);
+      updateProcess(updated);
+      onRefresh();
+      toast.success('Nota removida.');
+    } else {
+      deleteTransaction(deleteTimelineTarget.id);
+      onRefresh();
+      toast.success('Lançamento removido.');
+    }
+    setDeleteTimelineTarget(null);
+  }, [deleteTimelineTarget, activeProcess, onRefresh]);
+
+  // Delete full process from drawer
   const handleDeleteProcess = useCallback(() => {
     if (!activeProcess) return;
     deleteProcess(activeProcess.id);
-    toast.success('Processo e lançamentos vinculados excluídos.');
-    setDeleteConfirmOpen(false);
+    toast.success('Processo excluído.');
+    setDeleteProcessOpen(false);
     setActiveProcessClienteId(null);
     onRefresh();
   }, [activeProcess, onRefresh]);
 
+  // Delete from card
   const handleDeleteCardProcess = useCallback(() => {
     if (!deleteCardTarget) return;
     const proc = getProcessByClient(deleteCardTarget.clienteId);
-    if (proc) {
-      deleteProcess(proc.id);
-    }
-    // Also remove any transactions for this client
+    if (proc) deleteProcess(proc.id);
     toast.success(`Processo de ${deleteCardTarget.name} excluído.`);
     setDeleteCardTarget(null);
     onRefresh();
@@ -174,7 +200,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     return clientes.find(c => c.id === id)?.nome || 'Cliente desconhecido';
   }
 
-  // Compute process cards
+  // Process cards
   const processCards = useMemo(() => {
     const processes = getProcesses();
     const clientIds = new Set<string>();
@@ -185,7 +211,8 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
       id: string; clienteId: string; name: string;
       status: ProcessStatus | 'A definir'; protocolo?: string;
       dataProtocolo?: string; isArchived: boolean;
-      recebido: number; saldo: number; repasses: number; valorContrato: number; hasProcess: boolean;
+      recebido: number; saldo: number; repasses: number; valorContrato: number;
+      lastNotes: string[];
     }[] = [];
 
     clientIds.forEach(cId => {
@@ -200,21 +227,26 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
         .reduce((s, t) => s + t.valor, 0);
       const valorContrato = proc?.valorContrato || 0;
       const saldo = Math.max(0, valorContrato - recebido);
+      // Last 3 technical notes (not financial)
+      const lastNotes = (proc?.notas || [])
+        .sort((a, b) => b.data - a.data)
+        .slice(0, 3)
+        .map(n => n.texto);
+
       cards.push({
         id: proc?.id || cId, clienteId: cId,
         name: client?.nome || 'Cliente desconhecido',
         status: proc?.status || 'A definir',
         protocolo: proc?.protocolo, dataProtocolo: proc?.dataProtocolo,
         isArchived: proc?.isArchived || false,
-        recebido, saldo, repasses, valorContrato, hasProcess: !!proc,
+        recebido, saldo, repasses, valorContrato, lastNotes,
       });
     });
     return cards;
   }, [allTransactions, clientes]);
 
   const unlinkedTxs = useMemo(() =>
-    allTransactions.filter(t => !t.isRepasse && !t.clienteId),
-    [allTransactions]);
+    allTransactions.filter(t => !t.isRepasse && !t.clienteId), [allTransactions]);
 
   const filteredCards = useMemo(() => {
     const term = searchTerm.toLowerCase();
@@ -228,7 +260,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     }
   }, [processCards, viewFilter, searchTerm]);
 
-  // Finances for drawer (recalculate on every render with fresh allTransactions)
+  // Finances for drawer
   const clientFinances = useMemo(() => {
     if (!activeProcessClienteId) return { contrato: 0, recebido: 0, saldo: 0, repasses: 0 };
     const clientTxs = allTransactions.filter(t => t.clienteId === activeProcessClienteId);
@@ -243,19 +275,21 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
     return { contrato, recebido, saldo, repasses };
   }, [allTransactions, activeProcessClienteId, activeProcess?.valorContrato]);
 
+  // Combined timeline
   const timelineEvents = useMemo(() => {
     if (!activeProcess || !activeProcessClienteId) return [];
     const clientTxs = allTransactions.filter(t => t.clienteId === activeProcessClienteId);
-    const combined: any[] = [...activeProcess.notas];
-    clientTxs.forEach(t => {
-      combined.push({
-        id: `tx-${t.id}`,
-        data: new Date(t.data + 'T12:00:00').getTime(),
-        texto: `${t.tipo === 'Entrada' || t.tipo === 'A Receber' ? '💰' : '💸'} ${t.tipo}: R$ ${t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} — ${t.descricao}`,
-        transaction: t,
-        isExpense: t.tipo === 'Saída' || t.tipo === 'A Pagar',
-      });
-    });
+    const combined: any[] = activeProcess.notas.map(n => ({
+      id: n.id, data: n.data, texto: n.texto, tipo: 'nota' as const,
+    }));
+    clientTxs.forEach(t => combined.push({
+      id: t.id,
+      data: new Date(t.data + 'T12:00:00').getTime(),
+      texto: `${t.tipo === 'Entrada' || t.tipo === 'A Receber' ? '💰' : '💸'} ${t.tipo}: R$ ${t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} — ${t.descricao}`,
+      tipo: 'transacao' as const,
+      isExpense: t.tipo === 'Saída' || t.tipo === 'A Pagar',
+      dataFormatada: new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR'),
+    }));
     return combined.sort((a, b) => b.data - a.data);
   }, [activeProcess, allTransactions, activeProcessClienteId]);
 
@@ -270,6 +304,7 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-10">
+
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -286,32 +321,23 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar cliente ou protocolo..."
-          className="pl-9 h-10 bg-background shadow-sm border-border/60"
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-        />
+        <Input placeholder="Buscar cliente ou protocolo..." className="pl-9 h-10 bg-background shadow-sm border-border/60"
+          value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
       </div>
 
       {/* Filter Tabs */}
       <div className="flex bg-muted/60 p-1 rounded-xl border border-border/60 shadow-inner">
         {filterTabs.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setViewFilter(tab.key)}
+          <button key={tab.key} onClick={() => setViewFilter(tab.key)}
             className={`flex-1 flex justify-center items-center gap-1.5 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-lg transition-all ${
-              viewFilter === tab.key
-                ? 'bg-background shadow-sm text-foreground ring-1 ring-border'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/80'
-            }`}
-          >
+              viewFilter === tab.key ? 'bg-background shadow-sm text-foreground ring-1 ring-border' : 'text-muted-foreground hover:text-foreground hover:bg-muted/80'
+            }`}>
             <span>{tab.emoji}</span> {tab.label}
           </button>
         ))}
       </div>
 
-      {/* "A Organizar" banner */}
+      {/* A Organizar banner */}
       {unlinkedTxs.length > 0 && viewFilter === 'tramite' && (
         <Card className="border-amber-500/30 bg-amber-500/[0.03] rounded-2xl overflow-hidden">
           <CardContent className="p-4">
@@ -338,29 +364,24 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
           </p>
         </div>
       ) : (
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           {filteredCards.map(card => (
-            <Card
-              key={card.id}
-              className={`transition-all border-border/40 hover:border-primary/40 shadow-sm hover:shadow-md rounded-2xl overflow-hidden cursor-pointer group active:scale-[0.99] ${card.isArchived ? 'opacity-60 grayscale' : 'bg-card'}`}
-            >
+            <Card key={card.id}
+              className={`transition-all border-border/40 hover:border-primary/40 shadow-sm hover:shadow-md rounded-2xl overflow-hidden cursor-pointer group active:scale-[0.99] ${card.isArchived ? 'opacity-60 grayscale' : 'bg-card'}`}>
               <CardContent className="p-4">
-                <div className="flex items-center gap-3" onClick={() => setActiveProcessClienteId(card.clienteId)}>
+                <div className="flex gap-3">
                   {/* Icon */}
-                  <div className="p-2.5 rounded-xl bg-primary/5 border border-primary/20 shrink-0 transition-transform group-hover:scale-110 duration-300">
+                  <div className="p-2.5 rounded-xl bg-primary/5 border border-primary/20 shrink-0 self-start transition-transform group-hover:scale-110 duration-300 mt-0.5">
                     <FolderClosed className="w-5 h-5 text-primary" />
                   </div>
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
+                  {/* Info (clickable) */}
+                  <div className="flex-1 min-w-0" onClick={() => setActiveProcessClienteId(card.clienteId)}>
                     <h4 className="font-black text-sm text-foreground tracking-tight truncate">{card.name}</h4>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <Badge variant="outline" className={`text-[9px] h-4 px-1.5 py-0 border-current bg-transparent uppercase font-black tracking-wider ${
-                        card.status === 'Exigência' ? 'text-destructive' :
-                        card.status === 'Finalizado' ? 'text-success' : 'text-primary'
-                      }`}>
-                        {card.status}
-                      </Badge>
+                        card.status === 'Exigência' ? 'text-destructive' : card.status === 'Finalizado' ? 'text-success' : 'text-primary'
+                      }`}>{card.status}</Badge>
                       {card.dataProtocolo && (
                         <span className="text-[9px] text-muted-foreground font-medium flex items-center gap-1">
                           <CalendarDays className="w-3 h-3" />
@@ -368,31 +389,46 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                         </span>
                       )}
                     </div>
-                  </div>
 
-                  {/* Financial summary */}
-                  <div className="text-right shrink-0">
-                    <div className="flex items-center gap-1 justify-end mb-0.5">
-                      <TrendingUp className="w-3 h-3 text-emerald-500" />
-                      <span className="text-xs font-black text-emerald-500 tabular-nums">
-                        R$ {card.recebido.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
-                      </span>
-                    </div>
-                    {card.valorContrato > 0 && (
-                      <span className="text-[9px] text-muted-foreground font-medium">
-                        Saldo: R$ {card.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
-                      </span>
+                    {/* Last 3 technical notes preview */}
+                    {card.lastNotes.length > 0 && (
+                      <div className="mt-2.5 space-y-1">
+                        {card.lastNotes.map((note, i) => (
+                          <p key={i} className="text-[10px] text-muted-foreground leading-snug flex items-start gap-1.5">
+                            <span className="shrink-0 text-primary/50 mt-px">›</span>
+                            <span className="truncate">{note}</span>
+                          </p>
+                        ))}
+                      </div>
                     )}
                   </div>
 
-                  {/* Delete button on card — stop propagation */}
-                  <button
-                    onClick={e => { e.stopPropagation(); setDeleteCardTarget({ clienteId: card.clienteId, name: card.name }); }}
-                    className="ml-1 p-1.5 rounded-lg text-destructive/40 hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
-                    title="Apagar processo"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {/* Financial summary + delete */}
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <div className="text-right" onClick={() => setActiveProcessClienteId(card.clienteId)}>
+                      <div className="flex items-center gap-1 justify-end">
+                        <TrendingUp className="w-3 h-3 text-emerald-500" />
+                        <span className="text-xs font-black text-emerald-500 tabular-nums">
+                          R$ {card.recebido.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                        </span>
+                      </div>
+                      {card.valorContrato > 0 && (
+                        card.saldo === 0 ? (
+                          <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 rounded-full border border-emerald-500/20">PAGO</span>
+                        ) : (
+                          <span className="text-[9px] text-muted-foreground font-medium block">
+                            Saldo: R$ {card.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                          </span>
+                        )
+                      )}
+                    </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); setDeleteCardTarget({ clienteId: card.clienteId, name: card.name }); }}
+                      className="p-1.5 rounded-lg text-destructive/30 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -400,60 +436,45 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
         </div>
       )}
 
-      {/* Select Client Dialog */}
+      {/* Select Client */}
       <AlertDialog open={selectClientOpen} onOpenChange={setSelectClientOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base font-black">Novo Processo</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs">
-              Selecione um cliente existente ou cadastre um novo para iniciar o processo.
-            </AlertDialogDescription>
+            <AlertDialogDescription className="text-xs">Selecione um cliente ou cadastre um novo.</AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-3 py-2">
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-2 h-10 font-bold text-primary border-primary/20 bg-primary/5"
-              onClick={() => { setSelectClientOpen(false); setClientFormOpen(true); }}
-            >
+            <Button variant="outline" className="w-full justify-start gap-2 h-10 font-bold text-primary border-primary/20 bg-primary/5"
+              onClick={() => { setSelectClientOpen(false); setClientFormOpen(true); }}>
               <UserPlus className="w-4 h-4" /> Cadastrar Novo Cliente
             </Button>
             <div className="max-h-52 overflow-y-auto space-y-1.5 pr-1">
               {clientes.map(c => (
-                <button
-                  key={c.id}
-                  onClick={() => { setSelectClientOpen(false); setActiveProcessClienteId(c.id); }}
-                  className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-muted transition-colors border border-border/40"
-                >
+                <button key={c.id} onClick={() => { setSelectClientOpen(false); setActiveProcessClienteId(c.id); }}
+                  className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-muted transition-colors border border-border/40">
                   {c.nome}
                 </button>
               ))}
             </div>
           </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-          </AlertDialogFooter>
+          <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Client Form */}
-      <ClientForm
-        open={clientFormOpen}
-        onClose={() => setClientFormOpen(false)}
+      <ClientForm open={clientFormOpen} onClose={() => setClientFormOpen(false)}
         onSave={(newClient) => {
-          setClientFormOpen(false);
-          setClientes(getClients());
+          setClientFormOpen(false); setClientes(getClients());
           if (newClient) setTimeout(() => setActiveProcessClienteId(newClient.id), 100);
-        }}
-      />
+        }} />
 
-      {/* Delete from card confirmation */}
+      {/* Delete card process */}
       <AlertDialog open={!!deleteCardTarget} onOpenChange={v => !v && setDeleteCardTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base font-black text-destructive">Apagar Processo</AlertDialogTitle>
             <AlertDialogDescription className="text-sm leading-relaxed">
               Deseja apagar o processo de <span className="font-bold text-foreground">{deleteCardTarget?.name}</span>?
-              Isso removerá também todas as notas e transações vinculadas.
+              Isso removerá todas as notas e transações vinculadas.
               <span className="block mt-2 font-bold text-destructive">Esta ação não pode ser desfeita.</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -466,14 +487,14 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete from drawer confirmation */}
-      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+      {/* Delete drawer process */}
+      <AlertDialog open={deleteProcessOpen} onOpenChange={setDeleteProcessOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base font-black text-destructive">Apagar Processo</AlertDialogTitle>
             <AlertDialogDescription className="text-sm leading-relaxed">
               Deseja apagar o processo de <span className="font-bold text-foreground">{getClientName(activeProcessClienteId)}</span>?
-              Isso removerá também todas as notas e transações vinculadas.
+              Isso removerá todas as notas e transações vinculadas.
               <span className="block mt-2 font-bold text-destructive">Esta ação não pode ser desfeita.</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -486,9 +507,31 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Delete timeline item */}
+      <AlertDialog open={!!deleteTimelineTarget} onOpenChange={v => !v && setDeleteTimelineTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-sm font-black text-destructive">Remover Registro</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm leading-relaxed">
+              Deseja remover este registro?
+              {deleteTimelineTarget?.tipo === 'transacao' && (
+                <span className="block mt-1 text-destructive font-bold">Este lançamento será excluído e os totais recalculados.</span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmTimelineDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-bold">
+              <Trash2 className="w-4 h-4 mr-1.5" /> Sim, remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* ===================== PROCESS DRAWER ===================== */}
       <Sheet open={!!activeProcessClienteId} onOpenChange={v => !v && setActiveProcessClienteId(null)}>
         <SheetContent className="w-full sm:max-w-md bg-card p-0 flex flex-col border-l border-border/50 overflow-hidden">
+
           {/* Header */}
           <SheetHeader className="p-5 pb-3 border-b border-border/30 bg-muted/20 shrink-0">
             <div className="flex items-center justify-between">
@@ -497,11 +540,8 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                 <SheetTitle className="text-base font-black tracking-tight uppercase">Gaveta de Processo</SheetTitle>
               </div>
               {activeProcess && (
-                <button
-                  onClick={() => setDeleteConfirmOpen(true)}
-                  className="p-1.5 rounded-lg text-destructive/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
-                  title="Apagar processo"
-                >
+                <button onClick={() => setDeleteProcessOpen(true)}
+                  className="p-1.5 rounded-lg text-destructive/50 hover:text-destructive hover:bg-destructive/10 transition-colors">
                   <Trash2 className="w-4 h-4" />
                 </button>
               )}
@@ -515,9 +555,8 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
             <div className="flex-1 overflow-y-auto">
               <div className="p-5 space-y-5">
 
-                {/* ── Financial Summary Cards ── */}
+                {/* ── Financial Summary ── */}
                 <div className="grid grid-cols-2 gap-2">
-                  {/* Contrato (editable) */}
                   <div className="bg-muted/30 p-3 rounded-xl border border-border/50 flex flex-col justify-center">
                     <div className="flex items-center gap-1.5 mb-1 text-muted-foreground">
                       <Info className="w-3 h-3" />
@@ -531,13 +570,11 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                         onChange={e => handleLocalUpdate({ valorContrato: parseFloat(e.target.value) || 0 })}
                         className="bg-transparent border-none text-sm font-black text-foreground focus:outline-none focus:ring-0 p-0 w-full tabular-nums"
                         placeholder="0,00"
-                        title="Clique para editar o valor do contrato"
                       />
                     </div>
-                    <span className="text-[8px] text-muted-foreground/60 italic mt-0.5">clique para editar</span>
+                    <span className="text-[8px] text-muted-foreground/50 italic mt-0.5">toque para editar</span>
                   </div>
 
-                  {/* Recebido (display only, calculated from txs) */}
                   <div className="bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/20 flex flex-col justify-center">
                     <div className="flex items-center gap-1.5 mb-1 text-emerald-600">
                       <TrendingUp className="w-3 h-3" />
@@ -546,24 +583,22 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                     <p className="text-sm font-black text-emerald-600 tabular-nums">
                       R$ {clientFinances.recebido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
-                    <span className="text-[8px] text-emerald-600/50 italic mt-0.5">via lançamentos</span>
+                    <span className="text-[8px] text-emerald-600/50 italic mt-0.5">soma automática de receitas</span>
                   </div>
 
-                  {/* Saldo */}
-                  <div className="bg-amber-500/5 p-3 rounded-xl border border-amber-500/20 flex flex-col justify-center">
-                    <div className="flex items-center gap-1.5 mb-1 text-amber-600">
+                  <div className={`p-3 rounded-xl border flex flex-col justify-center ${clientFinances.saldo === 0 && clientFinances.contrato > 0 ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
+                    <div className={`flex items-center gap-1.5 mb-1 ${clientFinances.saldo === 0 && clientFinances.contrato > 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
                       <DollarSign className="w-3 h-3" />
-                      <span className="text-[9px] font-black uppercase tracking-widest">Saldo a Receber</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest">Saldo</span>
                     </div>
-                    <p className="text-sm font-black text-amber-600 tabular-nums">
+                    <p className={`text-sm font-black tabular-nums ${clientFinances.saldo === 0 && clientFinances.contrato > 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
                       R$ {clientFinances.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
-                    {clientFinances.recebido >= clientFinances.contrato && clientFinances.contrato > 0 && (
-                      <span className="text-[8px] text-emerald-600 font-bold mt-0.5">✓ Contrato quitado</span>
+                    {clientFinances.saldo === 0 && clientFinances.contrato > 0 && (
+                      <span className="text-[8px] font-black text-emerald-600 mt-0.5">✓ Contrato quitado</span>
                     )}
                   </div>
 
-                  {/* Custos */}
                   <div className="bg-destructive/5 p-3 rounded-xl border border-destructive/20 flex flex-col justify-center">
                     <div className="flex items-center gap-1.5 mb-1 text-destructive">
                       <TrendingDown className="w-3 h-3" />
@@ -580,13 +615,13 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Lançamentos Financeiros</Label>
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => { setInlineForm(inlineForm === 'receita' ? null : 'receita'); setQuickForm({ descricao: '', valor: '' }); }}
+                      onClick={() => { setInlineForm(inlineForm === 'receita' ? null : 'receita'); setQuickForm({ descricao: '', valor: '', data: today }); }}
                       className={`flex-1 h-10 rounded-xl text-[11px] font-black uppercase tracking-widest gap-1.5 transition-all ${inlineForm === 'receita' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-emerald-600/10 text-emerald-600 hover:bg-emerald-600 hover:text-white border border-emerald-600/20'}`}
                     >
                       {inlineForm === 'receita' ? <ChevronUp className="w-4 h-4" /> : <Plus className="w-4 h-4" />} Receita
                     </Button>
                     <Button
-                      onClick={() => { setInlineForm(inlineForm === 'despesa' ? null : 'despesa'); setQuickForm({ descricao: '', valor: '' }); }}
+                      onClick={() => { setInlineForm(inlineForm === 'despesa' ? null : 'despesa'); setQuickForm({ descricao: '', valor: '', data: today }); }}
                       variant="outline"
                       className={`flex-1 h-10 rounded-xl text-[11px] font-black uppercase tracking-widest gap-1.5 transition-all ${inlineForm === 'despesa' ? 'bg-destructive text-destructive-foreground border-destructive shadow-lg' : 'border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground'}`}
                     >
@@ -594,59 +629,62 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                     </Button>
                   </div>
 
-                  {/* Inline form (expanded) */}
+                  {/* Inline expanded form */}
                   {inlineForm && (
                     <div className={`rounded-xl border p-4 space-y-3 animate-in slide-in-from-top-2 duration-200 ${inlineForm === 'receita' ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-destructive/5 border-destructive/20'}`}>
                       <p className={`text-[10px] font-black uppercase tracking-widest ${inlineForm === 'receita' ? 'text-emerald-600' : 'text-destructive'}`}>
                         {inlineForm === 'receita' ? '+ Nova Receita' : '+ Nova Despesa / Repasse'}
                       </p>
-                      <div className="space-y-2">
-                        <Input
-                          placeholder="Descrição (ex: Parcela 1, Repasse Cartório...)"
-                          value={quickForm.descricao}
-                          onChange={e => setQuickForm(f => ({ ...f, descricao: e.target.value }))}
-                          className="h-10 bg-background/60 border-border/60 rounded-lg text-sm"
-                          autoFocus
-                        />
-                        <div className="flex gap-2">
-                          <div className="relative flex-1">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-bold">R$</span>
-                            <Input
-                              type="number"
-                              placeholder="0,00"
-                              value={quickForm.valor}
-                              onChange={e => setQuickForm(f => ({ ...f, valor: e.target.value }))}
-                              className="h-10 pl-9 bg-background/60 border-border/60 rounded-lg text-sm font-bold tabular-nums"
-                              onKeyDown={e => e.key === 'Enter' && handleQuickLaunch()}
-                            />
-                          </div>
-                          <Button
-                            onClick={handleQuickLaunch}
-                            disabled={!quickForm.descricao.trim() || !quickForm.valor}
-                            className={`h-10 px-4 rounded-lg font-bold text-xs ${inlineForm === 'receita' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-destructive hover:bg-destructive/90 text-white'}`}
-                          >
-                            <Check className="w-4 h-4 mr-1" /> Lançar
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            onClick={() => { setInlineForm(null); setQuickForm({ descricao: '', valor: '' }); }}
-                            className="h-10 w-10 px-0 rounded-lg text-muted-foreground hover:bg-muted"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
+                      <Input
+                        placeholder="Descrição (ex: Parcela 1, Repasse Cartório...)"
+                        value={quickForm.descricao}
+                        onChange={e => setQuickForm(f => ({ ...f, descricao: e.target.value }))}
+                        className="h-10 bg-background/60 border-border/60 rounded-lg text-sm"
+                        autoFocus
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-bold">R$</span>
+                          <Input
+                            type="number"
+                            placeholder="0,00"
+                            value={quickForm.valor}
+                            onChange={e => setQuickForm(f => ({ ...f, valor: e.target.value }))}
+                            className="h-10 pl-9 bg-background/60 border-border/60 rounded-lg text-sm font-bold tabular-nums"
+                          />
                         </div>
+                        <div className="relative">
+                          <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                          <Input
+                            type="date"
+                            value={quickForm.data}
+                            onChange={e => setQuickForm(f => ({ ...f, data: e.target.value }))}
+                            className="h-10 pl-9 bg-background/60 border-border/60 rounded-lg text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={handleQuickLaunch}
+                          disabled={!quickForm.descricao.trim() || !quickForm.valor || !quickForm.data}
+                          className={`flex-1 h-10 rounded-lg font-bold text-xs gap-1.5 ${inlineForm === 'receita' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-destructive hover:bg-destructive/90 text-white'}`}
+                        >
+                          <Check className="w-4 h-4" /> Confirmar Lançamento
+                        </Button>
+                        <Button variant="ghost" onClick={() => { setInlineForm(null); setQuickForm({ descricao: '', valor: '', data: today }); }}
+                          className="h-10 w-10 px-0 rounded-lg text-muted-foreground hover:bg-muted shrink-0">
+                          <X className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* ── Archive Button (only when Finalizado) ── */}
+                {/* ── Archive Button ── */}
                 {activeProcess.status === 'Finalizado' && (
-                  <Button
-                    variant="outline"
+                  <Button variant="outline"
                     onClick={() => handleImmediateUpdate({ isArchived: !activeProcess.isArchived })}
-                    className={`w-full h-10 rounded-xl text-[11px] font-black uppercase tracking-widest gap-2 ${activeProcess.isArchived ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' : 'bg-muted/50 text-muted-foreground border-border/50'}`}
-                  >
+                    className={`w-full h-10 rounded-xl text-[11px] font-black uppercase tracking-widest gap-2 ${activeProcess.isArchived ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' : 'bg-muted/50 text-muted-foreground border-border/50'}`}>
                     {activeProcess.isArchived ? <><Play className="w-4 h-4" /> Reativar Processo</> : <><Archive className="w-4 h-4" /> Arquivar Processo</>}
                   </Button>
                 )}
@@ -656,18 +694,15 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status de Trâmite</Label>
                   <div className="grid grid-cols-2 gap-2">
                     {(['Levantamento', 'Protocolo', 'Exigência', 'Finalizado'] as ProcessStatus[]).map(s => (
-                      <Button
-                        key={s}
-                        variant="outline"
+                      <Button key={s} variant="outline"
                         onClick={() => handleImmediateUpdate({ status: s })}
                         className={`h-11 rounded-xl text-xs font-bold transition-all border-border/50 ${
                           activeProcess.status === s
                             ? s === 'Exigência' ? 'bg-destructive/10 text-destructive border-destructive/30'
-                            : s === 'Finalizado' ? 'bg-success/10 text-success border-success/30'
+                            : s === 'Finalizado' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
                             : 'bg-primary/10 text-primary border-primary/30'
                             : 'hover:bg-muted opacity-60'
-                        }`}
-                      >
+                        }`}>
                         {s}
                       </Button>
                     ))}
@@ -690,22 +725,14 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                       <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Protocolo nº</Label>
                       <div className="relative">
                         <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground opacity-50" />
-                        <Input
-                          value={activeProcess.protocolo || ''}
-                          onChange={e => handleLocalUpdate({ protocolo: e.target.value })}
-                          placeholder="Nº Processo"
-                          className="h-10 pl-9 bg-muted/20 border-border/50 rounded-xl font-medium text-sm"
-                        />
+                        <Input value={activeProcess.protocolo || ''} onChange={e => handleLocalUpdate({ protocolo: e.target.value })}
+                          placeholder="Nº Processo" className="h-10 pl-9 bg-muted/20 border-border/50 rounded-xl font-medium text-sm" />
                       </div>
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Data Protocolo</Label>
-                      <Input
-                        type="date"
-                        value={activeProcess.dataProtocolo || ''}
-                        onChange={e => handleLocalUpdate({ dataProtocolo: e.target.value })}
-                        className="h-10 bg-muted/20 border-border/50 rounded-xl font-medium text-sm"
-                      />
+                      <Input type="date" value={activeProcess.dataProtocolo || ''} onChange={e => handleLocalUpdate({ dataProtocolo: e.target.value })}
+                        className="h-10 bg-muted/20 border-border/50 rounded-xl font-medium text-sm" />
                     </div>
                   </div>
                 </div>
@@ -717,24 +744,19 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                     <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground leading-none">Histórico Técnico & Financeiro</Label>
                   </div>
 
+                  {/* Add note */}
                   <div className="relative">
-                    <Textarea
-                      value={newNote}
-                      onChange={e => setNewNote(e.target.value)}
-                      placeholder="Adicionar atualização técnica..."
+                    <Textarea value={newNote} onChange={e => setNewNote(e.target.value)}
+                      placeholder="Adicionar atualização técnica... (Ctrl+Enter para salvar)"
                       className="min-h-[72px] bg-muted/20 border-border/50 rounded-xl font-medium p-3 pr-12 resize-none text-sm"
-                      onKeyDown={e => e.key === 'Enter' && e.ctrlKey && handleAddNote()}
-                    />
-                    <Button
-                      size="icon"
-                      onClick={handleAddNote}
-                      disabled={!newNote.trim()}
-                      className="absolute right-2 bottom-2 w-8 h-8 rounded-lg shadow-lg"
-                    >
+                      onKeyDown={e => e.key === 'Enter' && e.ctrlKey && handleAddNote()} />
+                    <Button size="icon" onClick={handleAddNote} disabled={!newNote.trim()}
+                      className="absolute right-2 bottom-2 w-8 h-8 rounded-lg shadow-lg">
                       <Plus className="w-4 h-4" />
                     </Button>
                   </div>
 
+                  {/* Events list */}
                   <div className="space-y-3 pt-1">
                     {timelineEvents.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-6 opacity-30">
@@ -743,24 +765,71 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                       </div>
                     ) : (
                       <div className="relative space-y-3 pl-4 before:absolute before:left-1 before:top-2 before:bottom-0 before:w-0.5 before:bg-border/30">
-                        {timelineEvents.map((note: any) => {
-                          const isFinancial = !!note.transaction;
-                          const isExpense = note.isExpense;
+                        {timelineEvents.map((event: any) => {
+                          const isFinancial = event.tipo === 'transacao';
+                          const isExpense = event.isExpense;
+                          const isEditing = editingNoteId === event.id;
                           return (
-                            <div key={note.id} className="relative">
+                            <div key={event.id} className="relative group/item">
                               <div className={`absolute -left-[1.35rem] top-1.5 w-3 h-3 rounded-full border-2 border-background shadow-sm ${isFinancial ? (isExpense ? 'bg-destructive' : 'bg-emerald-500') : 'bg-primary'}`} />
                               <div className={`p-3 rounded-xl border border-border/30 transition-colors ${isFinancial ? (isExpense ? 'bg-destructive/5' : 'bg-emerald-500/5') : 'bg-muted/30'}`}>
                                 {isFinancial && (
-                                  <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isExpense ? 'text-destructive/80' : 'text-emerald-600/80'}`}>
-                                    {isExpense ? 'Saída / Repasse' : 'Receita'}
-                                  </p>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <p className={`text-[9px] font-black uppercase tracking-widest ${isExpense ? 'text-destructive/80' : 'text-emerald-600/80'}`}>
+                                      {isExpense ? 'Saída / Repasse' : 'Receita'}
+                                      {event.dataFormatada && <span className="normal-case font-medium ml-1.5 opacity-70">• {event.dataFormatada}</span>}
+                                    </p>
+                                    <button
+                                      onClick={() => setDeleteTimelineTarget({ id: event.id, tipo: 'transacao', label: event.texto })}
+                                      className="p-1 rounded text-destructive/30 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover/item:opacity-100"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
                                 )}
-                                <p className={`text-xs font-medium leading-relaxed mb-1 ${isFinancial ? (isExpense ? 'text-destructive font-bold' : 'text-emerald-700 dark:text-emerald-400 font-bold') : 'text-foreground/90'}`}>
-                                  {note.texto}
-                                </p>
-                                <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1">
+
+                                {!isFinancial && (
+                                  <div className="flex items-start justify-between gap-2 mb-1">
+                                    {isEditing ? (
+                                      <div className="flex-1 space-y-1.5">
+                                        <Textarea value={editingNoteText} onChange={e => setEditingNoteText(e.target.value)}
+                                          className="min-h-[60px] text-xs bg-background/60 border-border/50 rounded-lg resize-none p-2" autoFocus />
+                                        <div className="flex gap-1.5">
+                                          <Button size="sm" onClick={handleSaveNoteEdit}
+                                            className="h-7 px-3 text-[10px] font-bold rounded-lg gap-1">
+                                            <Check className="w-3 h-3" /> Salvar
+                                          </Button>
+                                          <Button size="sm" variant="ghost" onClick={() => { setEditingNoteId(null); setEditingNoteText(''); }}
+                                            className="h-7 px-3 text-[10px] font-bold rounded-lg">
+                                            <X className="w-3 h-3" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <p className="text-xs font-medium leading-relaxed text-foreground/90 flex-1">{event.texto}</p>
+                                        <div className="flex gap-0.5 opacity-0 group-hover/item:opacity-100 transition-opacity shrink-0">
+                                          <button onClick={() => { setEditingNoteId(event.id); setEditingNoteText(event.texto); }}
+                                            className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
+                                            <Pencil className="w-3 h-3" />
+                                          </button>
+                                          <button onClick={() => setDeleteTimelineTarget({ id: event.id, tipo: 'nota', label: event.texto })}
+                                            className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
+                                            <Trash2 className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+
+                                {!isEditing && isFinancial && (
+                                  <p className={`text-xs font-bold leading-relaxed ${isExpense ? 'text-destructive' : 'text-emerald-700 dark:text-emerald-400'}`}>{event.texto}</p>
+                                )}
+
+                                <p className="text-[9px] font-bold text-muted-foreground flex items-center gap-1 mt-1.5">
                                   <Clock3 className="w-2.5 h-2.5" />
-                                  {new Date(note.data).toLocaleString('pt-BR')}
+                                  {new Date(event.data).toLocaleString('pt-BR')}
                                 </p>
                               </div>
                             </div>
@@ -771,8 +840,8 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
                   </div>
                 </div>
 
-                {/* ── Lucro Líquido ── (own row, clear layout) */}
-                <div className="rounded-2xl border border-border/40 bg-muted/20 p-4 flex flex-col gap-1">
+                {/* ── Lucro Líquido — always at bottom ── */}
+                <div className={`rounded-2xl border p-4 flex flex-col gap-1 ${lucroPositivo ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-destructive/20 bg-destructive/5'}`}>
                   <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Lucro Líquido do Processo</span>
                   <div className="flex items-baseline gap-1.5">
                     <span className={`text-sm font-bold ${lucroPositivo ? 'text-emerald-500/70' : 'text-destructive/70'}`}>R$</span>
@@ -787,21 +856,15 @@ export function ProcessManager({ allTransactions, onRefresh }: Props) {
             </div>
           )}
 
-          {/* ── Fixed Footer: Save / Close ── */}
+          {/* Fixed Footer */}
           {activeProcess && (
             <div className="shrink-0 flex gap-2 p-4 border-t border-border/30 bg-card/95 backdrop-blur-sm">
-              <Button
-                onClick={handleSaveChanges}
-                disabled={!hasUnsavedChanges}
-                className={`flex-1 h-11 rounded-xl font-black text-xs uppercase tracking-widest gap-2 transition-all ${hasUnsavedChanges ? 'shadow-lg' : 'opacity-50'}`}
-              >
+              <Button onClick={handleSaveChanges} disabled={!hasUnsavedChanges}
+                className={`flex-1 h-11 rounded-xl font-black text-xs uppercase tracking-widest gap-2 transition-all ${hasUnsavedChanges ? 'shadow-lg' : 'opacity-50'}`}>
                 <Check className="w-4 h-4" /> Salvar Alterações
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => setActiveProcessClienteId(null)}
-                className="h-11 px-4 rounded-xl font-bold text-xs text-muted-foreground border-border/50 hover:bg-muted"
-              >
+              <Button variant="outline" onClick={() => setActiveProcessClienteId(null)}
+                className="h-11 px-4 rounded-xl font-bold text-xs text-muted-foreground border-border/50 hover:bg-muted">
                 <X className="w-4 h-4" />
               </Button>
             </div>
