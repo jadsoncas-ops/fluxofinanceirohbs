@@ -3,7 +3,7 @@ import { Transaction } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { getTipOfDay } from '@/lib/tips';
-import { getProcesses } from '@/lib/storage';
+import { getProcesses, getClients } from '@/lib/storage';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, ComposedChart, Line, Legend } from 'recharts';
 import { TrendingUp, Wallet, ArrowDownLeft, ArrowUpRight, AlertTriangle, ArrowUpCircle, ArrowDownCircle, Target, Activity, CheckCircle2, BadgeAlert, BarChart3, Clock3, Plus, Search, Eye } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -137,11 +137,13 @@ export function Dashboard({ transactions, month, year }: Props) {
       shouldShowCostInDashboard(t)
     ).reduce((s, t) => s + t.valor, 0);
 
+    const clients = getClients();
     const auditList: { name: string; id: string; saldo: number; custos: number; lucro: number }[] = [];
     
-    // Cenário Global (Escritório Total)
-    // O Lucro Futuro agora é SEMPRE global para mostrar o potencial dos contratos ativos
-    const entradasPrevistas = (processes || []).filter(p => !p.isArchived).reduce((sum, p) => {
+    // Cenário Global (Escritório Total) — AUDITORIA 1 A 1
+    (processes || []).filter(p => !p.isArchived).forEach(p => {
+      const client = clients.find(c => c.id === p.clienteId);
+      
       const totalRecebidoP = (transactions || [])
         .filter(t => t.processId === p.id && (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
         .reduce((s, t) => s + t.valor, 0);
@@ -150,10 +152,10 @@ export function Dashboard({ transactions, month, year }: Props) {
         .filter(t => t.processId === p.id && (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Pendente')
         .reduce((s, t) => s + t.valor, 0);
 
-      const saldoRemanescente = Math.max(0, (p.valorContrato || 0) - totalRecebidoP);
-      const saldoTotalProc = saldoRemanescente + receitasPendentesParaProc;
+      // Regra: À RECEBER = (Contrato - Já Pago) + Previstos Pendentes Manuais
+      const saldoTotalProc = Math.max(0, (p.valorContrato || 0) - totalRecebidoP) + receitasPendentesParaProc;
       
-      // Custos especificos desse processo
+      // Regra: CUSTOS PEND. = (Todos os Repasses) - (Repasses Pagos/Efetivados)
       const custosPendentesProc = (transactions || [])
         .filter(t => t.processId === p.id && (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
         .reduce((s, t) => s + t.valor, 0);
@@ -161,21 +163,16 @@ export function Dashboard({ transactions, month, year }: Props) {
       if (saldoTotalProc > 0 || custosPendentesProc > 0) {
         auditList.push({
           id: p.id,
-          name: p.objeto || 'Serviço s/ nome',
+          name: `${client?.nome || 'Cliente s/ nome'} — ${p.objeto || 'Serviço'}`,
           saldo: saldoTotalProc,
           custos: custosPendentesProc,
           lucro: saldoTotalProc - custosPendentesProc
         });
       }
+    });
 
-      // (Contrato - Já Recebido) + Previstos Manuais
-      return sum + saldoTotalProc;
-    }, 0);
-
-    const saidasPrevistas = (transactions || [])
-      .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
-      .reduce((s, t) => s + t.valor, 0);
-
+    const entradasPrevistas = auditList.reduce((sum, p) => sum + p.saldo, 0);
+    const saidasPrevistas = auditList.reduce((sum, p) => sum + p.custos, 0);
     const lucroFuturoPendente = entradasPrevistas - saidasPrevistas;
 
     // Meta de recebimentos (Termômetro do Mês)
@@ -427,10 +424,10 @@ export function Dashboard({ transactions, month, year }: Props) {
                       <Table>
                         <TableHeader>
                           <TableRow className="border-border/50 bg-muted/10">
-                            <TableHead className="text-[10px] font-black uppercase tracking-widest h-10">Processo (Objeto)</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-widest h-10">Cliente — Objeto</TableHead>
                             <TableHead className="text-[10px] font-black uppercase tracking-widest text-right h-10">À Receber</TableHead>
                             <TableHead className="text-[10px] font-black uppercase tracking-widest text-right h-10">Custos Pend.</TableHead>
-                            <TableHead className="text-[10px] font-black uppercase tracking-widest text-right h-10">Margem</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-widest text-right h-10">Margem Futura</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
