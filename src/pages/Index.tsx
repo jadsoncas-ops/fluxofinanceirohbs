@@ -10,7 +10,7 @@ import { ClientMigrationModal } from '@/components/ClientMigrationModal';
 import { ProcessManager } from '@/components/ProcessManager';
 import { getTransactions } from '@/lib/storage';
 import { generateMonthlyReport } from '@/lib/pdf';
-import { Transaction, TransactionType } from '@/lib/types';
+import { Transaction } from '@/lib/types';
 import { LayoutDashboard, Briefcase, Settings as SettingsIcon, FileDown, Building, Users } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import hbsLogo from '@/assets/hbs-logo.png';
@@ -30,8 +30,6 @@ export default function Index() {
   const [parentItem, setParentItem] = useState<Transaction | null>(null);
   const [completeItem, setCompleteItem] = useState<Transaction | null>(null);
   const [migrationOpen, setMigrationOpen] = useState(false);
-  const [prefilledClienteId, setPrefilledClienteId] = useState<string | undefined>(undefined);
-  const [prefilledTipo, setPrefilledTipo] = useState<TransactionType | undefined>(undefined);
 
   const refresh = useCallback(() => setTxKey(k => k + 1), []);
 
@@ -60,21 +58,11 @@ export default function Index() {
   function handleEdit(tx: Transaction) {
     setEditItem(tx);
     setParentItem(null);
-    setPrefilledClienteId(undefined);
-    setPrefilledTipo(undefined);
     setFormOpen(true);
   }
 
   function handleExportPdf() {
     generateMonthlyReport(monthTransactions, month, year);
-  }
-
-  function handleOpenTransactionForm(opts: { clienteId?: string; tipo?: TransactionType; parentItem?: Transaction | null }) {
-    setEditItem(null);
-    setParentItem(opts.parentItem || null);
-    setPrefilledClienteId(opts.clienteId);
-    setPrefilledTipo(opts.tipo);
-    setFormOpen(true);
   }
 
   const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
@@ -149,7 +137,6 @@ export default function Index() {
           <ProcessManager
             allTransactions={allTransactions}
             onRefresh={refresh}
-            onOpenTransactionForm={handleOpenTransactionForm}
           />
         )}
         {tab === 'clients' && <ClientsList />}
@@ -179,12 +166,10 @@ export default function Index() {
       {/* Modals */}
       <TransactionForm
         open={formOpen}
-        onClose={() => { setFormOpen(false); setEditItem(null); setParentItem(null); setPrefilledClienteId(undefined); setPrefilledTipo(undefined); }}
+        onClose={() => { setFormOpen(false); setEditItem(null); setParentItem(null); }}
         onSave={refresh}
         editItem={editItem}
         parentItem={parentItem}
-        prefilledClienteId={prefilledClienteId}
-        prefilledTipo={prefilledTipo}
       />
       <PartialPaymentModal
         open={!!completeItem}
