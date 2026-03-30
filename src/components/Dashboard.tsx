@@ -5,7 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { getTipOfDay } from '@/lib/tips';
 import { getProcesses } from '@/lib/storage';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, ComposedChart, Line, Legend } from 'recharts';
-import { TrendingUp, Wallet, ArrowDownLeft, ArrowUpRight, AlertTriangle, ArrowUpCircle, ArrowDownCircle, Target, Activity, CheckCircle2, BadgeAlert, BarChart3, Clock3 } from 'lucide-react';
+import { TrendingUp, Wallet, ArrowDownLeft, ArrowUpRight, AlertTriangle, ArrowUpCircle, ArrowDownCircle, Target, Activity, CheckCircle2, BadgeAlert, BarChart3, Clock3, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface Props {
@@ -172,7 +172,8 @@ export function Dashboard({ transactions, month, year }: Props) {
 
     const stats = { 
       entradas, saidas, aReceber, percentRecebido, lucroLiquidoMensal,
-      entradasPrevistas, saidasPrevistas, lucroFuturoPendente, projecaoTotal
+      entradasPrevistas, saidasPrevistas, lucroFuturoPendente, projecaoTotal,
+      custosFuturos: saidasPrevistas
     };
     const saldoAtual = actualBalance;
     const saldoProjetadoFuturo = runningTotal;
