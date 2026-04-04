@@ -63,9 +63,23 @@ export default function Index() {
 
   const monthTransactions = useMemo(() => {
     if (month === 12 || year === 0) return allTransactions || [];
+    const viewDate = new Date(year, month + 1, 0); // last day of selected month
     return (allTransactions || []).filter(t => {
       const d = new Date(t.data + 'T12:00:00');
-      return d.getMonth() === month && d.getFullYear() === year;
+      const txMonth = d.getMonth();
+      const txYear = d.getFullYear();
+      // Normal match: transaction belongs to selected month
+      if (txMonth === month && txYear === year) return true;
+      // Rollover: pending "A Receber" from past months appear in current/future month
+      if (
+        (t.tipo === 'A Receber') &&
+        (t.status === 'Pendente' || t.status === 'Parcial') &&
+        d < viewDate &&
+        (year > txYear || (year === txYear && month > txMonth))
+      ) {
+        return true;
+      }
+      return false;
     });
   }, [allTransactions, month, year]);
 
