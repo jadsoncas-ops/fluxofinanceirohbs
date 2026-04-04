@@ -492,7 +492,6 @@ export function ProcessManager({ allTransactions, onRefresh, activeTab = 'ativos
           {filteredCards.map(card => (
             <Card key={card.id}
               className={`group overflow-hidden rounded-2xl border border-border/40 transition-all duration-300 hover:shadow-md relative cursor-pointer active:scale-[0.99] ${card.isArchived ? 'grayscale opacity-60' : 'bg-card hover:border-primary/40'}`}>
-              )}
               <CardContent className="p-3 sm:p-4" onClick={() => setActiveProcessId(card.id)}>
                 {/* Top row: Icon + Name + Status */}
                 <div className="flex items-start gap-2.5 sm:gap-3">
