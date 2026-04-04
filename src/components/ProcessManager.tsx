@@ -492,10 +492,6 @@ export function ProcessManager({ allTransactions, onRefresh, activeTab = 'ativos
           {filteredCards.map(card => (
             <Card key={card.id}
               className={`group overflow-hidden rounded-2xl border border-border/40 transition-all duration-300 hover:shadow-md relative cursor-pointer active:scale-[0.99] ${card.isArchived ? 'grayscale opacity-60' : 'bg-card hover:border-primary/40'}`}>
-              {card.financialStatus === 'PAGO' && (
-                <div className="absolute top-0 right-0 z-10">
-                   <div className="bg-emerald-500 text-white text-[8px] font-black tracking-widest px-2 py-1 rounded-bl-xl shadow-sm uppercase">💰 Financeiro Quitado</div>
-                </div>
               )}
               <CardContent className="p-3 sm:p-4" onClick={() => setActiveProcessId(card.id)}>
                 {/* Top row: Icon + Name + Status */}
