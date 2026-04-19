@@ -1,4 +1,4 @@
-import { Transaction, Client, Process } from './types';
+import { Transaction, Client, Process, Task } from './types';
 
 const STORAGE_KEY = 'hbs_transactions';
 
