@@ -83,3 +83,20 @@ export interface Process {
   createdAt: number;
   updatedAt: number;
 }
+
+export type TaskStatus = 'Pendente' | 'Em Andamento' | 'Concluída';
+export type TaskPriority = 'Baixa' | 'Média' | 'Alta';
+
+export interface Task {
+  id: string;
+  titulo: string;
+  descricao?: string;
+  status: TaskStatus;
+  prioridade: TaskPriority;
+  prazo?: string; // YYYY-MM-DD
+  processId?: string | null;
+  clienteId?: string | null;
+  createdAt: number;
+  updatedAt: number;
+  completedAt?: number;
+}

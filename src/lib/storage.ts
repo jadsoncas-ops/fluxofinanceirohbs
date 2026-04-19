@@ -1,4 +1,4 @@
-import { Transaction, Client, Process } from './types';
+import { Transaction, Client, Process, Task } from './types';
 
 const STORAGE_KEY = 'hbs_transactions';
 
@@ -112,7 +112,8 @@ export function exportBackup(): string {
   const data = {
     lancamentos: loadAll(),
     clientes: loadAllClients(),
-    processos: loadAllProcesses()
+    processos: loadAllProcesses(),
+    tarefas: loadAllTasks(),
   };
   return JSON.stringify(data, null, 2);
 }
@@ -160,6 +161,11 @@ export function importBackup(json: string): void {
     // Restaurar Processos
     if (Array.isArray(data.processos)) {
       saveAllProcesses(data.processos);
+    }
+
+    // Restaurar Tarefas
+    if (Array.isArray(data.tarefas)) {
+      saveAllTasks(data.tarefas);
     }
   }
 }
@@ -274,7 +280,51 @@ export function deleteProcess(processId: string): void {
   });
   saveAll(filtered);
 
+  // Delete tasks linked to this process
+  const tasks = loadAllTasks();
+  saveAllTasks(tasks.filter(t => t.processId !== processId));
+
   // Delete the process itself
   const remaining = all.filter(p => p.id !== processId);
   saveAllProcesses(remaining);
+}
+
+// --- TASKS ---
+const STORAGE_KEY_TASKS = 'hbs_tasks';
+
+function loadAllTasks(): Task[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_TASKS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveAllTasks(tasks: Task[]) {
+  localStorage.setItem(STORAGE_KEY_TASKS, JSON.stringify(tasks));
+}
+
+export function getTasks(): Task[] {
+  return loadAllTasks();
+}
+
+export function addTask(task: Task): void {
+  const all = loadAllTasks();
+  all.push(task);
+  saveAllTasks(all);
+}
+
+export function updateTask(updated: Task): void {
+  const all = loadAllTasks();
+  const idx = all.findIndex(t => t.id === updated.id);
+  if (idx >= 0) all[idx] = updated;
+  saveAllTasks(all);
+}
+
+export function deleteTask(id: string): void {
+  const all = loadAllTasks();
+  saveAllTasks(all.filter(t => t.id !== id));
 }
