@@ -162,6 +162,11 @@ export function importBackup(json: string): void {
     if (Array.isArray(data.processos)) {
       saveAllProcesses(data.processos);
     }
+
+    // Restaurar Tarefas
+    if (Array.isArray(data.tarefas)) {
+      saveAllTasks(data.tarefas);
+    }
   }
 }
 
