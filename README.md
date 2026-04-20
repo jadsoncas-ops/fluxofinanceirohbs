@@ -1,3 +1,5 @@
-# Welcome to your Lovable project
+# Fluxo Financeiro HBS
 
-TODO: Document your project here
+ERP desktop-first para escritório de serviços: gestão financeira, clientes, processos e tarefas.
+
+Sincronizado com GitHub via Lovable.
