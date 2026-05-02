@@ -172,26 +172,29 @@ export default function Index() {
         </header>
 
         {/* Desktop Top Header */}
-        <header className="hidden lg:flex items-center gap-3 px-6 h-14 border-b border-border/40 bg-background/60 backdrop-blur-md sticky top-0 z-20">
-          <h1 className="text-sm font-black uppercase tracking-widest text-foreground">
-            {tab === 'dashboard' && 'Dashboard'}
-            {tab === 'financeiro' && 'Financeiro — Histórico'}
-            {tab === 'processos' && 'Processos'}
-            {tab === 'tasks' && 'Tarefas & Agenda'}
-            {tab === 'clients' && 'Clientes'}
-            {tab === 'settings' && 'Definições'}
-          </h1>
+        <header className="hidden lg:flex items-center gap-4 px-8 h-16 border-b border-border/40 glass-strong sticky top-0 z-20">
+          <div className="flex flex-col leading-tight">
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">HBS ERP</span>
+            <h1 className="text-lg font-bold tracking-tight text-foreground">
+              {tab === 'dashboard' && 'Dashboard'}
+              {tab === 'financeiro' && 'Financeiro — Histórico'}
+              {tab === 'processos' && 'Processos'}
+              {tab === 'tasks' && 'Tarefas & Agenda'}
+              {tab === 'clients' && 'Clientes'}
+              {tab === 'settings' && 'Definições'}
+            </h1>
+          </div>
           <div className="flex-1" />
           <button
             onClick={() => setCommandOpen(true)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border/60 bg-card hover:bg-muted/50 text-left transition-colors text-xs text-muted-foreground"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-border/60 bg-card/60 hover:bg-card hover:border-border text-left transition-all text-xs text-muted-foreground min-w-[240px] shadow-soft"
           >
             <Search className="w-3.5 h-3.5" />
-            <span>Buscar...</span>
+            <span className="flex-1">Buscar processos, clientes, tarefas...</span>
             <kbd className="text-[9px] font-bold bg-muted/80 text-muted-foreground px-1.5 py-0.5 rounded border border-border/60">⌘K</kbd>
           </button>
           {(tab === 'dashboard' || tab === 'financeiro') && (
-            <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={handleExportPdf}>
+            <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 rounded-xl shadow-soft" onClick={handleExportPdf}>
               <FileDown className="w-3.5 h-3.5" /> PDF do mês
             </Button>
           )}
@@ -212,9 +215,9 @@ export default function Index() {
 
         {/* Filters - only Dashboard / Financeiro */}
         {showFilters && (
-          <div className="max-w-6xl mx-auto w-full px-4 lg:px-6 py-3 flex items-center gap-2">
+          <div className="max-w-[1400px] mx-auto w-full px-4 lg:px-8 pt-5 pb-2 flex items-center gap-2">
             <Select value={String(month)} onValueChange={v => setMonth(Number(v))}>
-              <SelectTrigger className="h-8 text-xs w-36">
+              <SelectTrigger className="h-9 text-xs w-40 rounded-xl bg-card/60 border-border/60 shadow-soft">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -225,7 +228,7 @@ export default function Index() {
               </SelectContent>
             </Select>
             <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
-              <SelectTrigger className="h-8 text-xs w-20">
+              <SelectTrigger className="h-9 text-xs w-24 rounded-xl bg-card/60 border-border/60 shadow-soft">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -235,7 +238,7 @@ export default function Index() {
               </SelectContent>
             </Select>
             <div className="flex-1" />
-            <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 lg:hidden" onClick={handleExportPdf}>
+            <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 lg:hidden" onClick={handleExportPdf}>
               <FileDown className="w-3.5 h-3.5" />
               <span>PDF</span>
             </Button>
@@ -243,7 +246,7 @@ export default function Index() {
         )}
 
         {/* Content */}
-        <main className="flex-1 max-w-6xl mx-auto w-full px-4 lg:px-6 pb-24 lg:pb-10 overflow-y-auto mt-2">
+        <main className="flex-1 max-w-[1400px] mx-auto w-full px-4 lg:px-8 pb-24 lg:pb-12 overflow-y-auto mt-2 lg:mt-4">
           {tab === 'dashboard' && (
             <div className="space-y-6">
               <Dashboard
