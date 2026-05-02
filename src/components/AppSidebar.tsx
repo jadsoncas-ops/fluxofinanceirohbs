@@ -85,3 +85,5 @@ export function AppSidebar({ active, onChange, onOpenCommand, badges = {} }: Pro
       </div>
     </aside>
   );
+}
+
