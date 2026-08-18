@@ -129,7 +129,7 @@ export default function DashboardPage() {
           <button onClick={() => navigate('/trabalhos')} className="h-[34px] px-3.5 bg-card border-2 rounded-lg text-[12.5px] hover:border-hover transition-colors flex items-center gap-2"><Layers className="w-3.5 h-3.5" /> Novo trabalho</button>
           <button onClick={() => navigate('/producao')} className="h-[34px] px-3.5 bg-card border-2 rounded-lg text-[12.5px] hover:border-hover transition-colors flex items-center gap-2"><FileStack className="w-3.5 h-3.5" /> Gerar documento</button>
           <button onClick={() => navigate('/comercial')} className="h-[34px] px-3.5 bg-card border-2 rounded-lg text-[12.5px] hover:border-hover transition-colors flex items-center gap-2"><Handshake className="w-3.5 h-3.5" /> Nova proposta</button>
-          <button onClick={() => shell.openNewTransaction({ tipo: 'Entrada' })} className="h-[34px] px-3.5 bg-card border-2 rounded-lg text-[12.5px] hover:border-hover transition-colors flex items-center gap-2"><Landmark className="w-3.5 h-3.5" /> Lançar recebimento</button>
+          <button onClick={() => shell.openNovoRecebimento()} className="h-[34px] px-3.5 bg-card border-2 rounded-lg text-[12.5px] hover:border-hover transition-colors flex items-center gap-2"><Landmark className="w-3.5 h-3.5" /> Lançar recebimento</button>
         </div>
       </div>
 

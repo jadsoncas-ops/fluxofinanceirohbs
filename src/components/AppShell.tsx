@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TransactionForm } from '@/components/TransactionForm';
 import { PartialPaymentModal } from '@/components/PartialPaymentModal';
+import { NovoRecebimentoDialog } from '@/components/NovoRecebimentoDialog';
 import { ClientMigrationModal } from '@/components/ClientMigrationModal';
 import { ClientForm } from '@/components/ClientForm';
 import { AppSidebar } from '@/components/AppSidebar';
@@ -29,6 +30,7 @@ export interface ShellContext {
   openEditTransaction: (tx: Transaction) => void;
   openCompleteTransaction: (tx: Transaction) => void;
   openAddRepasse: (tx: Transaction) => void;
+  openNovoRecebimento: () => void;
   pendingNewTask: Partial<Task> | null;
   consumePendingNewTask: () => void;
   requestNewTask: () => void;
@@ -69,6 +71,7 @@ export function AppShell() {
   const [completeItem, setCompleteItem] = useState<Transaction | null>(null);
   const [migrationOpen, setMigrationOpen] = useState(false);
   const [clientFormOpen, setClientFormOpen] = useState(false);
+  const [recebimentoOpen, setRecebimentoOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
@@ -190,6 +193,7 @@ export function AppShell() {
     openNewTransaction, openEditTransaction,
     openCompleteTransaction: setCompleteItem,
     openAddRepasse,
+    openNovoRecebimento: () => setRecebimentoOpen(true),
     pendingNewTask,
     consumePendingNewTask: () => setPendingNewTask(null),
     requestNewTask: () => setPendingNewTask({}),
@@ -240,7 +244,7 @@ export function AppShell() {
             onNewTrabalho={() => navigate('/trabalhos')}
             onNewProposta={() => navigate('/comercial')}
             onNewDocumento={() => navigate('/producao')}
-            onNewReceita={() => openNewTransaction({ tipo: 'Entrada' })}
+            onNewReceita={() => setRecebimentoOpen(true)}
             onNewDespesa={() => openNewTransaction({ tipo: 'Saída' })}
           />
         </header>
@@ -293,6 +297,7 @@ export function AppShell() {
         transaction={completeItem}
       />
       <ClientForm open={clientFormOpen} onClose={() => setClientFormOpen(false)} onSave={() => { setClientFormOpen(false); refresh(); }} />
+      <NovoRecebimentoDialog open={recebimentoOpen} onClose={() => setRecebimentoOpen(false)} onCreated={refresh} />
 
       {migrationOpen && (
         <ClientMigrationModal
@@ -308,7 +313,7 @@ export function AppShell() {
         onOpenChange={setCommandOpen}
         onNavigate={(path) => navigate(path)}
         onNewTask={() => { setPendingNewTask({}); navigate('/tarefas'); }}
-        onNewTransaction={(tipo) => { openNewTransaction({ tipo }); }}
+        onNewTransaction={(tipo) => { if (tipo === 'Entrada') setRecebimentoOpen(true); else openNewTransaction({ tipo }); }}
         onNewClient={() => setClientFormOpen(true)}
       />
     </div>
