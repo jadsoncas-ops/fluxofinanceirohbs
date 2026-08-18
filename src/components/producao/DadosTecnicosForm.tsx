@@ -3,6 +3,7 @@ import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Process, Unidade, ProprietarioGeral } from '@/lib/types';
 import { updateProcess } from '@/lib/storage';
 import { ATOS_REGISTRAIS_OPCOES } from '@/lib/producao/requerimento';
+import { compoemMedidas } from '@/lib/producao/documentoShared';
 import { Input } from '@/components/ui/input';
 
 function novaUnidade(): Unidade {
@@ -73,10 +74,37 @@ export function DadosTecnicosForm({ trabalho, onChange }: { trabalho: Process; o
             <Field label="Área do terreno (m²)">
               <Input type="number" value={tecnico.terreno ?? ''} onChange={e => salvar({ terreno: parseFloat(e.target.value) || 0 })} placeholder="0,00" className="h-9 text-xs" />
             </Field>
-            <Field label="Medidas do lote">
-              <Input value={tecnico.medidas || ''} onChange={e => salvar({ medidas: e.target.value })} placeholder="Ex: 12m de frente por 25m de fundo" className="h-9 text-xs" />
-            </Field>
           </div>
+
+          <div>
+            <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2 mb-1">Formato do terreno</div>
+            <select
+              value={tecnico.formatoTerreno || 'irregular'}
+              onChange={e => salvar({ formatoTerreno: e.target.value as 'regular' | 'irregular' })}
+              className="h-9 px-2.5 rounded-lg border-2 bg-card text-[12px] w-full max-w-[420px]"
+            >
+              <option value="irregular">Irregular — texto livre (linhas quebradas, ângulos, arcos)</option>
+              <option value="regular">Regular — 4 lados retos, um valor cada</option>
+            </select>
+          </div>
+
+          {tecnico.formatoTerreno === 'regular' ? (
+            <div className="space-y-2">
+              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' }}>
+                <Field label="Frente (m)"><Input type="number" step="0.01" value={tecnico.frente ?? ''} onChange={e => salvar({ frente: parseFloat(e.target.value) || undefined })} className="h-9 text-xs" /></Field>
+                <Field label="Fundo (m)"><Input type="number" step="0.01" value={tecnico.fundo ?? ''} onChange={e => salvar({ fundo: parseFloat(e.target.value) || undefined })} className="h-9 text-xs" /></Field>
+                <Field label="Lado direito (m)"><Input type="number" step="0.01" value={tecnico.lateralDireita ?? ''} onChange={e => salvar({ lateralDireita: parseFloat(e.target.value) || undefined })} className="h-9 text-xs" /></Field>
+                <Field label="Lado esquerdo (m)"><Input type="number" step="0.01" value={tecnico.lateralEsquerda ?? ''} onChange={e => salvar({ lateralEsquerda: parseFloat(e.target.value) || undefined })} className="h-9 text-xs" /></Field>
+              </div>
+              <div className="bg-surface-2 rounded-lg px-3 py-2.5 text-[11.5px] text-mute-2">
+                Texto que vai pro documento: <span className="text-foreground font-medium">{compoemMedidas(tecnico.frente, tecnico.fundo, tecnico.lateralDireita, tecnico.lateralEsquerda) || '—'}</span>
+              </div>
+            </div>
+          ) : (
+            <Field label="Medidas do terreno (texto para o documento)">
+              <Input value={tecnico.medidas || ''} onChange={e => salvar({ medidas: e.target.value })} placeholder="Ex: 23,79m de frente; 5,90m + 12,04m de fundo..." className="h-9 text-xs" />
+            </Field>
+          )}
 
           <Field label="Áreas comuns (itens específicos, opcional — some ao texto padrão)">
             <Input value={tecnico.areasComuns || ''} onChange={e => salvar({ areasComuns: e.target.value })} placeholder="Ex: playground, salão de festas, piscina" className="h-9 text-xs" />

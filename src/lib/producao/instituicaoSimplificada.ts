@@ -1,6 +1,6 @@
 import { Process, Client, Unidade } from '@/lib/types';
 import { agruparPorPavimento, somaUnidade, areaTotalAutonomas, calcularQuadroFracao, verificacaoQuadro, LinhaFracao } from './fracaoIdeal';
-import { proprietariosDoTrabalho, qualificacaoCompleta, qualificacaoCasal, conjugeParaAssinatura, AREAS_COMUNS_BOILERPLATE, ConjugeAssinatura } from './documentoShared';
+import { proprietariosDoTrabalho, qualificacaoCompleta, qualificacaoCasal, conjugeParaAssinatura, AREAS_COMUNS_BOILERPLATE, ConjugeAssinatura, medidasTexto } from './documentoShared';
 
 function normalizarCpf(v: string) {
   return v.replace(/\D/g, '');
@@ -88,7 +88,7 @@ export function montarInstituicaoSimplificada(trabalho: Process, cliente: Client
     qualificacoes,
     matriculaMae: tecnico?.matricula || '',
     terreno,
-    medidas: tecnico?.medidas || '',
+    medidas: medidasTexto(tecnico),
     paragrafos,
     quadro,
     verificacao,

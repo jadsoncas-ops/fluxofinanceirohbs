@@ -1,4 +1,4 @@
-import { Client, QualificacaoJuridica, Process } from '@/lib/types';
+import { Client, QualificacaoJuridica, Process, DadosTecnicosTrabalho } from '@/lib/types';
 import { fmtProsa } from './fracaoIdeal';
 
 /** Helpers de texto compartilhados pelos 7 geradores — portado de cota_saas (lib/documentos/shared.ts). */
@@ -14,6 +14,22 @@ export function tituloDocumento(label: string, nomeTrabalho?: string | null): st
 export interface ProprietarioRef {
   nome: string;
   cpf?: string;
+}
+
+/** Compõe a frase "Um lote de terreno, medindo X metros de frente..." a partir dos 4 lados — terreno regular. */
+export function compoemMedidas(frente?: number, fundo?: number, lateralDireita?: number, lateralEsquerda?: number): string {
+  const f = frente || 0, fu = fundo || 0, d = lateralDireita || 0, e = lateralEsquerda || 0;
+  if (!f && !fu && !d && !e) return '';
+  return `Um lote de terreno, medindo ${fmtProsa(f)} metros de frente, ${fmtProsa(fu)} metros de fundo, ${fmtProsa(d)} metros do lado direito e ${fmtProsa(e)} metros do lado esquerdo.`;
+}
+
+/** Texto de medidas do lote usado nos documentos — terreno regular compõe a frase a partir dos 4 lados; irregular usa o texto livre digitado. */
+export function medidasTexto(tecnico: DadosTecnicosTrabalho | undefined): string {
+  if (!tecnico) return '';
+  if (tecnico.formatoTerreno === 'regular') {
+    return compoemMedidas(tecnico.frente, tecnico.fundo, tecnico.lateralDireita, tecnico.lateralEsquerda);
+  }
+  return tecnico.medidas || '';
 }
 
 /** Proprietários do trabalho — usa proprietariosGerais quando cadastrados; senão cai no cliente do trabalho (sempre existe). */

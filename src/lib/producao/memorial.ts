@@ -1,6 +1,6 @@
 import { Process, Client, CompanyConfig, Unidade } from '@/lib/types';
 import { agruparPorPavimento, calcularQuadroFracao, verificacaoQuadro, somaUnidade, areaTotalAutonomas, LinhaFracao } from './fracaoIdeal';
-import { proprietariosDoTrabalho, conjugeParaAssinatura, ConjugeAssinatura, ProprietarioRef } from './documentoShared';
+import { proprietariosDoTrabalho, conjugeParaAssinatura, ConjugeAssinatura, ProprietarioRef, medidasTexto } from './documentoShared';
 
 export interface ParagrafoPavimento {
   pavimento: string;
@@ -55,7 +55,7 @@ export function montarMemorial(trabalho: Process, cliente: Client | undefined, c
     proprietarios: proprietariosDoTrabalho(trabalho, cliente).map(p => ({ ...p, conjuge: conjugeParaAssinatura(p.cpf, clientes) })),
     endereco: trabalho.endereco || '',
     terreno,
-    medidas: tecnico?.medidas || '',
+    medidas: medidasTexto(tecnico),
     art: tecnico?.art || '',
     matricula: tecnico?.matricula || '',
     semFracao,

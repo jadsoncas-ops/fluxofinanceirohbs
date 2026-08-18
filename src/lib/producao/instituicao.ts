@@ -1,6 +1,6 @@
 import { Process, Client, Unidade } from '@/lib/types';
 import { agruparPorPavimento, somaUnidade, areaTotalAutonomas } from './fracaoIdeal';
-import { proprietariosDoTrabalho, qualificacoesComConjuge, conjugeParaAssinatura, ConjugeAssinatura } from './documentoShared';
+import { proprietariosDoTrabalho, qualificacoesComConjuge, conjugeParaAssinatura, ConjugeAssinatura, medidasTexto } from './documentoShared';
 
 export interface ParagrafoUnidade {
   pavimento: string;
@@ -47,7 +47,7 @@ export function montarInstituicao(trabalho: Process, cliente: Client | undefined
     nomeTrabalho: trabalho.objeto,
     endereco: trabalho.endereco || '',
     qualificacoes: qualificacoesComConjuge(proprietarios, clientes),
-    medidas: tecnico?.medidas || '',
+    medidas: medidasTexto(tecnico),
     terreno: tecnico?.terreno || 0,
     inscricoes,
     matricula: tecnico?.matricula || '',
