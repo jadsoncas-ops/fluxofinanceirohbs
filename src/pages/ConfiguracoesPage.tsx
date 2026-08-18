@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useRef } from 'react';
-import { Moon, Download, Upload, Shield, Trash2, Building2, Smartphone } from 'lucide-react';
+import { Moon, Download, Upload, Shield, Trash2, Building2, Smartphone, Calculator, Plus } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
-import { getCompanyConfig, saveCompanyConfig, exportBackup, importBackup, clearAllTransactions } from '@/lib/storage';
+import { getCompanyConfig, saveCompanyConfig, getPrecificacaoConfig, savePrecificacaoConfig, exportBackup, importBackup, clearAllTransactions } from '@/lib/storage';
+import { calcularCustoOperacionalTotal, calcularHorasProdutivas, calcularCustoHora, formatBRL } from '@/lib/comercial/precificacao';
+import { CustoItem } from '@/lib/comercial/precificacao';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
@@ -15,11 +17,45 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function CustoList({ titulo, campo, itens, onAdd, onUpdate, onRemove }: {
+  titulo: string;
+  campo: 'custosDiretos' | 'custosIndiretos';
+  itens: CustoItem[];
+  onAdd: (campo: 'custosDiretos' | 'custosIndiretos') => void;
+  onUpdate: (campo: 'custosDiretos' | 'custosIndiretos', id: string, patch: Partial<CustoItem>) => void;
+  onRemove: (campo: 'custosDiretos' | 'custosIndiretos', id: string) => void;
+}) {
+  return (
+    <div className="mb-3.5">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[11px] uppercase tracking-[.07em] text-mute-2">{titulo}</span>
+        <button onClick={() => onAdd(campo)} className="h-6 px-2 rounded-md border-2 text-[10.5px] font-medium hover:border-hover transition-colors flex items-center gap-1">
+          <Plus className="w-3 h-3" /> Item
+        </button>
+      </div>
+      {itens.length === 0 ? (
+        <div className="text-xs text-muted-foreground py-1">Nenhum item.</div>
+      ) : (
+        <div className="space-y-1.5">
+          {itens.map(item => (
+            <div key={item.id} className="flex items-center gap-2">
+              <Input value={item.descricao} onChange={e => onUpdate(campo, item.id, { descricao: e.target.value })} placeholder="Descrição" className="flex-1 h-8 text-xs" />
+              <Input type="number" value={item.valor || ''} onChange={e => onUpdate(campo, item.id, { valor: parseFloat(e.target.value) || 0 })} placeholder="R$" className="w-24 h-8 text-xs" />
+              <button onClick={() => onRemove(campo, item.id)} className="h-8 w-8 flex-none grid place-items-center rounded-lg border-2 text-destructive hover:border-destructive transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ConfiguracoesPage() {
   const shell = useShell();
   const fileRef = useRef<HTMLInputElement>(null);
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
   const [config, setConfig] = useState(() => getCompanyConfig());
+  const [preco, setPreco] = useState(() => getPrecificacaoConfig());
 
   function toggleDark(checked: boolean) {
     setDark(checked);
@@ -37,6 +73,29 @@ export default function ConfiguracoesPage() {
     setConfig(updated);
     saveCompanyConfig(updated);
   }
+
+  function salvarPreco(patch: Partial<typeof preco>) {
+    const updated = { ...preco, ...patch };
+    setPreco(updated);
+    savePrecificacaoConfig(updated);
+  }
+
+  function addCusto(campo: 'custosDiretos' | 'custosIndiretos') {
+    const novo: CustoItem = { id: crypto.randomUUID(), descricao: '', valor: 0, tipo: campo === 'custosDiretos' ? 'variavel' : 'fixo' };
+    salvarPreco({ [campo]: [...preco[campo], novo] } as Partial<typeof preco>);
+  }
+
+  function updateCusto(campo: 'custosDiretos' | 'custosIndiretos', id: string, patch: Partial<CustoItem>) {
+    salvarPreco({ [campo]: preco[campo].map(c => (c.id === id ? { ...c, ...patch } : c)) } as Partial<typeof preco>);
+  }
+
+  function removeCusto(campo: 'custosDiretos' | 'custosIndiretos', id: string) {
+    salvarPreco({ [campo]: preco[campo].filter(c => c.id !== id) } as Partial<typeof preco>);
+  }
+
+  const horasProdutivas = calcularHorasProdutivas(preco.horasDisponiveis, preco.horasNaoFaturaveis);
+  const custoOperacional = calcularCustoOperacionalTotal(preco.custosDiretos, preco.custosIndiretos);
+  const custoHora = calcularCustoHora(custoOperacional, horasProdutivas);
 
   function handleExport() {
     try {
@@ -103,6 +162,35 @@ export default function ConfiguracoesPage() {
           <Field label="CREA/CAU"><Input value={config.responsavelCrea || ''} onChange={e => salvarConfig({ responsavelCrea: e.target.value })} placeholder="CREA-BA 000000" className="h-9 text-xs" /></Field>
           <Field label="Título profissional"><Input value={config.responsavelTitulo || ''} onChange={e => salvarConfig({ responsavelTitulo: e.target.value })} placeholder="Engenheiro Civil" className="h-9 text-xs" /></Field>
           <Field label="Validade padrão de proposta (dias)"><Input type="number" value={config.validadePropostaDias ?? ''} onChange={e => salvarConfig({ validadePropostaDias: parseInt(e.target.value) || undefined })} placeholder="15" className="h-9 text-xs" /></Field>
+        </div>
+      </section>
+
+      <section className="bg-card border border-border rounded-xl p-[17px_18px]">
+        <div className="flex items-center gap-2 mb-1">
+          <Calculator className="w-4 h-4 text-accent" />
+          <div className="text-[13.5px] font-semibold">Precificação</div>
+        </div>
+        <p className="text-[11.5px] text-muted-foreground mb-3.5">Custos operacionais, horas produtivas e taxas de protocolo (ART, assinatura) usados no cálculo de toda proposta comercial.</p>
+
+        <div className="grid gap-3 mb-3.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+          <Field label="Horas disponíveis / mês"><Input type="number" value={preco.horasDisponiveis} onChange={e => salvarPreco({ horasDisponiveis: parseFloat(e.target.value) || 0 })} className="h-9 text-xs" /></Field>
+          <Field label="Horas não faturáveis / mês"><Input type="number" value={preco.horasNaoFaturaveis} onChange={e => salvarPreco({ horasNaoFaturaveis: parseFloat(e.target.value) || 0 })} className="h-9 text-xs" /></Field>
+          <Field label="ART / RRT (R$)"><Input type="number" value={preco.custosProtocolo.art} onChange={e => salvarPreco({ custosProtocolo: { ...preco.custosProtocolo, art: parseFloat(e.target.value) || 0 } })} className="h-9 text-xs" /></Field>
+          <Field label="Assinatura técnica (R$)"><Input type="number" value={preco.custosProtocolo.assinatura} onChange={e => salvarPreco({ custosProtocolo: { ...preco.custosProtocolo, assinatura: parseFloat(e.target.value) || 0 } })} className="h-9 text-xs" /></Field>
+        </div>
+
+        <div className="grid gap-3 mb-3.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+          <Field label="Lucro padrão (%)"><Input type="number" value={preco.lucroPercentPadrao} onChange={e => salvarPreco({ lucroPercentPadrao: parseFloat(e.target.value) || 0 })} className="h-9 text-xs" /></Field>
+          <Field label="Impostos padrão (%)"><Input type="number" value={preco.impostosPercentPadrao} onChange={e => salvarPreco({ impostosPercentPadrao: parseFloat(e.target.value) || 0 })} className="h-9 text-xs" /></Field>
+          <Field label="Comissão padrão (%)"><Input type="number" value={preco.comissaoPercentPadrao} onChange={e => salvarPreco({ comissaoPercentPadrao: parseFloat(e.target.value) || 0 })} className="h-9 text-xs" /></Field>
+        </div>
+
+        <CustoList titulo="Custos diretos (variáveis por trabalho)" campo="custosDiretos" itens={preco.custosDiretos} onAdd={addCusto} onUpdate={updateCusto} onRemove={removeCusto} />
+        <CustoList titulo="Custos indiretos (fixos mensais)" campo="custosIndiretos" itens={preco.custosIndiretos} onAdd={addCusto} onUpdate={updateCusto} onRemove={removeCusto} />
+
+        <div className="bg-surface-2 rounded-lg px-3.5 py-3 mt-3.5 flex items-center justify-between">
+          <span className="text-[11.5px] text-mute-2">Custo/hora resultante ({formatBRL(custoOperacional)} ÷ {horasProdutivas}h produtivas)</span>
+          <span className="font-mono-hbs text-[15px] font-semibold">{formatBRL(custoHora)}</span>
         </div>
       </section>
 
