@@ -26,7 +26,7 @@ export interface ShellContext {
   monthTransactions: Transaction[];
   refreshKey: number;
   refresh: () => void;
-  openNewTransaction: (opts?: { tipo?: TransactionType; clienteId?: string }) => void;
+  openNewTransaction: (opts?: { tipo?: TransactionType }) => void;
   openEditTransaction: (tx: Transaction) => void;
   openCompleteTransaction: (tx: Transaction) => void;
   openNovoRecebimento: () => void;
@@ -66,7 +66,6 @@ export function AppShell() {
   const [txKey, setTxKey] = useState(0);
   const [formOpen, setFormOpen] = useState(false);
   const [editItem, setEditItem] = useState<Transaction | null>(null);
-  const [parentItem, setParentItem] = useState<Transaction | null>(null);
   const [completeItem, setCompleteItem] = useState<Transaction | null>(null);
   const [migrationOpen, setMigrationOpen] = useState(false);
   const [clientFormOpen, setClientFormOpen] = useState(false);
@@ -164,15 +163,13 @@ export function AppShell() {
     return { financeiroAtrasado: financeiroAtrasado > 0 ? financeiroAtrasado : undefined };
   }, [attentionItems]);
 
-  function openNewTransaction(opts?: { tipo?: TransactionType; clienteId?: string }) {
-    setEditItem(opts?.tipo || opts?.clienteId ? ({ tipo: opts.tipo, clienteId: opts.clienteId } as any) : null);
-    setParentItem(null);
+  function openNewTransaction(opts?: { tipo?: TransactionType }) {
+    setEditItem(opts?.tipo ? ({ tipo: opts.tipo } as any) : null);
     setFormOpen(true);
   }
 
   function openEditTransaction(tx: Transaction) {
     setEditItem(tx);
-    setParentItem(null);
     setFormOpen(true);
   }
 
@@ -277,10 +274,9 @@ export function AppShell() {
 
       <TransactionForm
         open={formOpen}
-        onClose={() => { setFormOpen(false); setEditItem(null); setParentItem(null); }}
+        onClose={() => { setFormOpen(false); setEditItem(null); }}
         onSave={refresh}
         editItem={editItem}
-        parentItem={parentItem}
       />
       <PartialPaymentModal
         open={!!completeItem}

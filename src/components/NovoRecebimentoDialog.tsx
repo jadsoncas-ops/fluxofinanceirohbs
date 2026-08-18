@@ -21,6 +21,8 @@ interface Props {
   onCreated: () => void;
   /** Quando informado, trava cliente e trabalho neste Trabalho — usado ao abrir a partir da ficha do Trabalho. */
   trabalhoFixo?: Process;
+  /** Quando informado (sem trabalhoFixo), pré-seleciona o cliente mas deixa o trabalho livre — usado ao abrir a partir da ficha do Cliente. */
+  clienteIdInicial?: string;
 }
 
 function todayPlus(days: number) {
@@ -34,9 +36,9 @@ function fmt(v: number) {
 }
 
 /** Novo recebimento — único ou parcelado em N vezes, cada parcela com data própria. Cada parcela vira um Transaction 'A Receber' independente, e aparece em Próximos compromissos assim que estiver dentro de 15 dias. */
-export function NovoRecebimentoDialog({ open, onClose, onCreated, trabalhoFixo }: Props) {
+export function NovoRecebimentoDialog({ open, onClose, onCreated, trabalhoFixo, clienteIdInicial }: Props) {
   const clients = useMemo(() => getClients(), [open]);
-  const [clienteId, setClienteId] = useState(trabalhoFixo?.clienteId || '');
+  const [clienteId, setClienteId] = useState(trabalhoFixo?.clienteId || clienteIdInicial || '');
   const trabalhosDoCliente = useMemo(() => getProcesses().filter(p => !p.isArchived && p.clienteId === clienteId), [clienteId]);
   const [trabalhoId, setTrabalhoId] = useState(trabalhoFixo?.id || '');
   const [descricaoBase, setDescricaoBase] = useState('');
@@ -47,10 +49,10 @@ export function NovoRecebimentoDialog({ open, onClose, onCreated, trabalhoFixo }
 
   useEffect(() => {
     if (!open) return;
-    setClienteId(trabalhoFixo?.clienteId || '');
+    setClienteId(trabalhoFixo?.clienteId || clienteIdInicial || '');
     setTrabalhoId(trabalhoFixo?.id || '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, trabalhoFixo?.id]);
+  }, [open, trabalhoFixo?.id, clienteIdInicial]);
 
   const totalParcelas = parcelas.reduce((s, p) => s + p.valor, 0);
 
@@ -93,7 +95,7 @@ export function NovoRecebimentoDialog({ open, onClose, onCreated, trabalhoFixo }
   }
 
   function reset() {
-    setClienteId(trabalhoFixo?.clienteId || ''); setTrabalhoId(trabalhoFixo?.id || ''); setDescricaoBase(''); setCategoria(CATEGORIAS_ENTRADA[0]);
+    setClienteId(trabalhoFixo?.clienteId || clienteIdInicial || ''); setTrabalhoId(trabalhoFixo?.id || ''); setDescricaoBase(''); setCategoria(CATEGORIAS_ENTRADA[0]);
     setModo('unico'); setValorTotal(''); setParcelas([{ descricao: '', valor: 0, data: todayPlus(0) }]);
   }
 

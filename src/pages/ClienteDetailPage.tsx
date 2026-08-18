@@ -7,6 +7,7 @@ import { computeClientFinancials } from '@/lib/financials';
 import { formatBRL } from '@/lib/comercial/precificacao';
 import { ClientForm } from '@/components/ClientForm';
 import { PropostaDetailDialog } from '@/components/comercial/PropostaDetailDialog';
+import { NovoRecebimentoDialog } from '@/components/NovoRecebimentoDialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -42,6 +43,7 @@ export default function ClienteDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [localKey, setLocalKey] = useState(0);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [recebimentoOpen, setRecebimentoOpen] = useState(false);
 
   const [propostaAberta, setPropostaAberta] = useState<string | null>(null);
 
@@ -129,7 +131,7 @@ export default function ClienteDetailPage() {
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
-          <button onClick={() => shell.openNewTransaction({ clienteId })} className="h-[34px] px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] hover:bg-primary-hover transition-colors">+ Novo lançamento</button>
+          <button onClick={() => setRecebimentoOpen(true)} className="h-[34px] px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] hover:bg-primary-hover transition-colors">+ Novo recebimento</button>
         </div>
       </div>
 
@@ -266,6 +268,7 @@ export default function ClienteDetailPage() {
 
       <ClientForm open={editOpen} onClose={() => setEditOpen(false)} onSave={() => { setEditOpen(false); setLocalKey(k => k + 1); }} editItem={client} />
       <PropostaDetailDialog propostaId={propostaAberta} onClose={() => setPropostaAberta(null)} onChanged={() => setLocalKey(k => k + 1)} />
+      <NovoRecebimentoDialog open={recebimentoOpen} onClose={() => setRecebimentoOpen(false)} clienteIdInicial={clienteId} onCreated={() => shell.refresh()} />
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
