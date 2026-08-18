@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, FileText, FilePlus2, Trash2, CheckCircle2, Pencil, Clock3 } from 'lucide-react';
+import { ArrowLeft, Plus, FileText, FilePlus2, Trash2, CheckCircle2, Pencil, Clock3, Check } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
 import {
   getProcesses, getClients, getTasks, getDocuments, getHistorico, getContratos,
-  updateProcess, addTask, updateTask, deleteTask, deleteProcess, deleteDocument, deleteTransaction,
+  updateProcess, addTask, updateTask, deleteTask, deleteProcess, deleteDocument, deleteTransaction, addTransaction, registrarEvento,
 } from '@/lib/storage';
 import { computeTrabalhoFinancials } from '@/lib/financials';
 import { TrabalhoEtapa } from '@/lib/types';
@@ -39,6 +39,14 @@ export default function TrabalhoDetailPage() {
   const [repasseOpen, setRepasseOpen] = useState(false);
   const [recebimentoOpen, setRecebimentoOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [editandoContratado, setEditandoContratado] = useState(false);
+  const [contratadoInput, setContratadoInput] = useState('');
+  const [novoLancamentoAberto, setNovoLancamentoAberto] = useState(false);
+  const [novoTipo, setNovoTipo] = useState<'Receita' | 'Despesa'>('Receita');
+  const [novaDescricao, setNovaDescricao] = useState('');
+  const [novoValor, setNovoValor] = useState('');
+  const [novaData, setNovaData] = useState(() => new Date().toISOString().slice(0, 10));
+  const [novoJaAconteceu, setNovoJaAconteceu] = useState(false);
 
   const { trabalho, cliente, fin, tasks, documentos, historico, contrato, lancamentos } = useMemo(() => {
     void key; void shell.refreshKey;
@@ -85,11 +93,47 @@ export default function TrabalhoDetailPage() {
     setKey(k => k + 1);
   }
 
+  function salvarContratado() {
+    const valor = parseFloat(contratadoInput.replace(',', '.')) || 0;
+    updateProcess({ ...trabalho, valorContrato: valor });
+    setEditandoContratado(false);
+    setKey(k => k + 1);
+  }
+
+  function adicionarLancamentoRapido() {
+    if (!novaDescricao.trim()) { toast.error('Descreva o lançamento.'); return; }
+    const valor = parseFloat(novoValor.replace(',', '.')) || 0;
+    if (valor <= 0) { toast.error('Informe um valor.'); return; }
+    const isIncome = novoTipo === 'Receita';
+    addTransaction({
+      id: crypto.randomUUID(),
+      data: novaData,
+      tipo: isIncome ? 'A Receber' : 'A Pagar',
+      categoria: isIncome ? '📐 Elaboração de Projeto' : '⚙️ Custos operacionais',
+      descricao: novaDescricao.trim(),
+      valor,
+      status: novoJaAconteceu ? 'Concluído' : 'Pendente',
+      isRepasse: false,
+      clienteId: trabalho.clienteId,
+      processId: trabalho.id,
+    });
+    registrarEvento({
+      modulo: 'Financeiro',
+      texto: `${isIncome ? 'Receita' : 'Despesa'} ${novoJaAconteceu ? 'registrada' : 'prevista'} — ${novaDescricao.trim()} — ${fmt(valor)}`,
+      clienteId: trabalho.clienteId,
+      trabalhoId: trabalho.id,
+    });
+    toast.success('Lançamento adicionado.');
+    setNovaDescricao(''); setNovoValor(''); setNovaData(new Date().toISOString().slice(0, 10)); setNovoJaAconteceu(false);
+    setNovoLancamentoAberto(false);
+    shell.refresh();
+  }
+
   function removerLancamento(id: string, descricao: string) {
     if (confirm(`Excluir o lançamento "${descricao}"? Esta ação não pode ser desfeita.`)) {
       deleteTransaction(id);
       toast.success('Lançamento excluído.');
-      setKey(k => k + 1);
+      shell.refresh();
     }
   }
 
@@ -239,39 +283,90 @@ export default function TrabalhoDetailPage() {
 
           {/* Financeiro */}
           <section className="bg-card border border-border rounded-xl p-[17px_18px]">
-            <div className="flex items-center justify-between">
-              <div className="text-[13.5px] font-semibold">Financeiro do trabalho</div>
-              <div className="flex items-center gap-3.5">
-                <button onClick={() => setRecebimentoOpen(true)} className="text-[11.5px] font-medium text-success flex items-center gap-1">
-                  <Plus className="w-3.5 h-3.5" /> Receita
-                </button>
-                <button onClick={() => setRepasseOpen(true)} className="text-[11.5px] font-medium text-accent flex items-center gap-1">
-                  <Plus className="w-3.5 h-3.5" /> Repasse
-                </button>
+            <div className="text-[13.5px] font-semibold">Financeiro do trabalho</div>
+
+            <div className="flex gap-[22px] mt-3.5 flex-wrap items-start">
+              <div>
+                <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">Contratado</div>
+                {editandoContratado ? (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Input
+                      type="number"
+                      autoFocus
+                      value={contratadoInput}
+                      onChange={e => setContratadoInput(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && salvarContratado()}
+                      className="h-8 w-28 text-[15px] font-mono-hbs px-2"
+                    />
+                    <button onClick={salvarContratado} className="h-7 w-7 grid place-items-center rounded-lg bg-primary text-primary-foreground flex-none"><Check className="w-3.5 h-3.5" /></button>
+                  </div>
+                ) : (
+                  <button onClick={() => { setContratadoInput(String(fin.contratado || '')); setEditandoContratado(true); }} className="font-mono-hbs text-[18px] mt-1 hover:text-accent transition-colors flex items-center gap-1.5 group">
+                    {fmt(fin.contratado)}
+                    <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity" />
+                  </button>
+                )}
               </div>
-            </div>
-            <div className="flex gap-[18px] mt-3.5 flex-wrap">
-              <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">Contratado</div><div className="font-mono-hbs text-[18px] mt-1">{fmt(fin.contratado)}</div></div>
               <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">Recebido</div><div className="font-mono-hbs text-[18px] mt-1 text-success">{fmt(fin.recebido)}</div></div>
               <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">A receber</div><div className="font-mono-hbs text-[18px] mt-1 text-destructive">{fmt(fin.aReceber)}</div></div>
-              {(fin.repassado > 0 || fin.repasseAPagar > 0) && (
-                <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">Repassado a parceiros</div><div className="font-mono-hbs text-[18px] mt-1 text-warning">{fmt(fin.repassado)}{fin.repasseAPagar > 0 && <span className="text-mute-3 text-[13px]"> / {fmt(fin.repasseAPagar)} previsto</span>}</div></div>
-              )}
               <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">Sobrou até agora</div><div className="font-mono-hbs text-[18px] mt-1">{fmt(fin.resultadoRealizado)}</div></div>
-              <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">Resultado previsto (final)</div><div className="font-mono-hbs text-[18px] mt-1">{fmt(fin.resultadoPrevisto)}</div></div>
             </div>
-            {fin.proximoVencimento && (
-              <div className="text-[12px] text-muted-foreground mt-3 pt-3 border-t border-3">Próximo vencimento · <strong className="text-foreground font-medium">{fmt(fin.proximoVencimento.valor)} em {new Date(fin.proximoVencimento.data + 'T12:00:00').toLocaleDateString('pt-BR')}</strong></div>
+
+            {(fin.repassado > 0 || fin.repasseAPagar > 0 || fin.proximoVencimento || fin.atrasado > 0) && (
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-muted-foreground mt-3 pt-3 border-t border-3">
+                {(fin.repassado > 0 || fin.repasseAPagar > 0) && <span>Repassado a parceiros: <strong className="text-foreground font-medium">{fmt(fin.repassado)}</strong>{fin.repasseAPagar > 0 && ` (+ ${fmt(fin.repasseAPagar)} previsto)`}</span>}
+                {fin.proximoVencimento && <span>Próximo vencimento: <strong className="text-foreground font-medium">{fmt(fin.proximoVencimento.valor)} em {new Date(fin.proximoVencimento.data + 'T12:00:00').toLocaleDateString('pt-BR')}</strong></span>}
+                {fin.atrasado > 0 && <span className="text-destructive">{fmt(fin.atrasado)} em atraso</span>}
+              </div>
             )}
-            {fin.atrasado > 0 && <div className="text-[12px] text-destructive mt-1.5">{fmt(fin.atrasado)} em atraso</div>}
             {contrato && (
-              <div className="text-[11.5px] text-mute-2 mt-3 pt-3 border-t border-3">Origem: contrato {contrato.codigo}{contrato.assinadoEm ? ` · assinado em ${new Date(contrato.assinadoEm).toLocaleDateString('pt-BR')}` : ''}</div>
+              <div className="text-[11.5px] text-mute-2 mt-2">Origem: contrato {contrato.codigo}{contrato.assinadoEm ? ` · assinado em ${new Date(contrato.assinadoEm).toLocaleDateString('pt-BR')}` : ''}</div>
             )}
 
-            {lancamentos.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-3 space-y-1.5">
-                <div className="text-[11px] uppercase tracking-[.07em] text-mute-2 mb-2">Lançamentos</div>
-                {lancamentos.map(t => {
+            <div className="mt-4 pt-4 border-t border-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[11px] uppercase tracking-[.07em] text-mute-2">Lançamentos</div>
+                <div className="flex items-center gap-3">
+                  {!novoLancamentoAberto && (
+                    <button onClick={() => setNovoLancamentoAberto(true)} className="text-[11.5px] font-medium text-accent flex items-center gap-1">
+                      <Plus className="w-3.5 h-3.5" /> Adicionar
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {novoLancamentoAberto && (
+                <div className="bg-surface-2 border border-3 rounded-lg p-3 mb-3 space-y-2.5">
+                  <div className="flex bg-card border-2 rounded-lg overflow-hidden w-fit">
+                    <button onClick={() => setNovoTipo('Receita')} className={cn('px-3 py-1.5 text-[11.5px] font-medium', novoTipo === 'Receita' ? 'bg-success text-white' : 'text-muted-foreground')}>Receita</button>
+                    <button onClick={() => setNovoTipo('Despesa')} className={cn('px-3 py-1.5 text-[11.5px] font-medium', novoTipo === 'Despesa' ? 'bg-warning text-white' : 'text-muted-foreground')}>Despesa</button>
+                  </div>
+                  <div className="grid gap-2" style={{ gridTemplateColumns: '2fr 1fr 1fr' }}>
+                    <Input value={novaDescricao} onChange={e => setNovaDescricao(e.target.value)} placeholder="Descrição (ex: Parcela 2)" className="h-8 text-xs" autoFocus />
+                    <Input type="number" value={novoValor} onChange={e => setNovoValor(e.target.value)} placeholder="Valor" className="h-8 text-xs" />
+                    <Input type="date" value={novaData} onChange={e => setNovaData(e.target.value)} className="h-8 text-xs" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-1.5 text-[11.5px] text-mute-2 cursor-pointer">
+                      <input type="checkbox" checked={novoJaAconteceu} onChange={e => setNovoJaAconteceu(e.target.checked)} className="w-3.5 h-3.5 accent-primary" />
+                      {novoTipo === 'Receita' ? 'Já recebi' : 'Já paguei'}
+                    </label>
+                    <div className="flex gap-2">
+                      <button onClick={() => setNovoLancamentoAberto(false)} className="h-7 px-2.5 rounded-lg text-[11.5px] text-muted-foreground">Cancelar</button>
+                      <button onClick={adicionarLancamentoRapido} className="h-7 px-3 bg-primary text-primary-foreground rounded-lg text-[11.5px] font-medium">Adicionar</button>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 pt-1 border-t border-3">
+                    <button onClick={() => { setNovoLancamentoAberto(false); setRecebimentoOpen(true); }} className="text-[10.5px] text-mute-2 hover:text-accent underline">Receita parcelada em várias vezes</button>
+                    <button onClick={() => { setNovoLancamentoAberto(false); setRepasseOpen(true); }} className="text-[10.5px] text-mute-2 hover:text-accent underline">Repasse a um parceiro</button>
+                  </div>
+                </div>
+              )}
+
+              {lancamentos.length === 0 && !novoLancamentoAberto ? (
+                <div className="text-xs text-muted-foreground py-2">Nenhum lançamento ainda.</div>
+              ) : (
+                lancamentos.map(t => {
                   const isIncome = t.tipo === 'Entrada' || t.tipo === 'A Receber';
                   const isPendente = t.status !== 'Concluído';
                   const isAtrasado = isPendente && t.data < new Date().toISOString().slice(0, 10);
@@ -304,9 +399,9 @@ export default function TrabalhoDetailPage() {
                       </div>
                     </div>
                   );
-                })}
-              </div>
-            )}
+                })
+              )}
+            </div>
           </section>
         </div>
       </div>
@@ -332,8 +427,8 @@ export default function TrabalhoDetailPage() {
         )}
       </section>
 
-      <NovoRepasseDialog open={repasseOpen} onClose={() => setRepasseOpen(false)} trabalho={trabalho} onCreated={() => setKey(k => k + 1)} />
-      <NovoRecebimentoDialog open={recebimentoOpen} onClose={() => setRecebimentoOpen(false)} trabalhoFixo={trabalho} onCreated={() => setKey(k => k + 1)} />
+      <NovoRepasseDialog open={repasseOpen} onClose={() => setRepasseOpen(false)} trabalho={trabalho} onCreated={() => shell.refresh()} />
+      <NovoRecebimentoDialog open={recebimentoOpen} onClose={() => setRecebimentoOpen(false)} trabalhoFixo={trabalho} onCreated={() => shell.refresh()} />
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
