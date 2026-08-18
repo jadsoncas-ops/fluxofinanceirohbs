@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { FileText, FileStack } from 'lucide-react';
 import { getDocuments, getClients, getProcesses } from '@/lib/storage';
 import { DocumentRecord, DocumentSituacao, TipoDocumentoTecnico } from '@/lib/types';
+import { DOCUMENT_REGISTRY } from '@/lib/producao/registry';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 type Aba = 'Em produção' | 'Recentes' | 'Concluídos' | 'Modelos';
@@ -20,24 +22,6 @@ const badgeStyle: Record<DocumentSituacao, string> = {
   Concluído: 'bg-success-soft text-success',
 };
 
-interface Ferramenta {
-  grupo: string;
-  nome: string;
-  frase: string;
-  tempo: string;
-  tipo: TipoDocumentoTecnico;
-}
-
-const FERRAMENTAS: Ferramenta[] = [
-  { grupo: 'Condomínio', nome: 'Instituição de Condomínio', frase: 'Monte a documentação completa de instituição a partir dos dados do empreendimento.', tempo: '~8 min', tipo: 'instituicao' },
-  { grupo: 'Condomínio', nome: 'Convenção de Condomínio', frase: 'Gere a convenção com as frações ideais e regras já preenchidas.', tempo: '~10 min', tipo: 'convencao' },
-  { grupo: 'Condomínio', nome: 'Instituição Simplificada', frase: 'Versão reduzida para empreendimentos de até quatro unidades.', tempo: '~4 min', tipo: 'instituicao_simplificada' },
-  { grupo: 'Cálculo', nome: 'Quadro NBR 12721', frase: 'Calcule e gere os quadros da norma conforme as áreas do empreendimento.', tempo: '~6 min', tipo: 'abnt' },
-  { grupo: 'Descritivo', nome: 'Memorial Descritivo', frase: 'Descreva o imóvel, materiais e acabamentos a partir do modelo da HBS.', tempo: '~7 min', tipo: 'memorial' },
-  { grupo: 'Laudo', nome: 'Laudo de Habitabilidade', frase: 'Ateste as condições de habitabilidade com base na vistoria registrada.', tempo: '~5 min', tipo: 'laudo' },
-  { grupo: 'Protocolo', nome: 'Requerimento', frase: 'Prepare o requerimento para protocolo no portal da Prefeitura.', tempo: '~3 min', tipo: 'requerimento' },
-];
-
 function extOf(nome: string) {
   const m = nome.match(/\.([a-zA-Z0-9]{2,4})$/);
   return (m ? m[1] : 'DOC').toUpperCase();
@@ -45,10 +29,11 @@ function extOf(nome: string) {
 
 export default function ProducaoPage() {
   const [aba, setAba] = useState<Aba>('Em produção');
+  const [escolhendoTipo, setEscolhendoTipo] = useState<TipoDocumentoTecnico | null>(null);
   const navigate = useNavigate();
 
   const { documentos, clients, processes } = useMemo(() => {
-    return { documentos: getDocuments(), clients: getClients(), processes: getProcesses() };
+    return { documentos: getDocuments(), clients: getClients(), processes: getProcesses().filter(p => !p.isArchived) };
   }, []);
 
   const vinculoNome = (d: DocumentRecord) => {
@@ -74,24 +59,34 @@ export default function ProducaoPage() {
     return d.situacao === 'Em produção' || d.situacao === 'Em revisão' || d.situacao === 'Pendente' || d.situacao === 'Rascunho';
   }).length;
 
+  function clienteNome(id: string) {
+    return clients.find(c => c.id === id)?.nome || 'Cliente';
+  }
+
   return (
     <div className="space-y-[22px] pb-10 animate-hbs-in">
       <div>
         <h1 className="text-2xl font-semibold -tracking-[.02em]">Central de produção</h1>
-        <p className="text-[13px] text-muted-foreground mt-1 max-w-[640px]">Toda a documentação técnica da HBS é produzida aqui. Escolha uma ferramenta, informe os dados do trabalho e o documento sai pronto para revisão.</p>
+        <p className="text-[13px] text-muted-foreground mt-1 max-w-[640px]">Toda a documentação técnica da HBS é produzida aqui. Escolha uma ferramenta, selecione o trabalho e o documento sai pronto para revisão.</p>
       </div>
 
       <section>
         <div className="text-[16px] font-semibold mb-3">O que você quer produzir?</div>
         <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(268px, 1fr))' }}>
-          {FERRAMENTAS.map(f => (
-            <div key={f.tipo} className="bg-card border border-border rounded-[10px] p-4 flex flex-col">
+          {DOCUMENT_REGISTRY.map(f => (
+            <div key={f.slug} className={cn('bg-card border border-border rounded-[10px] p-4 flex flex-col', !f.disponivel && 'opacity-60')}>
               <span className="text-[10px] uppercase tracking-[.07em] text-mute-2">{f.grupo}</span>
-              <div className="text-[14px] font-semibold mt-1.5">{f.nome}</div>
-              <p className="text-[12px] text-muted-foreground mt-1.5 leading-[1.5] flex-1">{f.frase}</p>
+              <div className="text-[14px] font-semibold mt-1.5">{f.icon} {f.label}</div>
+              <p className="text-[12px] text-muted-foreground mt-1.5 leading-[1.5] flex-1">{f.descricao}</p>
               <div className="flex items-center justify-between mt-3.5">
-                <span className="text-[11px] font-mono-hbs text-mute-2">{f.tempo}</span>
-                <button onClick={() => navigate('/trabalhos')} className="h-[31px] px-3 rounded-lg border-2 text-[12px] font-medium hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors">Criar</button>
+                <span className="text-[11px] font-mono-hbs text-mute-2">{f.disponivel ? 'Disponível' : 'Em desenvolvimento'}</span>
+                <button
+                  onClick={() => f.disponivel && setEscolhendoTipo(f.slug)}
+                  disabled={!f.disponivel}
+                  className="h-[31px] px-3 rounded-lg border-2 text-[12px] font-medium hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  Criar
+                </button>
               </div>
             </div>
           ))}
@@ -122,7 +117,11 @@ export default function ProducaoPage() {
           </div>
         ) : (
           filtrados.map(d => (
-            <div key={d.id} className="flex items-center gap-3 px-[18px] py-3 border-t border-3 hover:bg-surface-3 transition-colors">
+            <div
+              key={d.id}
+              onClick={() => d.tipoTecnico && d.processId && navigate(`/producao/${d.processId}/${d.tipoTecnico}`)}
+              className={cn('flex items-center gap-3 px-[18px] py-3 border-t border-3 hover:bg-surface-3 transition-colors', d.tipoTecnico && d.processId && 'cursor-pointer')}
+            >
               <span className="w-[31px] h-[31px] flex-none rounded-[7px] bg-neutral-soft grid place-items-center text-[9.5px] font-mono-hbs text-mute-2">{extOf(d.nome)}</span>
               <div className="flex-1 min-w-0">
                 <div className="text-[12.5px] font-medium truncate">{d.nome}</div>
@@ -134,6 +133,33 @@ export default function ProducaoPage() {
           ))
         )}
       </section>
+
+      <Dialog open={!!escolhendoTipo} onOpenChange={v => !v && setEscolhendoTipo(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Para qual trabalho?</DialogTitle>
+          </DialogHeader>
+          {processes.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">Nenhum trabalho cadastrado ainda. Crie um trabalho primeiro em Trabalhos.</p>
+          ) : (
+            <div className="max-h-[360px] overflow-y-auto -mx-1 px-1 space-y-1.5">
+              {processes.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => escolhendoTipo && navigate(`/producao/${p.id}/${escolhendoTipo}`)}
+                  className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg border-2 hover:border-hover hover:bg-surface-3 transition-colors"
+                >
+                  <FileText className="w-3.5 h-3.5 text-mute-2 flex-none" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[12.5px] font-medium truncate">{p.objeto}</div>
+                    <div className="text-[11px] text-mute-2">{clienteNome(p.clienteId)}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

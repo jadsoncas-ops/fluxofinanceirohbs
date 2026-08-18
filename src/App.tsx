@@ -13,6 +13,7 @@ import TarefasPage from "./pages/TarefasPage";
 import ConfiguracoesPage from "./pages/ConfiguracoesPage";
 import MaisPage from "./pages/MaisPage";
 import ProducaoPage from "./pages/ProducaoPage";
+import DocumentoGeradorPage from "./pages/producao/DocumentoGeradorPage";
 import ComercialPage from "./pages/ComercialPage";
 import RelatoriosPage from "./pages/RelatoriosPage";
 import CaixaLayout from "./pages/financeiro/FinanceiroLayout";
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/projetos" element={<Navigate to="/trabalhos" replace />} />
             <Route path="/processos" element={<Navigate to="/trabalhos" replace />} />
             <Route path="/producao" element={<ProducaoPage />} />
+            <Route path="/producao/:trabalhoId/:tipo" element={<DocumentoGeradorPage />} />
             <Route path="/documentos" element={<Navigate to="/producao" replace />} />
             <Route path="/comercial" element={<ComercialPage />} />
             <Route path="/relatorios" element={<RelatoriosPage />} />

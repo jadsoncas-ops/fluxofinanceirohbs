@@ -1,0 +1,226 @@
+/* Estilo dos documentos técnicos gerados (Memorial, ABNT, Instituição, Convenção, Laudo, etc.) —
+   deliberadamente diferente do design system do app: aqui o objetivo é parecer um documento formal
+   impresso (serifada, papel), não uma tela do produto. Portado de cota_saas (app/globals.css). */
+
+:root {
+  --doc-ink: #1c1c1e;
+  --doc-muted: #52525b;
+  --doc-border: #1c1c1e;
+  --doc-line: #d4d4d8;
+  --doc-accent: #0d2032;
+  --doc-accent-soft: #e8edf1;
+  --doc-header-bg: #f4f5f6;
+}
+
+.documento-folha {
+  background: #ffffff;
+  color: var(--doc-ink);
+  font-family: Georgia, "Times New Roman", serif;
+  max-width: 850px;
+  margin: 0 auto;
+  padding: 3rem 3.25rem;
+  border: 1px solid var(--doc-line);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  color-adjust: exact;
+}
+
+.documento-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 3px solid var(--doc-accent);
+  padding-bottom: 16px;
+  margin-bottom: 1.75rem;
+}
+.documento-header .kicker {
+  font-family: system-ui, sans-serif;
+  font-size: 10.5px;
+  letter-spacing: 1.5px;
+  color: var(--doc-accent);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.documento-header h1 {
+  font-size: 25px;
+  margin: 2px 0 4px;
+  letter-spacing: 0.2px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.documento-header .sub {
+  font-family: system-ui, sans-serif;
+  font-size: 11.5px;
+  color: var(--doc-muted);
+}
+
+.documento-idbox {
+  border: 1px solid var(--doc-border);
+  margin-bottom: 1.75rem;
+  font-family: system-ui, sans-serif;
+}
+.documento-idbox .row {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  border-bottom: 1px solid var(--doc-line);
+}
+.documento-idbox .row:last-child { border-bottom: none; }
+.documento-idbox .lbl {
+  background: var(--doc-header-bg);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 9px 12px;
+  border-right: 1px solid var(--doc-line);
+  color: var(--doc-muted);
+  display: flex;
+  align-items: center;
+}
+.documento-idbox .val { padding: 9px 12px; font-size: 13px; }
+
+.documento-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2rem 0 0.85rem;
+  font-family: system-ui, sans-serif;
+}
+.documento-section-title .n {
+  background: var(--doc-accent);
+  color: #fff;
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.documento-section-title .t {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border-bottom: 2px solid var(--doc-accent);
+  padding-bottom: 5px;
+  flex: 1;
+  color: var(--doc-ink);
+}
+
+.documento-p {
+  font-size: 13.5px;
+  line-height: 1.7;
+  margin: 0 0 0.85rem;
+  text-align: justify;
+}
+
+.documento-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin: 0.5rem 0 0.5rem;
+  border: 1px solid var(--doc-border);
+  font-family: system-ui, sans-serif;
+}
+.documento-table th {
+  background: var(--doc-accent);
+  color: #fff;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-weight: 600;
+  line-height: 1.35;
+  padding: 8px 9px 10px;
+  text-align: left;
+  vertical-align: top;
+  border-right: 1px solid rgba(255, 255, 255, 0.25);
+}
+.documento-table th .th-principal { display: block; text-transform: uppercase; }
+.documento-table th .th-secundario {
+  display: block;
+  text-transform: none;
+  font-weight: 400;
+  font-size: 0.88em;
+  letter-spacing: 0;
+  opacity: 0.82;
+  margin-top: 2px;
+}
+.documento-table td { padding: 7px 9px; border: 1px solid var(--doc-line); }
+.documento-table tbody tr:nth-child(even) { background: var(--doc-header-bg); }
+.documento-table tr.verificacao td {
+  background: var(--doc-accent-soft);
+  font-weight: 700;
+  border-top: 2px solid var(--doc-accent);
+}
+
+.documento-nota {
+  font-family: system-ui, sans-serif;
+  border: 1px solid var(--doc-line);
+  border-left: 3px solid var(--doc-accent);
+  background: var(--doc-header-bg);
+  padding: 11px 14px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  margin: 0.85rem 0;
+  color: var(--doc-muted);
+}
+.documento-nota p { margin: 0; }
+.documento-nota p + p { margin-top: 0.6em; }
+
+.documento-assinaturas { page-break-inside: avoid; break-inside: avoid; }
+.documento-sign-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6.5rem 24px;
+  margin-top: 5rem;
+  text-align: center;
+  font-family: system-ui, sans-serif;
+}
+.documento-sign-grid--compacto { gap: 3.5rem 24px; margin-top: 3rem; }
+.documento-sign-grid .linha { border-top: 1px solid var(--doc-ink); padding-top: 7px; font-weight: 700; font-size: 12.5px; }
+.documento-sign-grid .papel { font-size: 11px; color: var(--doc-muted); }
+
+.documento-footer {
+  margin-top: 3rem;
+  border-top: 1px solid var(--doc-line);
+  padding-top: 12px;
+  font-family: system-ui, sans-serif;
+  font-size: 10px;
+  color: var(--doc-muted);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.documento-abnt-tab {
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: system-ui, sans-serif;
+  color: var(--doc-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.documento-abnt-tab--active {
+  background: var(--doc-accent);
+  color: #fff;
+}
+
+@page { size: A4; margin: 14mm 12mm; }
+
+@media print {
+  .no-print { display: none !important; }
+  .documento-folha { border: none; box-shadow: none; padding: 0; max-width: none; }
+  body { background: #fff; }
+  .documento-table { table-layout: fixed; width: 100%; font-size: 8.5px; }
+  .documento-table th { font-size: 7px; padding: 3px 4px 5px; line-height: 1.3; overflow-wrap: break-word; }
+  .documento-table td { padding: 3px 4px; overflow-wrap: break-word; word-break: break-word; }
+  .documento-p { font-size: 12px; }
+}

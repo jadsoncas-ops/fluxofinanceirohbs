@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Plus, FileText } from 'lucide-react';
+import { ArrowLeft, Plus, FileText, FilePlus2 } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
 import {
   getProcesses, getClients, getTasks, getDocuments, getHistorico, getContratos,
@@ -8,8 +8,10 @@ import {
 } from '@/lib/storage';
 import { computeTrabalhoFinancials } from '@/lib/financials';
 import { TrabalhoEtapa } from '@/lib/types';
+import { DOCUMENT_REGISTRY } from '@/lib/producao/registry';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
 const ETAPAS: TrabalhoEtapa[] = ['Planejamento', 'Em andamento', 'Aguardando cliente', 'Revisão', 'Concluído'];
@@ -158,13 +160,27 @@ export default function TrabalhoDetailPage() {
           <section className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="px-[18px] py-[15px] border-b border-3 flex items-center justify-between">
               <span className="text-[13.5px] font-semibold">Documentação técnica</span>
-              <button onClick={() => navigate('/producao')} className="text-[11.5px] font-medium text-accent">Abrir na Produção Técnica →</button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="text-[11.5px] font-medium text-accent flex items-center gap-1">
+                    <FilePlus2 className="w-3.5 h-3.5" /> Gerar documento
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  {DOCUMENT_REGISTRY.map(d => (
+                    <DropdownMenuItem key={d.slug} onClick={() => navigate(`/producao/${trabalho.id}/${d.slug}`)} className="flex items-center justify-between gap-2">
+                      <span>{d.icon} {d.label}</span>
+                      {!d.disponivel && <span className="text-[9.5px] text-mute-3 uppercase tracking-wide">em breve</span>}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             {documentos.length === 0 ? (
               <div className="px-[18px] py-6 text-xs text-muted-foreground">Nenhum documento vinculado ainda.</div>
             ) : (
               documentos.map(d => (
-                <div key={d.id} className="flex items-center gap-[11px] px-[18px] py-[10px] border-t border-3">
+                <div key={d.id} onClick={() => d.tipoTecnico && navigate(`/producao/${trabalho.id}/${d.tipoTecnico}`)} className={cn('flex items-center gap-[11px] px-[18px] py-[10px] border-t border-3', d.tipoTecnico && 'cursor-pointer hover:bg-surface-3 transition-colors')}>
                   <FileText className="w-3.5 h-3.5 text-mute-2 flex-none" />
                   <span className="text-[12.5px] flex-1 min-w-0 truncate">{d.nome}</span>
                   <span className="text-[11px] text-mute-2">{d.situacao}</span>
