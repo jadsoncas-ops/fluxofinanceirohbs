@@ -5,10 +5,19 @@ import { getProcesses, getClients, getCompanyConfig, getDocuments, addDocument, 
 import { TipoDocumentoTecnico } from '@/lib/types';
 import { buscarTemplate } from '@/lib/producao/registry';
 import { montarMemorial } from '@/lib/producao/memorial';
+import { montarInstituicao } from '@/lib/producao/instituicao';
+import { montarConvencao } from '@/lib/producao/convencao';
+import { montarInstituicaoSimplificada } from '@/lib/producao/instituicaoSimplificada';
+import { montarRequerimento } from '@/lib/producao/requerimento';
 import { proprietariosDoTrabalho, conjugeParaAssinatura } from '@/lib/producao/documentoShared';
 import { DadosTecnicosForm } from '@/components/producao/DadosTecnicosForm';
 import { DocumentoMemorial } from '@/components/documento/DocumentoMemorial';
 import { DocumentoAbnt } from '@/components/documento/DocumentoAbnt';
+import { DocumentoInstituicao } from '@/components/documento/DocumentoInstituicao';
+import { DocumentoConvencao } from '@/components/documento/DocumentoConvencao';
+import { DocumentoInstituicaoSimplificada } from '@/components/documento/DocumentoInstituicaoSimplificada';
+import { DocumentoLaudo } from '@/components/documento/DocumentoLaudo';
+import { DocumentoRequerimento } from '@/components/documento/DocumentoRequerimento';
 import { toast } from 'sonner';
 
 export default function DocumentoGeradorPage() {
@@ -97,6 +106,21 @@ export default function DocumentoGeradorPage() {
               art={trabalho.tecnico?.art || ''}
               proprietarios={proprietariosDoTrabalho(trabalho, cliente).map(p => ({ ...p, conjuge: conjugeParaAssinatura(p.cpf, clientes) }))}
             />
+          )}
+          {tipo === 'instituicao' && (
+            <DocumentoInstituicao dados={montarInstituicao(trabalho, cliente, clientes)} />
+          )}
+          {tipo === 'convencao' && (
+            <DocumentoConvencao dados={montarConvencao(trabalho, cliente, clientes)} />
+          )}
+          {tipo === 'instituicao_simplificada' && (
+            <DocumentoInstituicaoSimplificada dados={montarInstituicaoSimplificada(trabalho, cliente, clientes)} />
+          )}
+          {tipo === 'laudo' && (
+            <DocumentoLaudo trabalho={trabalho} cliente={cliente} config={config} />
+          )}
+          {tipo === 'requerimento' && (
+            <DocumentoRequerimento dados={montarRequerimento(trabalho, cliente, clientes)} />
           )}
         </>
       )}

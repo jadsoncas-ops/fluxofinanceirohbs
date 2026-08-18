@@ -57,8 +57,8 @@ export const DOCUMENT_REGISTRY: DocumentTemplate[] = [
     descricao: 'Qualificação, terreno e unidades',
     icon: '🏛️',
     grupo: 'Condomínio',
-    disponivel: false,
-    requisitos: requisitosBase,
+    disponivel: true,
+    requisitos: trabalho => [...requisitosBase(trabalho), { label: 'Matrícula do imóvel', ok: !!trabalho.tecnico?.matricula, nivel: 'aviso' }],
   },
   {
     slug: 'convencao',
@@ -66,7 +66,7 @@ export const DOCUMENT_REGISTRY: DocumentTemplate[] = [
     descricao: 'Regras de convivência e administração',
     icon: '📜',
     grupo: 'Condomínio',
-    disponivel: false,
+    disponivel: true,
     requisitos: requisitosBase,
   },
   {
@@ -75,8 +75,8 @@ export const DOCUMENT_REGISTRY: DocumentTemplate[] = [
     descricao: 'Especificação simplificada de condomínio (unidades sem habite-se/matrícula unificada)',
     icon: '🏢',
     grupo: 'Condomínio',
-    disponivel: false,
-    requisitos: requisitosBase,
+    disponivel: true,
+    requisitos: trabalho => [...requisitosBase(trabalho), { label: 'Matrícula-mãe do imóvel', ok: !!trabalho.tecnico?.matricula, nivel: 'aviso' }],
   },
   {
     slug: 'laudo',
@@ -84,7 +84,7 @@ export const DOCUMENT_REGISTRY: DocumentTemplate[] = [
     descricao: 'Vistoria e declaração de conformidade',
     icon: '✅',
     grupo: 'Laudo',
-    disponivel: false,
+    disponivel: true,
     requisitos: trabalho => [{ label: 'Unidades cadastradas', ok: !!trabalho.tecnico?.units?.length, nivel: 'bloqueante' }],
   },
   {
@@ -93,8 +93,8 @@ export const DOCUMENT_REGISTRY: DocumentTemplate[] = [
     descricao: 'Requerimento de especificação simplificada para protocolo no Cartório de Imóveis',
     icon: '🖋️',
     grupo: 'Protocolo',
-    disponivel: false,
-    requisitos: requisitosBase,
+    disponivel: true,
+    requisitos: trabalho => [{ label: 'Pelo menos um ato registral selecionado', ok: !!(trabalho.tecnico?.atosRegistraisRequerimento || []).length, nivel: 'aviso' }],
   },
 ];
 

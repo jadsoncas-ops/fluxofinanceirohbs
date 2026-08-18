@@ -149,7 +149,7 @@ export interface DadosTecnicosTrabalho {
   semFracao?: boolean;
   /** Ativa o Capítulo IX da Convenção (regras específicas p/ condomínios de 2 unidades). */
   condominioDuasUnidades?: boolean;
-  atosRegistraisRequerimento?: ('especificacao' | 'instituicao')[];
+  atosRegistraisRequerimento?: ('especificacao' | 'instituicao' | 'convencao' | 'inventario' | 'partilha' | 'transmissao' | 'doacao' | 'outros')[];
   proprietariosGerais?: ProprietarioGeral[];
   units: Unidade[];
 }
