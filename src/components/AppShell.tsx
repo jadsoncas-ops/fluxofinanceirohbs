@@ -29,7 +29,6 @@ export interface ShellContext {
   openNewTransaction: (opts?: { tipo?: TransactionType; clienteId?: string }) => void;
   openEditTransaction: (tx: Transaction) => void;
   openCompleteTransaction: (tx: Transaction) => void;
-  openAddRepasse: (tx: Transaction) => void;
   openNovoRecebimento: () => void;
   pendingNewTask: Partial<Task> | null;
   consumePendingNewTask: () => void;
@@ -177,12 +176,6 @@ export function AppShell() {
     setFormOpen(true);
   }
 
-  function openAddRepasse(tx: Transaction) {
-    setParentItem(tx);
-    setEditItem(null);
-    setFormOpen(true);
-  }
-
   const showMonthFilter = location.pathname === '/' || location.pathname.startsWith('/caixa');
   const { title, meta } = useRouteMeta(location.pathname, clientCount, trabalhosAtivos);
 
@@ -192,7 +185,6 @@ export function AppShell() {
     refreshKey: txKey, refresh,
     openNewTransaction, openEditTransaction,
     openCompleteTransaction: setCompleteItem,
-    openAddRepasse,
     openNovoRecebimento: () => setRecebimentoOpen(true),
     pendingNewTask,
     consumePendingNewTask: () => setPendingNewTask(null),

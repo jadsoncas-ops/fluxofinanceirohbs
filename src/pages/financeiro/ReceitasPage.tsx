@@ -1,6 +1,6 @@
 import { Plus } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
-import { TransactionHistory } from '@/components/TransactionHistory';
+import { TransactionList } from '@/components/TransactionList';
 
 export default function FinanceiroReceitasPage() {
   const shell = useShell();
@@ -11,13 +11,12 @@ export default function FinanceiroReceitasPage() {
           <Plus className="w-3.5 h-3.5" /> Novo recebimento
         </button>
       </div>
-      <TransactionHistory
+      <TransactionList
         transactions={shell.monthTransactions}
-        initialFilter="Receitas"
+        tipo="Receitas"
         onEdit={shell.openEditTransaction}
         onComplete={shell.openCompleteTransaction}
         onDelete={shell.refresh}
-        onAddRepasse={shell.openAddRepasse}
       />
     </div>
   );
