@@ -23,6 +23,11 @@ export function DadosTecnicosForm({ trabalho, onChange }: { trabalho: Process; o
     onChange();
   }
 
+  function salvarEndereco(endereco: string) {
+    updateProcess({ ...trabalho, endereco });
+    onChange();
+  }
+
   function addUnidade() {
     salvar({ units: [...tecnico.units, novaUnidade()] });
   }
@@ -64,6 +69,10 @@ export function DadosTecnicosForm({ trabalho, onChange }: { trabalho: Process; o
 
       {aberto && (
         <div className="px-[18px] py-[15px] space-y-4">
+          <Field label="Endereço do imóvel">
+            <Input value={trabalho.endereco || ''} onChange={e => salvarEndereco(e.target.value)} placeholder="Rua, número, bairro, cidade - UF" className="h-9 text-xs" />
+          </Field>
+
           <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
             <Field label="Matrícula do imóvel">
               <Input value={tecnico.matricula || ''} onChange={e => salvar({ matricula: e.target.value })} placeholder="Ex: 12.345" className="h-9 text-xs" />

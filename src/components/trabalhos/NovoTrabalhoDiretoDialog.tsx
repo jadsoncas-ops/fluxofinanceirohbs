@@ -23,6 +23,7 @@ export function NovoTrabalhoDiretoDialog({ open, onClose, onCreated }: Props) {
   const [clienteId, setClienteId] = useState('');
   const [objeto, setObjeto] = useState('');
   const [tipoTrabalho, setTipoTrabalho] = useState(TIPOS_TRABALHO[0]);
+  const [endereco, setEndereco] = useState('');
   const [valorContrato, setValorContrato] = useState('');
   const [prazo, setPrazo] = useState('');
 
@@ -36,6 +37,7 @@ export function NovoTrabalhoDiretoDialog({ open, onClose, onCreated }: Props) {
       status: 'Levantamento' as const,
       etapa: 'Planejamento' as const,
       tipoTrabalho,
+      endereco: endereco.trim() || undefined,
       valorContrato: valorContrato ? Number(valorContrato) : undefined,
       prazo: prazo || undefined,
       notas: [],
@@ -47,7 +49,7 @@ export function NovoTrabalhoDiretoDialog({ open, onClose, onCreated }: Props) {
     toast.success('Trabalho criado.');
     onCreated(trabalho.id);
     onClose();
-    setClienteId(''); setObjeto(''); setValorContrato(''); setPrazo('');
+    setClienteId(''); setObjeto(''); setEndereco(''); setValorContrato(''); setPrazo('');
   }
 
   return (
@@ -72,6 +74,10 @@ export function NovoTrabalhoDiretoDialog({ open, onClose, onCreated }: Props) {
           <div className="space-y-1.5">
             <Label>Descrição do trabalho</Label>
             <Input value={objeto} onChange={e => setObjeto(e.target.value)} placeholder="Ex: Regularização — Rua Ipê 320" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Endereço do imóvel (opcional)</Label>
+            <Input value={endereco} onChange={e => setEndereco(e.target.value)} placeholder="Rua, número, bairro, cidade - UF" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
