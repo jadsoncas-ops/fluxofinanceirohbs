@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, FileText, FilePlus2 } from 'lucide-react';
+import { ArrowLeft, Plus, FileText, FilePlus2, Trash2, CheckCircle2, Pencil, Clock3 } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
 import {
   getProcesses, getClients, getTasks, getDocuments, getHistorico, getContratos,
-  updateProcess, addTask, updateTask,
+  updateProcess, addTask, updateTask, deleteTask, deleteProcess, deleteDocument, deleteTransaction,
 } from '@/lib/storage';
 import { computeTrabalhoFinancials } from '@/lib/financials';
 import { TrabalhoEtapa } from '@/lib/types';
@@ -13,6 +13,7 @@ import { NovoRepasseDialog } from '@/components/trabalhos/NovoRepasseDialog';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 
 const ETAPAS: TrabalhoEtapa[] = ['Planejamento', 'Em andamento', 'Aguardando cliente', 'Revisão', 'Concluído'];
@@ -35,18 +36,20 @@ export default function TrabalhoDetailPage() {
   const [key, setKey] = useState(0);
   const [novaTarefa, setNovaTarefa] = useState('');
   const [repasseOpen, setRepasseOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const { trabalho, cliente, fin, tasks, documentos, historico, contrato } = useMemo(() => {
+  const { trabalho, cliente, fin, tasks, documentos, historico, contrato, lancamentos } = useMemo(() => {
     void key; void shell.refreshKey;
     const trabalho = getProcesses().find(p => p.id === trabalhoId) || null;
-    if (!trabalho) return { trabalho: null, cliente: null, fin: null, tasks: [], documentos: [], historico: [], contrato: null };
+    if (!trabalho) return { trabalho: null, cliente: null, fin: null, tasks: [], documentos: [], historico: [], contrato: null, lancamentos: [] };
     const cliente = getClients().find(c => c.id === trabalho.clienteId) || null;
     const fin = computeTrabalhoFinancials(trabalho, shell.allTransactions);
     const tasks = getTasks().filter(t => t.processId === trabalho.id).sort((a, b) => (a.prazo || '9999').localeCompare(b.prazo || '9999'));
     const documentos = getDocuments().filter(d => d.processId === trabalho.id);
     const historico = getHistorico({ trabalhoId: trabalho.id });
     const contrato = trabalho.contratoId ? getContratos().find(c => c.id === trabalho.contratoId) || null : null;
-    return { trabalho, cliente, fin, tasks, documentos, historico, contrato };
+    const lancamentos = shell.allTransactions.filter(t => t.processId === trabalho.id && !t.parentId).sort((a, b) => a.data.localeCompare(b.data));
+    return { trabalho, cliente, fin, tasks, documentos, historico, contrato, lancamentos };
   }, [trabalhoId, key, shell.allTransactions, shell.refreshKey]);
 
   if (!trabalho || !fin) {
@@ -75,6 +78,27 @@ export default function TrabalhoDetailPage() {
     setKey(k => k + 1);
   }
 
+  function removerTarefa(id: string) {
+    deleteTask(id);
+    setKey(k => k + 1);
+  }
+
+  function removerLancamento(id: string, descricao: string) {
+    if (confirm(`Excluir o lançamento "${descricao}"? Esta ação não pode ser desfeita.`)) {
+      deleteTransaction(id);
+      toast.success('Lançamento excluído.');
+      setKey(k => k + 1);
+    }
+  }
+
+  function removerDocumento(id: string, nome: string) {
+    if (confirm(`Remover "${nome}"? Isso não afeta o Trabalho, só o registro do documento.`)) {
+      deleteDocument(id);
+      toast.success('Documento removido.');
+      setKey(k => k + 1);
+    }
+  }
+
   function adicionarTarefa() {
     if (!novaTarefa.trim()) return;
     addTask({
@@ -88,11 +112,23 @@ export default function TrabalhoDetailPage() {
   const tarefasConcluidas = tasks.filter(t => t.status === 'Concluída').length;
   const prazoInfo = trabalho.prazo ? Math.round((new Date(trabalho.prazo + 'T12:00:00').getTime() - Date.now()) / 86400000) : null;
 
+  function handleDeleteTrabalho() {
+    documentos.forEach(d => deleteDocument(d.id));
+    deleteProcess(trabalho.id);
+    toast.success('Trabalho excluído.');
+    navigate('/trabalhos');
+  }
+
   return (
     <div className="flex flex-col gap-[18px] pb-10 animate-hbs-in">
-      <button onClick={() => navigate('/trabalhos')} className="self-start text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-        <ArrowLeft className="w-3 h-3" /> Trabalhos
-      </button>
+      <div className="flex items-center justify-between">
+        <button onClick={() => navigate('/trabalhos')} className="self-start text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+          <ArrowLeft className="w-3 h-3" /> Trabalhos
+        </button>
+        <button onClick={() => setDeleteOpen(true)} className="text-xs text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1">
+          <Trash2 className="w-3.5 h-3.5" /> Excluir trabalho
+        </button>
+      </div>
 
       <div className="bg-card border border-border rounded-xl p-[18px]">
         <div className="flex flex-wrap gap-3.5 items-start">
@@ -145,11 +181,16 @@ export default function TrabalhoDetailPage() {
           <div className="px-[18px] py-[15px] border-b border-3 text-[13.5px] font-semibold">Tarefas</div>
           {tasks.length === 0 && <div className="px-[18px] py-6 text-xs text-muted-foreground">Nenhuma tarefa ainda.</div>}
           {tasks.map(t => (
-            <label key={t.id} className="flex items-center gap-[11px] px-[18px] py-[11px] border-t border-3 cursor-pointer hover:bg-surface-3 transition-colors">
-              <input type="checkbox" checked={t.status === 'Concluída'} onChange={e => toggleTarefa(t.id, e.target.checked)} className="w-4 h-4 accent-primary" />
-              <span className={cn('text-[12.5px] flex-1 min-w-0', t.status === 'Concluída' && 'line-through text-muted-foreground')}>{t.titulo}</span>
+            <div key={t.id} className="group flex items-center gap-[11px] px-[18px] py-[11px] border-t border-3 hover:bg-surface-3 transition-colors">
+              <label className="flex items-center gap-[11px] flex-1 min-w-0 cursor-pointer">
+                <input type="checkbox" checked={t.status === 'Concluída'} onChange={e => toggleTarefa(t.id, e.target.checked)} className="w-4 h-4 accent-primary flex-none" />
+                <span className={cn('text-[12.5px] flex-1 min-w-0', t.status === 'Concluída' && 'line-through text-muted-foreground')}>{t.titulo}</span>
+              </label>
               {t.prazo && <span className={cn('text-[11px] font-mono-hbs text-mute-2', t.prazo < new Date().toISOString().slice(0, 10) && t.status !== 'Concluída' && 'text-destructive')}>{new Date(t.prazo + 'T12:00:00').toLocaleDateString('pt-BR')}</span>}
-            </label>
+              <button onClick={() => removerTarefa(t.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-mute-3 hover:text-destructive flex-none">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
           ))}
           <div className="flex gap-2 px-[18px] py-3 border-t border-3">
             <Input value={novaTarefa} onChange={e => setNovaTarefa(e.target.value)} onKeyDown={e => e.key === 'Enter' && adicionarTarefa()} placeholder="Nova tarefa…" className="h-8 text-xs" />
@@ -182,10 +223,13 @@ export default function TrabalhoDetailPage() {
               <div className="px-[18px] py-6 text-xs text-muted-foreground">Nenhum documento vinculado ainda.</div>
             ) : (
               documentos.map(d => (
-                <div key={d.id} onClick={() => d.tipoTecnico && navigate(`/producao/${trabalho.id}/${d.tipoTecnico}`)} className={cn('flex items-center gap-[11px] px-[18px] py-[10px] border-t border-3', d.tipoTecnico && 'cursor-pointer hover:bg-surface-3 transition-colors')}>
+                <div key={d.id} className={cn('group flex items-center gap-[11px] px-[18px] py-[10px] border-t border-3 hover:bg-surface-3 transition-colors')}>
                   <FileText className="w-3.5 h-3.5 text-mute-2 flex-none" />
-                  <span className="text-[12.5px] flex-1 min-w-0 truncate">{d.nome}</span>
+                  <button onClick={() => d.tipoTecnico && navigate(`/producao/${trabalho.id}/${d.tipoTecnico}`)} className={cn('text-[12.5px] flex-1 min-w-0 truncate text-left', d.tipoTecnico && 'hover:underline')}>{d.nome}</button>
                   <span className="text-[11px] text-mute-2">{d.situacao}</span>
+                  <button onClick={() => removerDocumento(d.id, d.nome)} className="opacity-0 group-hover:opacity-100 transition-opacity text-mute-3 hover:text-destructive flex-none">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               ))
             )}
@@ -215,6 +259,46 @@ export default function TrabalhoDetailPage() {
             {contrato && (
               <div className="text-[11.5px] text-mute-2 mt-3 pt-3 border-t border-3">Origem: contrato {contrato.codigo}{contrato.assinadoEm ? ` · assinado em ${new Date(contrato.assinadoEm).toLocaleDateString('pt-BR')}` : ''}</div>
             )}
+
+            {lancamentos.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-3 space-y-1.5">
+                <div className="text-[11px] uppercase tracking-[.07em] text-mute-2 mb-2">Lançamentos</div>
+                {lancamentos.map(t => {
+                  const isIncome = t.tipo === 'Entrada' || t.tipo === 'A Receber';
+                  const isPendente = t.status !== 'Concluído';
+                  const isAtrasado = isPendente && t.data < new Date().toISOString().slice(0, 10);
+                  return (
+                    <div key={t.id} className="group flex items-center gap-2.5 py-2 border-t border-3 first:border-t-0">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[12.5px] font-medium truncate">{t.descricao}</div>
+                        <div className="text-[10.5px] text-mute-3 font-mono-hbs">{new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR')}</div>
+                      </div>
+                      <span className={cn('font-mono-hbs text-[12.5px]', isIncome ? 'text-success' : 'text-warning')}>{fmt(t.valor)}</span>
+                      <span className={cn(
+                        'text-[10px] px-1.5 py-[2px] rounded-[4px] font-medium flex items-center gap-1 flex-none',
+                        t.status === 'Concluído' ? 'bg-success-soft text-success' : isAtrasado ? 'bg-destructive-soft text-destructive' : 'bg-warning-soft text-warning'
+                      )}>
+                        {t.status === 'Concluído' ? <CheckCircle2 className="w-2.5 h-2.5" /> : <Clock3 className="w-2.5 h-2.5" />}
+                        {t.status === 'Concluído' ? (isIncome ? 'Recebida' : 'Paga') : isAtrasado ? 'Atrasada' : 'Prevista'}
+                      </span>
+                      <div className="flex-none flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {isPendente && (
+                          <button onClick={() => shell.openCompleteTransaction(t)} className="h-6 w-6 grid place-items-center rounded-md hover:bg-success-soft text-mute-2 hover:text-success" title={isIncome ? 'Marcar como recebida' : 'Marcar como paga'}>
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button onClick={() => shell.openEditTransaction(t)} className="h-6 w-6 grid place-items-center rounded-md hover:bg-surface-3 text-mute-2" title="Editar">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => removerLancamento(t.id, t.descricao)} className="h-6 w-6 grid place-items-center rounded-md hover:bg-destructive-soft text-mute-2 hover:text-destructive" title="Excluir">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
         </div>
       </div>
@@ -241,6 +325,21 @@ export default function TrabalhoDetailPage() {
       </section>
 
       <NovoRepasseDialog open={repasseOpen} onClose={() => setRepasseOpen(false)} trabalho={trabalho} onCreated={() => setKey(k => k + 1)} />
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir trabalho</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir "{trabalho.objeto}"? Isso remove o trabalho, suas tarefas e os documentos vinculados. Os lançamentos financeiros deste trabalho também são removidos. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTrabalho} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

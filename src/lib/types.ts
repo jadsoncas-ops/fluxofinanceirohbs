@@ -279,6 +279,12 @@ export interface PropostaResultado {
   margem: number;
 }
 
+/** Uma condição de pagamento da proposta (ex.: "Entrada", "No protocolo") — soma deve fechar com resultado.precoVenda. */
+export interface PropostaParcela {
+  descricao: string;
+  valor: number;
+}
+
 /** Uma proposta comercial — nasce de um cliente existente, pode terminar em Contrato. */
 export interface Proposta {
   id: string;
@@ -295,7 +301,9 @@ export interface Proposta {
   custosProtocolo: { art: boolean; assinatura: boolean };
   resultado: PropostaResultado;
   prazoDias?: number;
+  /** @deprecated substituído por parcelasPagamento — mantido só para propostas antigas já salvas. */
   formaPagamento?: string;
+  parcelasPagamento?: PropostaParcela[];
   status: PropostaStatus;
   enviadaEm?: number;
   createdAt: number;

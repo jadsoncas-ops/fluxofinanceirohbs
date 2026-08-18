@@ -143,10 +143,19 @@ export default function PropostaImpressaoPage() {
         <div className="proposta-secao">
           <div className="titulo"><span className="num">05</span><span>Condições de pagamento</span></div>
         </div>
-        <div className="proposta-pagamento-item">
-          <span>{proposta.formaPagamento || 'A definir'}</span>
-          <span className="val">{formatBRL(proposta.resultado.precoVenda)}</span>
-        </div>
+        {proposta.parcelasPagamento && proposta.parcelasPagamento.length > 0 ? (
+          proposta.parcelasPagamento.map((p, i) => (
+            <div key={i} className="proposta-pagamento-item">
+              <span>{p.descricao}</span>
+              <span className="val">{formatBRL(p.valor)}</span>
+            </div>
+          ))
+        ) : (
+          <div className="proposta-pagamento-item">
+            <span>{proposta.formaPagamento || 'A definir'}</span>
+            <span className="val">{formatBRL(proposta.resultado.precoVenda)}</span>
+          </div>
+        )}
 
         <div className="proposta-secao">
           <div className="titulo"><span className="num">06</span><span>Validade e observações</span></div>

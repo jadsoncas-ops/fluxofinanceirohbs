@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, FileStack } from 'lucide-react';
-import { getDocuments, getClients, getProcesses } from '@/lib/storage';
+import { FileText, FileStack, Trash2 } from 'lucide-react';
+import { getDocuments, getClients, getProcesses, deleteDocument } from '@/lib/storage';
 import { DocumentRecord, DocumentSituacao, TipoDocumentoTecnico } from '@/lib/types';
 import { DOCUMENT_REGISTRY } from '@/lib/producao/registry';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 type Aba = 'Em produção' | 'Recentes' | 'Concluídos' | 'Modelos';
@@ -30,11 +31,22 @@ function extOf(nome: string) {
 export default function ProducaoPage() {
   const [aba, setAba] = useState<Aba>('Em produção');
   const [escolhendoTipo, setEscolhendoTipo] = useState<TipoDocumentoTecnico | null>(null);
+  const [key, setKey] = useState(0);
   const navigate = useNavigate();
 
   const { documentos, clients, processes } = useMemo(() => {
+    void key;
     return { documentos: getDocuments(), clients: getClients(), processes: getProcesses().filter(p => !p.isArchived) };
-  }, []);
+  }, [key]);
+
+  function removerDocumento(e: React.MouseEvent, id: string, nome: string) {
+    e.stopPropagation();
+    if (confirm(`Remover "${nome}"?`)) {
+      deleteDocument(id);
+      toast.success('Documento removido.');
+      setKey(k => k + 1);
+    }
+  }
 
   const vinculoNome = (d: DocumentRecord) => {
     if (d.processId) {
@@ -120,7 +132,7 @@ export default function ProducaoPage() {
             <div
               key={d.id}
               onClick={() => d.tipoTecnico && d.processId && navigate(`/producao/${d.processId}/${d.tipoTecnico}`)}
-              className={cn('flex items-center gap-3 px-[18px] py-3 border-t border-3 hover:bg-surface-3 transition-colors', d.tipoTecnico && d.processId && 'cursor-pointer')}
+              className={cn('group flex items-center gap-3 px-[18px] py-3 border-t border-3 hover:bg-surface-3 transition-colors', d.tipoTecnico && d.processId && 'cursor-pointer')}
             >
               <span className="w-[31px] h-[31px] flex-none rounded-[7px] bg-neutral-soft grid place-items-center text-[9.5px] font-mono-hbs text-mute-2">{extOf(d.nome)}</span>
               <div className="flex-1 min-w-0">
@@ -129,6 +141,9 @@ export default function ProducaoPage() {
               </div>
               <span className="text-[11px] font-mono-hbs text-mute-2 flex-none">{new Date(d.updatedAt).toLocaleDateString('pt-BR')}</span>
               <span className={cn('flex-none text-[11px] px-2 py-[3px] rounded-[5px] font-medium', badgeStyle[d.situacao])}>{d.situacao}</span>
+              <button onClick={e => removerDocumento(e, d.id, d.nome)} className="opacity-0 group-hover:opacity-100 transition-opacity text-mute-3 hover:text-destructive flex-none">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             </div>
           ))
         )}

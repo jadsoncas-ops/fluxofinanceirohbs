@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useShell } from '@/hooks/use-shell';
-import { ArrowLeft, Plus, ExternalLink, ArrowRight } from 'lucide-react';
-import { getClients, getProcesses, getDocuments, getPropostas, getContratos, getHistorico } from '@/lib/storage';
+import { ArrowLeft, Plus, ExternalLink, ArrowRight, Trash2 } from 'lucide-react';
+import { getClients, getProcesses, getDocuments, getPropostas, getContratos, getHistorico, deleteClient } from '@/lib/storage';
 import { computeClientFinancials } from '@/lib/financials';
 import { formatBRL } from '@/lib/comercial/precificacao';
 import { ClientForm } from '@/components/ClientForm';
 import { PropostaDetailDialog } from '@/components/comercial/PropostaDetailDialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 const propostaBadge: Record<string, string> = {
@@ -39,6 +41,7 @@ export default function ClienteDetailPage() {
   const shell = useShell();
   const [editOpen, setEditOpen] = useState(false);
   const [localKey, setLocalKey] = useState(0);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const [propostaAberta, setPropostaAberta] = useState<string | null>(null);
 
@@ -76,6 +79,13 @@ export default function ClienteDetailPage() {
   const trabalhosAtivos = processes.filter(p => !p.isArchived && (p.etapa || 'Planejamento') !== 'Concluído').length;
   const propostasAprovadas = propostas.filter(p => p.status === 'Aprovada').length;
   const docsPendentes = documents.filter(d => d.situacao === 'Pendente' || d.situacao === 'Em produção').length;
+  const podeExcluir = processes.length === 0 && txs.length === 0 && propostas.length === 0;
+
+  function handleDeleteCliente() {
+    deleteClient(client!.id);
+    toast.success('Cliente excluído.');
+    navigate('/clientes');
+  }
 
   // Eventos são a fonte principal (proposta/contrato/trabalho/pagamento já vêm daqui).
   // Lançamentos concluídos antes de existir o registro de eventos entram como fallback,
@@ -112,6 +122,13 @@ export default function ClienteDetailPage() {
             </a>
           )}
           <button onClick={() => setEditOpen(true)} className="h-[34px] px-3.5 bg-card border-2 rounded-lg text-[12.5px] hover:border-hover transition-colors">Editar</button>
+          <button
+            onClick={() => podeExcluir ? setDeleteOpen(true) : toast.error('Este cliente tem trabalhos, propostas ou lançamentos vinculados — remova-os primeiro.')}
+            className={cn('h-[34px] w-[34px] flex-none grid place-items-center rounded-lg border-2 transition-colors', podeExcluir ? 'text-destructive hover:border-destructive' : 'text-mute-3 hover:border-hover')}
+            title="Excluir cliente"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
           <button onClick={() => shell.openNewTransaction({ clienteId })} className="h-[34px] px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] hover:bg-primary-hover transition-colors">+ Novo lançamento</button>
         </div>
       </div>
@@ -249,6 +266,19 @@ export default function ClienteDetailPage() {
 
       <ClientForm open={editOpen} onClose={() => setEditOpen(false)} onSave={() => { setEditOpen(false); setLocalKey(k => k + 1); }} editItem={client} />
       <PropostaDetailDialog propostaId={propostaAberta} onClose={() => setPropostaAberta(null)} onChanged={() => setLocalKey(k => k + 1)} />
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir cliente</AlertDialogTitle>
+            <AlertDialogDescription>Tem certeza que deseja excluir "{client.nome}"? Esta ação não pode ser desfeita.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCliente} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -611,6 +611,11 @@ export function updateContrato(updated: Contrato): void {
   saveAllContratos(all);
 }
 
+export function deleteContrato(id: string): void {
+  const all = loadAllContratos();
+  saveAllContratos(all.filter(c => c.id !== id));
+}
+
 export function getContrato(id: string): Contrato | null {
   return loadAllContratos().find(c => c.id === id) || null;
 }
