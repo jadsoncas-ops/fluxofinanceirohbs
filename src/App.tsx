@@ -15,6 +15,7 @@ import MaisPage from "./pages/MaisPage";
 import ProducaoPage from "./pages/ProducaoPage";
 import DocumentoGeradorPage from "./pages/producao/DocumentoGeradorPage";
 import ComercialPage from "./pages/ComercialPage";
+import PropostaImpressaoPage from "./pages/comercial/PropostaImpressaoPage";
 import RelatoriosPage from "./pages/RelatoriosPage";
 import CaixaLayout from "./pages/financeiro/FinanceiroLayout";
 import CaixaVisaoGeralPage from "./pages/financeiro/VisaoGeralPage";
@@ -47,6 +48,7 @@ const App = () => (
             <Route path="/producao/:trabalhoId/:tipo" element={<DocumentoGeradorPage />} />
             <Route path="/documentos" element={<Navigate to="/producao" replace />} />
             <Route path="/comercial" element={<ComercialPage />} />
+            <Route path="/comercial/propostas/:propostaId/imprimir" element={<PropostaImpressaoPage />} />
             <Route path="/relatorios" element={<RelatoriosPage />} />
             <Route path="/tarefas" element={<TarefasPage />} />
             <Route path="/configuracoes" element={<ConfiguracoesPage />} />

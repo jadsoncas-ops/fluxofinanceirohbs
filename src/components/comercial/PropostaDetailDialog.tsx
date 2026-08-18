@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, XCircle, Send, ArrowRight } from 'lucide-react';
+import { CheckCircle2, XCircle, Send, ArrowRight, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { Proposta, PropostaStatus, Contrato } from '@/lib/types';
 import { getClients, getContratos, getPropostas, updateProposta, registrarEvento } from '@/lib/storage';
@@ -66,6 +66,13 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
               <span className={cn('text-[11px] px-2 py-[3px] rounded-[5px] font-medium', statusBadge[proposta.status])}>{proposta.status}</span>
             </div>
           </DialogHeader>
+
+          <button
+            onClick={() => { onClose(); navigate(`/comercial/propostas/${proposta.id}/imprimir`); }}
+            className="w-full h-9 rounded-lg border-2 text-[12.5px] font-medium hover:border-hover transition-colors flex items-center justify-center gap-1.5"
+          >
+            <Printer className="w-3.5 h-3.5" /> Imprimir / Baixar PDF da proposta
+          </button>
 
           <div className="space-y-4">
             <div className="text-[13px] text-muted-foreground">
