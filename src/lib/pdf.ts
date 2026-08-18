@@ -66,12 +66,12 @@ export function generateMonthlyReport(transactions: Transaction[], month: number
   doc.setTextColor(...TEXT_MAIN);
   
   doc.text('Total recebido:', 20, cursorY);
-  doc.text(`R$ ${totalEntradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 100, cursorY, { align: 'right' });
+  doc.text(`R$ ${totalEntradas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 100, cursorY, { align: 'right' });
   
   cursorY += 7;
   doc.text('Total de saídas:', 20, cursorY);
   doc.setTextColor(...DANGER_RED);
-  doc.text(`-R$ ${totalSaidasCompilado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 100, cursorY, { align: 'right' });
+  doc.text(`-R$ ${totalSaidasCompilado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 100, cursorY, { align: 'right' });
   
   cursorY += 2;
   doc.setDrawColor(203, 213, 225);
@@ -82,7 +82,7 @@ export function generateMonthlyReport(transactions: Transaction[], month: number
   doc.text('Resultado final:', 20, cursorY);
   doc.setFontSize(12);
   doc.setTextColor(...(isPositivo ? SUCCESS_GREEN : DANGER_RED));
-  doc.text(`R$ ${lucroLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 100, cursorY, { align: 'right' });
+  doc.text(`R$ ${lucroLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 100, cursorY, { align: 'right' });
 
   // Status Phrase
   cursorY += 18;
@@ -104,16 +104,16 @@ export function generateMonthlyReport(transactions: Transaction[], month: number
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...TEXT_MAIN);
   doc.text('Repasses:', 14, cursorY);
-  doc.text(`R$ ${totalRepasses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${repassePct.toFixed(0)}%)`, 100, cursorY, { align: 'right' });
+  doc.text(`R$ ${totalRepasses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${repassePct.toFixed(0)}%)`, 100, cursorY, { align: 'right' });
   
   cursorY += 6;
   doc.text('Despesas gerais:', 14, cursorY);
-  doc.text(`R$ ${totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${despesaPct.toFixed(0)}%)`, 100, cursorY, { align: 'right' });
+  doc.text(`R$ ${totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${despesaPct.toFixed(0)}%)`, 100, cursorY, { align: 'right' });
   
   cursorY += 6;
   doc.setFont('helvetica', 'bold');
   doc.text('Lucro líquido:', 14, cursorY);
-  doc.text(`R$ ${Math.max(0, lucroLiquido).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${lucroPct.toFixed(0)}%)`, 100, cursorY, { align: 'right' });
+  doc.text(`R$ ${Math.max(0, lucroLiquido).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${lucroPct.toFixed(0)}%)`, 100, cursorY, { align: 'right' });
 
   cursorY += 15;
 
@@ -132,7 +132,7 @@ export function generateMonthlyReport(transactions: Transaction[], month: number
       body: entradas.map(t => [
         new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR'),
         t.descricao,
-        { content: `R$ ${t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, styles: { halign: 'right' } }
+        { content: `R$ ${t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, styles: { halign: 'right' } }
       ]),
       theme: 'plain',
       headStyles: { fontStyle: 'bold', textColor: [255, 255, 255], fillColor: SUCCESS_GREEN },
@@ -160,7 +160,7 @@ export function generateMonthlyReport(transactions: Transaction[], month: number
       body: repassesList.map(t => [
         new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR'),
         t.descricao,
-        { content: `R$ ${t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, styles: { halign: 'right' } }
+        { content: `R$ ${t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, styles: { halign: 'right' } }
       ]),
       theme: 'plain',
       headStyles: { fontStyle: 'bold', textColor: [255, 255, 255], fillColor: TITLE_BLUE },
@@ -188,7 +188,7 @@ export function generateMonthlyReport(transactions: Transaction[], month: number
       body: despesasList.map(t => [
         new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR'),
         t.descricao,
-        { content: `R$ ${t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, styles: { halign: 'right' } }
+        { content: `R$ ${t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, styles: { halign: 'right' } }
       ]),
       theme: 'plain',
       headStyles: { fontStyle: 'bold', textColor: [255, 255, 255], fillColor: DANGER_RED },

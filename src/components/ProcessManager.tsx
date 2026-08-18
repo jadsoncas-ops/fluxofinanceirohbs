@@ -395,7 +395,7 @@ export function ProcessManager({ allTransactions, onRefresh, activeTab = 'ativos
     clientTxs.forEach(t => combined.push({
       id: t.id,
       data: new Date(t.data + 'T12:00:00').getTime(),
-      texto: `${t.tipo === 'Entrada' || t.tipo === 'A Receber' ? '💰' : '💸'} ${t.tipo}: R$ ${t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} — ${t.descricao}`,
+      texto: `${t.tipo === 'Entrada' || t.tipo === 'A Receber' ? '💰' : '💸'} ${t.tipo}: R$ ${t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} — ${t.descricao}`,
       tipo: 'transacao' as const,
       status: t.status,
       parentId: t.parentId,
@@ -552,7 +552,7 @@ export function ProcessManager({ allTransactions, onRefresh, activeTab = 'ativos
                     <div className="flex items-center gap-1">
                       <TrendingUp className="w-3 h-3 text-emerald-500 shrink-0" />
                       <span className="font-black text-emerald-500 tabular-nums">
-                        R$ {card.recebido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {card.recebido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   )}
@@ -560,13 +560,13 @@ export function ProcessManager({ allTransactions, onRefresh, activeTab = 'ativos
                     <div className="flex items-center gap-1">
                       <TrendingDown className="w-3 h-3 text-rose-500 shrink-0" />
                       <span className="font-bold text-rose-500 tabular-nums">
-                        R$ {card.repassesPagos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {card.repassesPagos.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   )}
                   {card.liquidoReal !== 0 && (
                     <span className="font-black text-emerald-600 tabular-nums">
-                      LÍQ. R$ {card.liquidoReal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      LÍQ. R$ {card.liquidoReal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   )}
                 </div>
@@ -576,19 +576,19 @@ export function ProcessManager({ allTransactions, onRefresh, activeTab = 'ativos
                   <div className="flex items-center gap-1">
                     <Clock3 className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                     <span className="font-bold text-slate-500 tabular-nums">
-                      Prev: R$ {(card.saldo + card.recebidosPendentes).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      Prev: R$ {(card.saldo + card.recebidosPendentes).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                   {card.gastoPrevisto > 0 && (
                     <div className="flex items-center gap-1">
                       <TrendingDown className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                       <span className="font-bold text-slate-500 tabular-nums">
-                        Prev: R$ {card.gastoPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        Prev: R$ {card.gastoPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   )}
                   <span className="font-bold text-primary/40 tabular-nums">
-                    LÍQ. PREV: R$ {card.lucroFuturo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    LÍQ. PREV: R$ {card.lucroFuturo.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
               </CardContent>
@@ -777,7 +777,7 @@ export function ProcessManager({ allTransactions, onRefresh, activeTab = 'ativos
                       <span className="text-[9px] font-black uppercase tracking-widest">Recebido</span>
                     </div>
                     <p className="text-sm font-black text-emerald-600 tabular-nums">
-                      R$ {clientFinances.recebido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R$ {clientFinances.recebido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                     <span className="text-[8px] text-emerald-600/50 italic mt-0.5">soma automática de receitas</span>
                   </div>
@@ -788,11 +788,11 @@ export function ProcessManager({ allTransactions, onRefresh, activeTab = 'ativos
                       <span className="text-[9px] font-black uppercase tracking-widest">Crédito Futuro</span>
                     </div>
                     <p className="text-sm font-black tabular-nums text-sky-600">
-                      R$ {clientFinances.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R$ {clientFinances.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                     <div className="flex flex-col mt-1 border-t border-sky-500/10 pt-1">
                        <span className="text-[8px] font-black uppercase text-muted-foreground/60">Lucro Futuro Líquido</span>
-                       <span className="text-[10px] font-black text-sky-700">R$ {clientFinances.lucroFuturo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                       <span className="text-[10px] font-black text-sky-700">R$ {clientFinances.lucroFuturo.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   </div>
 
@@ -802,12 +802,12 @@ export function ProcessManager({ allTransactions, onRefresh, activeTab = 'ativos
                       <span className="text-[9px] font-black uppercase tracking-widest">Custos Pagos</span>
                     </div>
                     <p className="text-sm font-black text-destructive tabular-nums">
-                      R$ {clientFinances.repassesPagos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R$ {clientFinances.repassesPagos.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                     {clientFinances.gastoPrevisto > 0 && (
                       <span className="text-[8px] text-muted-foreground/70 font-medium italic mt-0.5"
                         title="Este valor é uma projeção e não afeta o Dashboard atual">
-                        + R$ {clientFinances.gastoPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} previsto
+                        + R$ {clientFinances.gastoPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} previsto
                       </span>
                     )}
                   </div>
@@ -1158,7 +1158,7 @@ export function ProcessManager({ allTransactions, onRefresh, activeTab = 'ativos
                   <div className="flex items-baseline gap-1.5">
                     <span className={`text-sm font-bold ${lucroPositivo ? 'text-emerald-500/70' : 'text-destructive/70'}`}>R$</span>
                     <span className={`text-2xl font-black tabular-nums tracking-tighter ${lucroPositivo ? 'text-emerald-500' : 'text-destructive'}`}>
-                      {lucrosRealizados.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      {lucrosRealizados.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                   <p className="text-[9px] text-muted-foreground italic font-medium">Lucro real (Dinheiro que entrou − Dinheiro que saiu)</p>

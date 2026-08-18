@@ -137,7 +137,7 @@ export function Settings({ onDataChange }: Props) {
           </div>
           <div className="space-y-1 text-xs text-muted-foreground">
             <p>Armazenamento: Local (navegador)</p>
-            <p>Versão: 1.0.0</p>
+            <p>Versão: 1.1.0</p>
           </div>
         </CardContent>
       </Card>

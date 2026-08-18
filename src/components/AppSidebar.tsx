@@ -1,89 +1,135 @@
-import { LayoutDashboard, Briefcase, Users, ListTodo, Settings as SettingsIcon, Receipt, Building, Command } from 'lucide-react';
-import hbsLogo from '@/assets/hbs-logo.png';
-import { ThemeToggle } from '@/components/ThemeToggle';
-
-export type DesktopTab = 'dashboard' | 'financeiro' | 'processos' | 'clients' | 'tasks' | 'settings';
+import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import {
+  Compass, Users, Layers, FileStack, Handshake, Landmark, BarChart3, Settings as SettingsIcon,
+  ChevronLeft, ChevronRight, Command,
+} from 'lucide-react';
+import { NavLink } from '@/components/NavLink';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 interface Props {
-  active: DesktopTab;
-  onChange: (tab: DesktopTab) => void;
   onOpenCommand: () => void;
-  badges?: Partial<Record<DesktopTab, number>>;
+  badges?: Partial<Record<string, number>>;
 }
 
-const items: { key: DesktopTab; label: string; icon: React.ElementType }[] = [
-  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { key: 'financeiro', label: 'Financeiro', icon: Receipt },
-  { key: 'processos', label: 'Processos', icon: Briefcase },
-  { key: 'tasks', label: 'Tarefas', icon: ListTodo },
-  { key: 'clients', label: 'Clientes', icon: Users },
-  { key: 'settings', label: 'Definições', icon: SettingsIcon },
+const items = [
+  { to: '/', label: 'Início', icon: Compass, exact: true },
+  { to: '/clientes', label: 'Clientes', icon: Users },
+  { to: '/trabalhos', label: 'Trabalhos', icon: Layers, badgeKey: 'trabalhosAtencao' },
+  { to: '/producao', label: 'Produção Técnica', icon: FileStack, badgeKey: 'producaoEmAndamento' },
+  { to: '/comercial', label: 'Comercial', icon: Handshake },
+  { to: '/caixa', label: 'Fluxo de Caixa', icon: Landmark, badgeKey: 'caixaAtrasado' },
+  { to: '/relatorios', label: 'Relatórios', icon: BarChart3 },
 ];
 
-export function AppSidebar({ active, onChange, onOpenCommand, badges = {} }: Props) {
+export function AppSidebar({ onOpenCommand, badges = {} }: Props) {
+  const location = useLocation();
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('hbs_sidebar_collapsed') === '1');
+
+  function toggle() {
+    setCollapsed(c => {
+      localStorage.setItem('hbs_sidebar_collapsed', !c ? '1' : '0');
+      return !c;
+    });
+  }
+
+  function isActive(item: (typeof items)[number]) {
+    if (item.exact) return location.pathname === '/';
+    return location.pathname.startsWith(item.to);
+  }
+
+  const NavItem = ({ item }: { item: (typeof items)[number] }) => {
+    const badge = item.badgeKey ? badges[item.badgeKey] : undefined;
+    const link = (
+      <NavLink
+        to={item.to}
+        title={collapsed ? undefined : item.label}
+        className={cn(
+          'flex items-center gap-[11px] w-full h-9 px-2.5 rounded-[8px] text-white/60 transition-colors duration-[140ms] hover:bg-white/[.08] hover:text-white',
+          isActive(item) && '!bg-white/10 !text-white'
+        )}
+      >
+        <item.icon className="w-[17px] h-[17px] shrink-0 opacity-90" strokeWidth={1.6} />
+        {!collapsed && <span className="text-[13.5px] font-medium flex-1 text-left truncate">{item.label}</span>}
+        {!collapsed && typeof badge === 'number' && badge > 0 && (
+          <span className="ml-auto text-[10.5px] font-mono-hbs bg-primary-hover text-white px-[5px] py-[1px] rounded">{badge}</span>
+        )}
+      </NavLink>
+    );
+    if (!collapsed) return link;
+    return (
+      <Tooltip delayDuration={200}>
+        <TooltipTrigger asChild>{link}</TooltipTrigger>
+        <TooltipContent side="right">{item.label}</TooltipContent>
+      </Tooltip>
+    );
+  };
+
   return (
-    <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r border-border/40 glass h-screen sticky top-0">
-      {/* Brand */}
-      <div className="px-5 py-5 border-b border-border/40 flex items-center gap-3">
-        <div className="relative">
-          <div className="absolute inset-0 bg-gradient-primary blur-md opacity-40 rounded-lg" />
-          <img src={hbsLogo} alt="HBS Engenharia" className="relative h-9 w-auto dark:invert dark:brightness-200 transition-all" />
+    <TooltipProvider>
+      <aside
+        className={cn(
+          'hidden lg:flex flex-col shrink-0 bg-sidebar text-white sticky top-0 h-screen transition-[width] duration-[180ms] ease-out',
+          collapsed ? 'w-[66px]' : 'w-[236px]'
+        )}
+      >
+        <div className="h-[62px] flex-none flex items-center gap-2.5 px-[18px] border-b border-white/[.09]">
+          <div className="w-[27px] h-[27px] flex-none rounded-[7px] bg-white grid place-items-center text-[10px] font-bold text-primary -tracking-[.02em]">HBS</div>
+          {!collapsed && (
+            <div className="leading-[1.15] min-w-0">
+              <div className="text-[12.5px] font-semibold tracking-[.04em]">HBS ENGINEERING</div>
+              <div className="text-[9.5px] tracking-[.16em] text-white/40 font-mono-hbs">PORTAL DE GESTÃO</div>
+            </div>
+          )}
         </div>
-        <div className="flex flex-col leading-tight">
-          <span className="text-[11px] font-black tracking-[0.18em] uppercase text-foreground">HBS ERP</span>
-          <span className="text-[9px] text-muted-foreground font-semibold flex items-center gap-1"><Building className="w-2.5 h-2.5" />Gestão Integrada</span>
+
+        <div className="p-2.5">
+          <button
+            onClick={onOpenCommand}
+            className={cn(
+              'w-full flex items-center gap-2 h-9 px-2.5 rounded-lg border border-white/[.09] bg-white/[.04] text-white/50 transition-colors hover:bg-white/[.08] hover:text-white',
+              collapsed && 'justify-center px-0'
+            )}
+            title="Buscar (⌘K)"
+          >
+            <Command className="w-3.5 h-3.5 shrink-0" />
+            {!collapsed && <span className="text-xs flex-1 text-left">Buscar…</span>}
+          </button>
         </div>
-      </div>
 
-      {/* Command palette trigger */}
-      <div className="p-3">
-        <button
-          onClick={onOpenCommand}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-border/60 bg-card/60 hover:bg-card hover:border-border text-left transition-all group shadow-soft"
-        >
-          <Command className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground flex-1">Buscar...</span>
-          <kbd className="text-[9px] font-bold bg-muted/80 text-muted-foreground px-1.5 py-0.5 rounded border border-border/60">⌘K</kbd>
-        </button>
-      </div>
+        <nav className="flex-1 px-2.5 py-1 flex flex-col gap-0.5 overflow-y-auto">
+          {items.map(item => <NavItem key={item.to} item={item} />)}
+        </nav>
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-3 pb-3 space-y-1">
-        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-2 mb-2 mt-2">Operação</p>
-        {items.map(item => {
-          const isActive = active === item.key;
-          const badge = badges[item.key];
-          return (
-            <button
-              key={item.key}
-              onClick={() => onChange(item.key)}
-              className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 group ${
-                isActive
-                  ? 'bg-gradient-to-r from-primary/15 to-primary/5 text-primary font-bold shadow-soft'
-                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground font-medium'
-              }`}
-            >
-              {isActive && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-gradient-primary" />}
-              <item.icon className={`w-4 h-4 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} />
-              <span className="flex-1 text-left">{item.label}</span>
-              {typeof badge === 'number' && badge > 0 && (
-                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${
-                  isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground/80 group-hover:bg-background'
-                }`}>
-                  {badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </nav>
+        <div className="flex-none p-2.5 border-t border-white/[.09] flex flex-col gap-0.5">
+          <NavLink
+            to="/configuracoes"
+            className="flex items-center gap-[11px] w-full h-9 px-2.5 rounded-[8px] text-white/60 transition-colors hover:bg-white/[.08] hover:text-white"
+            activeClassName="!bg-white/10 !text-white"
+          >
+            <SettingsIcon className="w-[17px] h-[17px] shrink-0" strokeWidth={1.6} />
+            {!collapsed && <span className="text-[13.5px] font-medium">Configurações</span>}
+          </NavLink>
 
-      {/* Footer */}
-      <div className="border-t border-border/40 p-3 flex items-center justify-between">
-        <span className="text-[10px] text-muted-foreground font-semibold tracking-wider">v1.1.0 ERP</span>
-        <ThemeToggle />
-      </div>
-    </aside>
+          <div className="flex items-center gap-2.5 px-2.5 py-2.5">
+            <div className="w-[27px] h-[27px] flex-none rounded-full bg-avatar grid place-items-center text-[10.5px] font-semibold font-mono-hbs">JD</div>
+            {!collapsed && (
+              <div className="leading-[1.25] min-w-0">
+                <div className="text-[12.5px] font-medium whitespace-nowrap overflow-hidden text-ellipsis">Jádson</div>
+                <div className="text-[10.5px] text-white/40">HBS Engenharia</div>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={toggle}
+            className="flex items-center gap-1.5 text-white/32 hover:text-white transition-colors text-[11px] font-mono-hbs px-2.5 py-1.5 text-left"
+          >
+            {collapsed ? <ChevronRight className="w-3 h-3" /> : <><ChevronLeft className="w-3 h-3" /> recolher menu</>}
+          </button>
+        </div>
+      </aside>
+    </TooltipProvider>
   );
 }
-

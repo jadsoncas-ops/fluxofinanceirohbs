@@ -3,9 +3,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Client } from '@/lib/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Client, ClientTipo } from '@/lib/types';
 import { addClient, updateClient } from '@/lib/storage';
 import { toast } from 'sonner';
+
+const TIPOS: ClientTipo[] = ['Pessoa física', 'Pessoa jurídica', 'Condomínio'];
 
 interface Props {
   open: boolean;
@@ -16,6 +19,8 @@ interface Props {
 
 export function ClientForm({ open, onClose, onSave, editItem }: Props) {
   const [nome, setNome] = useState('');
+  const [tipo, setTipo] = useState<ClientTipo>('Pessoa física');
+  const [documento, setDocumento] = useState('');
   const [ddd, setDdd] = useState('');
   const [numero, setNumero] = useState('');
   const [rua, setRua] = useState('');
@@ -28,6 +33,8 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
   useEffect(() => {
     if (editItem) {
       setNome(editItem.nome);
+      setTipo(editItem.tipo || 'Pessoa física');
+      setDocumento(editItem.documento || '');
       setDdd(editItem.telefone?.ddd || '');
       setNumero(editItem.telefone?.numero || '');
       setRua(editItem.endereco?.rua || '');
@@ -37,7 +44,7 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
       setEstado(editItem.endereco?.estado || '');
       setDescricao(editItem.descricao || '');
     } else {
-      setNome(''); setDdd(''); setNumero(''); setRua(''); setNumEnd(''); setBairro(''); setCidade(''); setEstado(''); setDescricao('');
+      setNome(''); setTipo('Pessoa física'); setDocumento(''); setDdd(''); setNumero(''); setRua(''); setNumEnd(''); setBairro(''); setCidade(''); setEstado(''); setDescricao('');
     }
   }, [editItem, open]);
 
@@ -52,6 +59,8 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
     const clientData: Client = {
       id: editItem ? editItem.id : crypto.randomUUID(),
       nome,
+      tipo,
+      documento: documento || null,
       telefone: (ddd || numero) ? { ddd: clearNumber(ddd), numero: clearNumber(numero) } : null,
       endereco: (rua || numEnd || bairro || cidade || estado) ? { rua, numero: numEnd, bairro, cidade, estado } : null,
       descricao: descricao || null,
@@ -80,7 +89,23 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
              <Label className="text-xs">Nome / Empresa *</Label>
              <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: João Silva ou Construtora B" />
            </div>
-           
+
+           <div className="grid grid-cols-2 gap-3">
+             <div className="space-y-1.5">
+               <Label className="text-xs">Tipo</Label>
+               <Select value={tipo} onValueChange={v => setTipo(v as ClientTipo)}>
+                 <SelectTrigger><SelectValue /></SelectTrigger>
+                 <SelectContent>
+                   {TIPOS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                 </SelectContent>
+               </Select>
+             </div>
+             <div className="space-y-1.5">
+               <Label className="text-xs">{tipo === 'Pessoa jurídica' ? 'CNPJ' : 'CPF'}</Label>
+               <Input value={documento} onChange={e => setDocumento(e.target.value)} placeholder={tipo === 'Pessoa jurídica' ? '00.000.000/0001-00' : '000.000.000-00'} />
+             </div>
+           </div>
+
            <div className="grid grid-cols-4 gap-3">
              <div className="col-span-1 space-y-1.5">
                <Label className="text-xs">DDD</Label>

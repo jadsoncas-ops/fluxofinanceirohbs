@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Transaction } from '@/lib/types';
-import { updateTransaction, addTransaction, getTransactions, getProcesses, updateProcess } from '@/lib/storage';
+import { updateTransaction, addTransaction, getTransactions, getProcesses, updateProcess, registrarEvento } from '@/lib/storage';
 import { toast } from 'sonner';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -213,12 +213,21 @@ export function PartialPaymentModal({ open, onClose, onSave, transaction }: Prop
       const allP = getProcesses();
       const proc = allP.find(p => p.id === transaction.processId);
       if (proc) {
-        const noteText = isParcial 
-          ? `💰 Pagamento parcial de R$ ${recebido.toLocaleString('pt-BR')} efetuado em "${transaction.descricao}". Restante de R$ ${diferenca.toLocaleString('pt-BR')}.¹` 
-          : `✅ Pagamento integral de R$ ${recebido.toLocaleString('pt-BR')} efetuado em "${transaction.descricao}".¹`;
+        const noteText = isParcial
+          ? `💰 Pagamento parcial de R$ ${recebido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} efetuado em "${transaction.descricao}". Restante de R$ ${diferenca.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.¹`
+          : `✅ Pagamento integral de R$ ${recebido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} efetuado em "${transaction.descricao}".¹`;
         const actionNote = { id: crypto.randomUUID(), data: Date.now(), texto: noteText };
         updateProcess({ ...proc, notas: [actionNote, ...(proc.notas || [])], updatedAt: Date.now() });
       }
+    }
+
+    if (recebido > 0 && (transaction!.tipo === 'A Receber' || transaction!.tipo === 'Entrada')) {
+      registrarEvento({
+        modulo: 'Financeiro',
+        texto: `Pagamento recebido — R$ ${recebido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} em "${transaction!.descricao}"`,
+        clienteId: transaction!.clienteId,
+        trabalhoId: transaction!.processId || null,
+      });
     }
 
     if (isParcial) {

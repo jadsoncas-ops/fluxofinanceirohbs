@@ -1,146 +1,135 @@
 import { useState, useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Plus, User, Phone, MapPin, Edit, Search } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
-import { Client } from '@/lib/types';
-import { getClients } from '@/lib/storage';
-import { ClientForm } from './ClientForm';
+import { getClients, getProcesses, getTransactions } from '@/lib/storage';
+import { computeClientFinancials } from '@/lib/financials';
+import { cn } from '@/lib/utils';
 
-export function ClientsList() {
-  const [key, setKey] = useState(0);
-  const [formOpen, setFormOpen] = useState(false);
-  const [editItem, setEditItem] = useState<Client | null>(null);
+interface Props {
+  refreshSignal?: number;
+}
 
+type ClientFilter = 'Todos' | 'Com saldo a receber' | 'Pessoa jurídica';
+const FILTERS: ClientFilter[] = ['Todos', 'Com saldo a receber', 'Pessoa jurídica'];
+
+function initials(nome: string) {
+  const parts = nome.trim().split(/\s+/);
+  return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase();
+}
+
+export function ClientsList({ refreshSignal = 0 }: Props = {}) {
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<ClientFilter>('Todos');
+  const navigate = useNavigate();
 
-  const clients = useMemo(() => {
-    void key;
-    const all = getClients();
-    return search.trim() === '' 
-      ? all 
-      : all.filter(c => c.nome.toLowerCase().includes(search.toLowerCase()));
-  }, [key, search]);
+  const rows = useMemo(() => {
+    void refreshSignal;
+    const clients = getClients();
+    const processes = getProcesses();
+    const transactions = getTransactions();
 
-  const refresh = () => setKey(k => k + 1);
+    return clients.map(c => {
+      const fin = computeClientFinancials(c.id, transactions, processes);
+      const clientProcesses = processes.filter(p => p.clienteId === c.id && !p.isArchived);
+      const clientTxDates = transactions.filter(t => t.clienteId === c.id).map(t => t.updatedAt || 0).filter(Boolean);
+      const lastTouch = clientTxDates.length ? Math.max(...clientTxDates) : (c.createdAt || 0);
+      return { client: c, fin, andamento: clientProcesses.length, lastTouch };
+    });
+  }, [refreshSignal]);
 
-  function handleEdit(client: Client) {
-    setEditItem(client);
-    setFormOpen(true);
-  }
+  const filtered = rows.filter(r => {
+    if (filter === 'Com saldo a receber' && r.fin.aReceber <= 0) return false;
+    if (filter === 'Pessoa jurídica' && r.client.tipo !== 'Pessoa jurídica') return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const matchesNome = r.client.nome.toLowerCase().includes(q);
+      const matchesCidade = (r.client.endereco?.cidade || '').toLowerCase().includes(q);
+      if (!matchesNome && !matchesCidade) return false;
+    }
+    return true;
+  });
 
-  function handleAdd() {
-    setEditItem(null);
-    setFormOpen(true);
+  function relativeTime(ts: number) {
+    if (!ts) return '—';
+    const days = Math.floor((Date.now() - ts) / 86400000);
+    if (days <= 0) return 'hoje';
+    if (days === 1) return 'ontem';
+    if (days < 14) return `${days} dias`;
+    if (days < 60) return `${Math.floor(days / 7)} semanas`;
+    return `${Math.floor(days / 30)} meses`;
   }
 
   return (
-    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-10">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-lg font-black uppercase tracking-widest flex items-center gap-2">
-            <User className="w-5 h-5 text-primary" /> CRM / Clientes
-          </h2>
-          <p className="text-xs text-muted-foreground mt-0.5 font-medium">Controle e vincule seus clientes a lançamentos</p>
-        </div>
-        <Button size="sm" onClick={handleAdd} className="gap-1.5 font-bold shadow-sm rounded-lg hover:-translate-y-0.5 transition-transform">
-          <Plus className="w-4 h-4" /> Novo Cliente
-        </Button>
-      </div>
-
-      <div className="relative mb-6">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="h-4 w-4 text-muted-foreground" />
-        </div>
-        <Input 
-          type="text" 
-          placeholder="Buscar cliente..." 
-          className="pl-9 h-10 w-full sm:w-72 bg-background shadow-sm border-border/60 transition-colors focus-visible:ring-primary/20"
+    <div className="space-y-4 pb-10">
+      <div className="flex flex-wrap gap-2.5 items-center">
+        <Input
           value={search}
           onChange={e => setSearch(e.target.value)}
+          placeholder="Filtrar por nome, cidade ou projeto"
+          className="flex-1 min-w-[220px] h-9 text-[13px] border-2"
         />
+        {FILTERS.map(f => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={cn(
+              'h-9 px-3.5 rounded-lg text-[12.5px] border transition-colors whitespace-nowrap',
+              filter === f ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-muted-foreground border-2 hover:border-hover'
+            )}
+          >
+            {f}
+          </button>
+        ))}
       </div>
 
-      {clients.length === 0 ? (
-        <Card className="border-border/40 shadow-none bg-muted/20">
-          <CardContent className="p-10 text-center text-muted-foreground flex flex-col items-center">
-             <div className="bg-primary/5 p-4 rounded-full mb-4">
-               <User className="w-10 h-10 text-primary/40" />
-             </div>
-             <p className="text-sm font-bold uppercase tracking-wide">Nenhum cliente cadastrado ainda</p>
-             <p className="text-xs mt-1.5 mb-5 opacity-80 max-w-xs leading-relaxed">
-               {search 
-                 ? `Nenhum cliente encontrado com "${search}".` 
-                 : 'Organize sua carteira. Cadastre o primeiro cliente para criar atalhos de WhatsApp!'
-               }
-             </p>
-             <Button variant="outline" size="sm" onClick={handleAdd} className="rounded-full shadow-sm font-semibold text-primary border-primary/20 bg-primary/5">
-                + Iniciar Cadastro
-             </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {clients.map(c => {
-             const hasWhatsApp = c.telefone?.ddd && c.telefone?.numero;
-             const linkWa = hasWhatsApp ? `https://wa.me/55${c.telefone.ddd}${c.telefone.numero}` : null;
-             
-             return (
-               <Card key={c.id} className="group overflow-hidden relative transition-all duration-300 hover:shadow-md border-border/60 hover:border-primary/30">
-                 <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full rounded-tr-[inherit] -z-10 group-hover:scale-110 transition-transform duration-500"></div>
-                 <CardContent className="p-4 sm:p-5 flex flex-col h-full justify-between relative z-10">
-                   <div>
-                     <div className="flex justify-between items-start mb-2 gap-2">
-                        <h3 className="font-bold text-foreground text-[15px] tracking-tight truncate">{c.nome}</h3>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-primary transition-colors bg-background/50 hover:bg-muted/50 rounded-md shadow-sm opacity-50 group-hover:opacity-100" onClick={() => handleEdit(c)}>
-                          <Edit className="w-3 h-3" />
-                        </Button>
-                     </div>
-                     
-                     {c.descricao && (
-                       <p className="text-[11px] text-muted-foreground leading-relaxed mb-3 bg-muted/30 px-2 py-1.5 rounded-md border border-border/40 italic">"{c.descricao}"</p>
-                     )}
-
-                     <div className="space-y-2 mt-3 pl-0.5">
-                       {hasWhatsApp && (
-                         <div className="flex items-center gap-2 text-xs text-foreground/80 font-medium">
-                           <div className="bg-[#25D366]/10 p-1.5 rounded-full shrink-0">
-                             <Phone className="w-3.5 h-3.5 text-[#25D366]" />
-                           </div>
-                           ({c.telefone.ddd}) {c.telefone.numero.replace(/(\d{5})(\d{4})/, '$1-$2')}
-                         </div>
-                       )}
-                       {c.endereco && (c.endereco.rua || c.endereco.bairro || c.endereco.cidade) && (
-                         <div className="flex items-start gap-2 text-[11px] sm:text-xs text-foreground/70 font-medium mt-1">
-                           <div className="bg-blue-500/10 p-1.5 rounded-full shrink-0 mt-0.5">
-                             <MapPin className="w-3.5 h-3.5 text-blue-500" /> 
-                           </div>
-                           <span className="leading-tight break-words pt-0.5">
-                             {c.endereco.rua}{c.endereco.numero ? `, ${c.endereco.numero}` : ''}
-                             {c.endereco.bairro ? ` - ${c.endereco.bairro}` : ''}
-                             {c.endereco.cidade ? ` • ${c.endereco.cidade}` : ''}
-                             {c.endereco.estado ? `/${c.endereco.estado}` : ''}
-                           </span>
-                         </div>
-                       )}
-                     </div>
-                   </div>
-
-                   {hasWhatsApp && (
-                     <div className="mt-4 pt-3 border-t border-border/40">
-                       <a href={linkWa!} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 w-full bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 transition-colors py-2 rounded-lg text-xs font-bold uppercase tracking-widest shadow-sm">
-                         Chamar no WhatsApp
-                       </a>
-                     </div>
-                   )}
-                 </CardContent>
-               </Card>
-             );
-          })}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="flex gap-3.5 px-[18px] py-[11px] border-b border-border bg-surface-2 text-[10.5px] tracking-[.07em] uppercase text-mute-2">
+          <span className="flex-[2.4] min-w-0">Cliente</span>
+          <span className="flex-[1.6] min-w-0">Em andamento</span>
+          <span className="flex-[1.7] min-w-0">Financeiro</span>
+          <span className="flex-1 min-w-0 text-right">Último contato</span>
         </div>
-      )}
 
-      <ClientForm open={formOpen} onClose={() => setFormOpen(false)} onSave={refresh} editItem={editItem} />
+        {filtered.length === 0 ? (
+          <div className="py-[54px] px-5 text-center">
+            <div className="text-sm font-semibold">Nenhum cliente com esse filtro.</div>
+            <div className="text-xs text-muted-foreground mt-1.5">Ajuste a busca ou cadastre um novo cliente para começar.</div>
+            <button onClick={() => { setSearch(''); setFilter('Todos'); }} className="mt-4 h-[34px] px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px]">Limpar filtros</button>
+          </div>
+        ) : (
+          filtered.map(({ client: c, fin, andamento, lastTouch }) => {
+            const pct = fin.totalContratado > 0 ? Math.min(100, Math.round((fin.recebido / fin.totalContratado) * 100)) : (fin.recebido > 0 ? 100 : 0);
+            return (
+              <div
+                key={c.id}
+                onClick={() => navigate(`/clientes/${c.id}`)}
+                className="flex gap-3.5 items-center px-[18px] py-[13px] border-b border-3 last:border-b-0 cursor-pointer hover:bg-surface-3 transition-colors"
+              >
+                <div className="flex-[2.4] min-w-0 flex items-center gap-[11px]">
+                  <span className="w-[30px] h-[30px] flex-none rounded-full bg-accent-soft text-accent grid place-items-center text-[11px] font-semibold font-mono-hbs">{initials(c.nome)}</span>
+                  <div className="min-w-0">
+                    <div className="text-[13.5px] font-medium truncate">{c.nome}</div>
+                    <div className="text-[11.5px] text-mute-2">{c.tipo || 'Pessoa física'}{c.endereco?.cidade ? ` · ${c.endereco.cidade}` : ''}</div>
+                  </div>
+                </div>
+                <div className="flex-[1.6] min-w-0 text-[12.5px] text-muted-foreground">
+                  {andamento > 0 ? `${andamento} projeto${andamento > 1 ? 's' : ''}` : '—'}
+                </div>
+                <div className="flex-[1.7] min-w-0">
+                  <div className="font-mono-hbs text-[12.5px]">
+                    {fin.recebido.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    <span className="text-mute-3"> / {fin.totalContratado.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                  </div>
+                  <div className="h-1 rounded-[2px] bg-bar-track mt-[5px] overflow-hidden">
+                    <div className={cn('h-full rounded-[2px]', pct >= 100 ? 'bg-success' : 'bg-accent')} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0 text-right text-[11.5px] text-mute-2 font-mono-hbs">{relativeTime(lastTouch)}</div>
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }

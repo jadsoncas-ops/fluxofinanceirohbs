@@ -1,4 +1,5 @@
-import { Transaction, Client, Process, Task } from './types';
+import { Transaction, Client, Process, Task, Account, DocumentRecord, CompanyConfig, Proposta, Contrato, PrecificacaoConfig, HistoricoEvent, HistoricoModulo } from './types';
+import { CUSTOS_FIXOS_PADRAO, CUSTOS_VARIAVEIS_PADRAO, INVESTIMENTOS_PADRAO, HORAS_PRODUTIVAS_PADRAO, CUSTOS_PROTOCOLO_PADRAO } from './comercial/precificacao';
 
 const STORAGE_KEY = 'hbs_transactions';
 
@@ -114,6 +115,8 @@ export function exportBackup(): string {
     clientes: loadAllClients(),
     processos: loadAllProcesses(),
     tarefas: loadAllTasks(),
+    contas: loadAllAccounts(),
+    documentos: loadAllDocuments(),
   };
   return JSON.stringify(data, null, 2);
 }
@@ -166,6 +169,16 @@ export function importBackup(json: string): void {
     // Restaurar Tarefas
     if (Array.isArray(data.tarefas)) {
       saveAllTasks(data.tarefas);
+    }
+
+    // Restaurar Contas
+    if (Array.isArray(data.contas)) {
+      saveAllAccounts(data.contas);
+    }
+
+    // Restaurar Documentos
+    if (Array.isArray(data.documentos)) {
+      saveAllDocuments(data.documentos);
     }
   }
 }
@@ -327,4 +340,269 @@ export function updateTask(updated: Task): void {
 export function deleteTask(id: string): void {
   const all = loadAllTasks();
   saveAllTasks(all.filter(t => t.id !== id));
+}
+
+// --- ACCOUNTS (Contas financeiras) ---
+const STORAGE_KEY_ACCOUNTS = 'hbs_accounts';
+
+function loadAllAccounts(): Account[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_ACCOUNTS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveAllAccounts(accounts: Account[]) {
+  localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(accounts));
+}
+
+export function getAccounts(): Account[] {
+  return loadAllAccounts().sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export function addAccount(account: Account): void {
+  const all = loadAllAccounts();
+  all.push(account);
+  saveAllAccounts(all);
+}
+
+export function updateAccount(updated: Account): void {
+  const all = loadAllAccounts();
+  const idx = all.findIndex(a => a.id === updated.id);
+  if (idx >= 0) all[idx] = updated;
+  saveAllAccounts(all);
+}
+
+export function deleteAccount(id: string): void {
+  const all = loadAllAccounts();
+  saveAllAccounts(all.filter(a => a.id !== id));
+}
+
+// --- DOCUMENTOS ---
+const STORAGE_KEY_DOCUMENTS = 'hbs_documents';
+
+function loadAllDocuments(): DocumentRecord[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_DOCUMENTS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveAllDocuments(docs: DocumentRecord[]) {
+  localStorage.setItem(STORAGE_KEY_DOCUMENTS, JSON.stringify(docs));
+}
+
+export function getDocuments(): DocumentRecord[] {
+  return loadAllDocuments().sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export function addDocument(doc: DocumentRecord): void {
+  const all = loadAllDocuments();
+  all.push(doc);
+  saveAllDocuments(all);
+}
+
+export function updateDocument(updated: DocumentRecord): void {
+  const all = loadAllDocuments();
+  const idx = all.findIndex(d => d.id === updated.id);
+  if (idx >= 0) all[idx] = { ...updated, updatedAt: Date.now() };
+  saveAllDocuments(all);
+}
+
+export function deleteDocument(id: string): void {
+  const all = loadAllDocuments();
+  saveAllDocuments(all.filter(d => d.id !== id));
+}
+
+// --- CONFIGURAÇÃO DA EMPRESA (usada na Produção Técnica e no Comercial) ---
+const STORAGE_KEY_COMPANY_CONFIG = 'hbs_company_config';
+
+export function getCompanyConfig(): CompanyConfig {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_COMPANY_CONFIG);
+    if (!raw) return {};
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+export function saveCompanyConfig(config: CompanyConfig): void {
+  localStorage.setItem(STORAGE_KEY_COMPANY_CONFIG, JSON.stringify(config));
+}
+
+// --- CONFIGURAÇÃO DE PRECIFICAÇÃO (Comercial) ---
+const STORAGE_KEY_PRECIFICACAO_CONFIG = 'hbs_precificacao_config';
+
+function defaultPrecificacaoConfig(): PrecificacaoConfig {
+  return {
+    custosDiretos: [
+      { id: 'deslocamento', descricao: 'Deslocamento, combustível e impressões', valor: CUSTOS_VARIAVEIS_PADRAO, tipo: 'variavel' },
+    ],
+    custosIndiretos: [
+      { id: 'estrutura', descricao: 'Aluguel, internet e softwares', valor: CUSTOS_FIXOS_PADRAO, tipo: 'fixo' },
+      { id: 'investimentos', descricao: 'Investimentos', valor: INVESTIMENTOS_PADRAO, tipo: 'fixo' },
+    ],
+    horasDisponiveis: HORAS_PRODUTIVAS_PADRAO,
+    horasNaoFaturaveis: 0,
+    custosProtocolo: { ...CUSTOS_PROTOCOLO_PADRAO },
+    lucroPercentPadrao: 30,
+    impostosPercentPadrao: 5,
+    comissaoPercentPadrao: 15,
+  };
+}
+
+export function getPrecificacaoConfig(): PrecificacaoConfig {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PRECIFICACAO_CONFIG);
+    if (!raw) return defaultPrecificacaoConfig();
+    return { ...defaultPrecificacaoConfig(), ...JSON.parse(raw) };
+  } catch {
+    return defaultPrecificacaoConfig();
+  }
+}
+
+export function savePrecificacaoConfig(config: PrecificacaoConfig): void {
+  localStorage.setItem(STORAGE_KEY_PRECIFICACAO_CONFIG, JSON.stringify(config));
+}
+
+// --- COMERCIAL: PROPOSTAS ---
+const STORAGE_KEY_PROPOSTAS = 'hbs_propostas';
+
+function loadAllPropostas(): Proposta[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PROPOSTAS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveAllPropostas(propostas: Proposta[]) {
+  localStorage.setItem(STORAGE_KEY_PROPOSTAS, JSON.stringify(propostas));
+}
+
+export function getPropostas(): Proposta[] {
+  return loadAllPropostas().sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export function getNextPropostaCodigo(): string {
+  const all = loadAllPropostas();
+  const max = all.reduce((m, p) => {
+    const n = parseInt(p.codigo.replace(/\D/g, ''), 10);
+    return Number.isFinite(n) ? Math.max(m, n) : m;
+  }, 87); // arranca em PRP-0088, seguindo a numeração já usada nos exemplos do handoff
+  return `PRP-${String(max + 1).padStart(4, '0')}`;
+}
+
+export function addProposta(proposta: Proposta): void {
+  const all = loadAllPropostas();
+  all.push(proposta);
+  saveAllPropostas(all);
+}
+
+export function updateProposta(updated: Proposta): void {
+  const all = loadAllPropostas();
+  const idx = all.findIndex(p => p.id === updated.id);
+  if (idx >= 0) all[idx] = { ...updated, updatedAt: Date.now() };
+  saveAllPropostas(all);
+}
+
+export function deleteProposta(id: string): void {
+  const all = loadAllPropostas();
+  saveAllPropostas(all.filter(p => p.id !== id));
+}
+
+// --- COMERCIAL: CONTRATOS ---
+const STORAGE_KEY_CONTRATOS = 'hbs_contratos';
+
+function loadAllContratos(): Contrato[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_CONTRATOS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveAllContratos(contratos: Contrato[]) {
+  localStorage.setItem(STORAGE_KEY_CONTRATOS, JSON.stringify(contratos));
+}
+
+export function getContratos(): Contrato[] {
+  return loadAllContratos().sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export function getNextContratoCodigo(): string {
+  const all = loadAllContratos();
+  const max = all.reduce((m, c) => {
+    const n = parseInt(c.codigo.replace(/\D/g, ''), 10);
+    return Number.isFinite(n) ? Math.max(m, n) : m;
+  }, 57); // arranca em CTR-0058, seguindo a numeração já usada nos exemplos do handoff
+  return `CTR-${String(max + 1).padStart(4, '0')}`;
+}
+
+export function addContrato(contrato: Contrato): void {
+  const all = loadAllContratos();
+  all.push(contrato);
+  saveAllContratos(all);
+}
+
+export function updateContrato(updated: Contrato): void {
+  const all = loadAllContratos();
+  const idx = all.findIndex(c => c.id === updated.id);
+  if (idx >= 0) all[idx] = { ...updated, updatedAt: Date.now() };
+  saveAllContratos(all);
+}
+
+export function getContrato(id: string): Contrato | null {
+  return loadAllContratos().find(c => c.id === id) || null;
+}
+
+export function getProposta(id: string): Proposta | null {
+  return loadAllPropostas().find(p => p.id === id) || null;
+}
+
+// --- HISTÓRICO (linha do tempo integrada) ---
+const STORAGE_KEY_HISTORICO = 'hbs_historico';
+
+function loadAllHistorico(): HistoricoEvent[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_HISTORICO);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveAllHistorico(events: HistoricoEvent[]) {
+  localStorage.setItem(STORAGE_KEY_HISTORICO, JSON.stringify(events));
+}
+
+export function getHistorico(filter?: { clienteId?: string; trabalhoId?: string }): HistoricoEvent[] {
+  let all = loadAllHistorico().sort((a, b) => b.createdAt - a.createdAt);
+  if (filter?.clienteId) all = all.filter(e => e.clienteId === filter.clienteId);
+  if (filter?.trabalhoId) all = all.filter(e => e.trabalhoId === filter.trabalhoId);
+  return all;
+}
+
+export function registrarEvento(evento: Omit<HistoricoEvent, 'id' | 'createdAt'>): void {
+  const all = loadAllHistorico();
+  all.push({ ...evento, id: crypto.randomUUID(), createdAt: Date.now() });
+  // mantém só os últimos 500 eventos — histórico é uma timeline de leitura, não um log de auditoria
+  saveAllHistorico(all.slice(-500));
 }

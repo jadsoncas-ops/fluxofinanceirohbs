@@ -49,7 +49,10 @@ export function Dashboard({ transactions, month, year, onProjectClick }: Props) 
         .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
         .reduce((s, t) => s + t.valor, 0);
 
-      const saldoTotalProc = Math.max(0, (p.valorContrato || 0) - totalRecebidoP) + receitasPendentesParaProc;
+      const temTransacoesReceita = processTxs.some(t => t.tipo === 'Entrada' || t.tipo === 'A Receber');
+      const saldoTotalProc = temTransacoesReceita
+        ? receitasPendentesParaProc
+        : Math.max(0, (p.valorContrato || 0) - totalRecebidoP);
       
       if (saldoTotalProc > 0 || custosPendentesProc > 0) {
         auditList.push({
@@ -422,9 +425,9 @@ export function Dashboard({ transactions, month, year, onProjectClick }: Props) 
                           {stats.auditList.sort((a,b) => b.lucro - a.lucro).map((p) => (
                             <TableRow key={p.id} className="hover:bg-muted/30 border-border/30">
                               <TableCell className="py-3 font-bold text-xs truncate max-w-[180px]">{p.name}</TableCell>
-                              <TableCell className="text-right tabular-nums text-xs font-bold text-emerald-600">R$ {p.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
-                              <TableCell className="text-right tabular-nums text-xs font-medium text-rose-500">R$ {p.custos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
-                              <TableCell className="text-right tabular-nums text-xs font-black">R$ {p.lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                              <TableCell className="text-right tabular-nums text-xs font-bold text-emerald-600">R$ {p.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                              <TableCell className="text-right tabular-nums text-xs font-medium text-rose-500">R$ {p.custos.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                              <TableCell className="text-right tabular-nums text-xs font-black">R$ {p.lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -440,15 +443,15 @@ export function Dashboard({ transactions, month, year, onProjectClick }: Props) 
                     <div className="p-6 border-t bg-muted/10 shadow-inner">
                       <div className="flex justify-between items-center mb-1">
                         <span className="text-[11px] font-black uppercase text-muted-foreground">Total de Entradas:</span>
-                        <span className="text-sm font-black text-emerald-600">R$ {stats.entradasPrevistas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className="text-sm font-black text-emerald-600">R$ {stats.entradasPrevistas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                       <div className="flex justify-between items-center mb-4">
                         <span className="text-[11px] font-black uppercase text-muted-foreground">Total de Saídas:</span>
-                        <span className="text-sm font-black text-rose-600">R$ {stats.saidasPrevistas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className="text-sm font-black text-rose-600">R$ {stats.saidasPrevistas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                       <div className="flex justify-between items-center p-3 rounded-2xl bg-primary/10 border border-primary/20">
                         <span className="text-xs font-black uppercase text-primary">Lucro Futuro Pendente:</span>
-                        <span className="text-xl font-black text-primary">R$ {stats.lucroFuturoPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className="text-xl font-black text-primary">R$ {stats.lucroFuturoPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                     </div>
                   </SheetContent>
@@ -462,7 +465,7 @@ export function Dashboard({ transactions, month, year, onProjectClick }: Props) 
                 <div className="flex-1 min-w-0">
                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600/60 mb-1 leading-none">Entradas Previstas</span>
                   <div className="text-xl font-black text-emerald-600 tabular-nums tracking-tight">
-                    <span className="text-sm opacity-50 mr-1">R$</span>{stats.entradasPrevistas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    <span className="text-sm opacity-50 mr-1">R$</span>{stats.entradasPrevistas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 </div>
               </div>
@@ -474,7 +477,7 @@ export function Dashboard({ transactions, month, year, onProjectClick }: Props) 
                 <div className="flex-1 min-w-0">
                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500/60 mb-1 leading-none">Saídas Previstas</span>
                   <div className="text-xl font-black text-rose-600 tabular-nums tracking-tight">
-                    <span className="text-sm opacity-50 mr-1">R$</span>{stats.saidasPrevistas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    <span className="text-sm opacity-50 mr-1">R$</span>{stats.saidasPrevistas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 </div>
               </div>
@@ -488,7 +491,7 @@ export function Dashboard({ transactions, month, year, onProjectClick }: Props) 
                  <Target className="w-3 h-3 text-primary/50" />
                </div>
                <div className={`text-4xl sm:text-5xl font-black tabular-nums tracking-tighter relative z-10 ${stats.lucroFuturoPendente >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                 <span className="text-xl opacity-50 mr-2">R$</span>{stats.lucroFuturoPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                 <span className="text-xl opacity-50 mr-2">R$</span>{stats.lucroFuturoPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                </div>
                <p className="text-[10px] font-bold text-muted-foreground/80 text-center uppercase tracking-widest leading-relaxed relative z-10 max-w-[250px] pt-2 border-t border-primary/10">
                  Quanto você ainda lucrará ao finalizar todos os contratos atuais.
