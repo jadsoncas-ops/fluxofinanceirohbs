@@ -213,11 +213,235 @@
   color: #fff;
 }
 
+/* Proposta comercial — layout distinto dos documentos técnicos: sans-serif, "business proposal",
+   com capa própria. Baseado no modelo de referência aprovado pelo usuário. */
+
+.proposta-capa {
+  background: #fff;
+  font-family: system-ui, -apple-system, sans-serif;
+  max-width: 850px;
+  margin: 0 auto;
+  padding: 5rem 3.5rem 3rem;
+  min-height: 1000px;
+  display: flex;
+  flex-direction: column;
+  page-break-after: always;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.proposta-capa .logo-circle {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  border: 1px dashed var(--doc-line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 2.5rem;
+}
+.proposta-capa .logo-circle img { width: 96px; height: auto; }
+.proposta-capa .regra {
+  width: 64px;
+  height: 2px;
+  background: var(--doc-accent);
+  margin: 0 auto 1.75rem;
+}
+.proposta-capa h1 {
+  text-align: center;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--doc-ink);
+}
+.proposta-capa .subtitulo {
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--doc-muted);
+  margin-top: 8px;
+}
+.proposta-capa .capa-info {
+  border: 1px solid var(--doc-line);
+  border-radius: 4px;
+  padding: 22px 24px;
+  margin: 3.5rem auto 0;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+}
+.proposta-capa .capa-info .lbl {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--doc-muted);
+  text-transform: uppercase;
+}
+.proposta-capa .capa-info .val {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--doc-ink);
+  margin: 3px 0 14px;
+}
+.proposta-capa .capa-info .val:last-child { margin-bottom: 0; }
+.proposta-capa .capa-numero {
+  text-align: center;
+  font-size: 11px;
+  color: var(--doc-muted);
+  margin-top: 1.5rem;
+}
+.proposta-capa .capa-rodape {
+  margin-top: auto;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--doc-ink);
+}
+
+.proposta-folha {
+  background: #fff;
+  color: var(--doc-ink);
+  font-family: system-ui, -apple-system, sans-serif;
+  max-width: 850px;
+  margin: 0 auto;
+  padding: 3rem 3.25rem;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.proposta-topo {
+  border-bottom: 1px solid var(--doc-line);
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.75rem;
+}
+.proposta-topo .linha {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  padding: 3px 0;
+}
+.proposta-topo .lbl { color: var(--doc-muted); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; font-size: 10.5px; }
+.proposta-topo .val { font-weight: 700; color: var(--doc-ink); }
+
+.proposta-secao {
+  margin-top: 2.25rem;
+  margin-bottom: 0.9rem;
+}
+.proposta-secao .titulo {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--doc-accent);
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--doc-accent);
+}
+.proposta-secao .titulo .num { font-variant-numeric: tabular-nums; }
+
+.proposta-modulo {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: var(--doc-ink);
+  margin: 1.1rem 0 0.5rem;
+}
+.proposta-item {
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0 0 0.7rem;
+  padding-left: 1.1rem;
+  position: relative;
+}
+.proposta-item::before { content: '•'; position: absolute; left: 0; color: var(--doc-accent); }
+.proposta-item strong { display: block; }
+.proposta-item .desc { color: var(--doc-muted); font-size: 12px; }
+
+.proposta-nao-incluso {
+  margin-top: 1rem;
+}
+.proposta-nao-incluso .titulo-mini {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: var(--doc-ink);
+  margin-bottom: 0.4rem;
+}
+.proposta-nao-incluso li { font-size: 12px; color: var(--doc-muted); line-height: 1.6; list-style: none; padding-left: 1rem; position: relative; }
+.proposta-nao-incluso li::before { content: '–'; position: absolute; left: 0; }
+
+.proposta-timeline { position: relative; padding-left: 2.25rem; }
+.proposta-timeline::before { content: ''; position: absolute; left: 10px; top: 4px; bottom: 4px; width: 1px; background: var(--doc-line); }
+.proposta-timeline .passo { position: relative; margin-bottom: 1.1rem; }
+.proposta-timeline .passo:last-child { margin-bottom: 0; }
+.proposta-timeline .bolha {
+  position: absolute;
+  left: -2.25rem;
+  top: 0;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: var(--doc-accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.proposta-timeline .titulo-passo { font-size: 12.5px; font-weight: 700; }
+.proposta-timeline .desc-passo { font-size: 11.5px; color: var(--doc-muted); }
+
+.proposta-investimento {
+  border: 1px solid var(--doc-line);
+  border-radius: 4px;
+  padding: 1.1rem 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.proposta-investimento .lbl { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; color: var(--doc-muted); text-transform: uppercase; }
+.proposta-investimento .val { font-size: 24px; font-weight: 800; color: var(--doc-ink); white-space: nowrap; }
+
+.proposta-pagamento-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--doc-line);
+}
+.proposta-pagamento-item:last-child { border-bottom: none; }
+.proposta-pagamento-item .val { font-weight: 700; }
+
+.proposta-observacoes p { font-size: 12.5px; font-weight: 600; margin-bottom: 0.6rem; }
+.proposta-observacoes li { font-size: 11.5px; color: var(--doc-muted); line-height: 1.65; list-style: none; padding-left: 1rem; position: relative; margin-bottom: 3px; }
+.proposta-observacoes li::before { content: '–'; position: absolute; left: 0; }
+
+.proposta-aceite { margin-top: 2rem; page-break-inside: avoid; }
+.proposta-aceite .campo { font-size: 12.5px; margin-bottom: 8px; }
+.proposta-aceite .linha-preenchimento { border-bottom: 1px solid var(--doc-ink); display: inline-block; min-width: 260px; margin-left: 6px; }
+.proposta-aceite .assinaturas { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 3.5rem; }
+.proposta-aceite .assinaturas .linha { border-top: 1px solid var(--doc-ink); padding-top: 7px; font-size: 11px; color: var(--doc-muted); }
+.proposta-aceite .assinaturas .nome { font-weight: 700; color: var(--doc-ink); font-size: 12px; display: block; }
+
+.proposta-rodape {
+  margin-top: 3rem;
+  border-top: 1px solid var(--doc-line);
+  padding-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 9.5px;
+  color: var(--doc-muted);
+}
+
 @page { size: A4; margin: 14mm 12mm; }
 
 @media print {
   .no-print { display: none !important; }
   .documento-folha { border: none; box-shadow: none; padding: 0; max-width: none; }
+  .proposta-capa, .proposta-folha { padding-left: 0; padding-right: 0; max-width: none; }
   body { background: #fff; }
   .documento-table { table-layout: fixed; width: 100%; font-size: 8.5px; }
   .documento-table th { font-size: 7px; padding: 3px 4px 5px; line-height: 1.3; overflow-wrap: break-word; }

@@ -2,13 +2,22 @@ import { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { getPropostas, getClients, getCompanyConfig } from '@/lib/storage';
-import { ETAPAS_PADRAO, GRUPOS, formatBRL } from '@/lib/comercial/precificacao';
+import { ETAPAS_PADRAO, GRUPOS, CUSTOS_PROTOCOLO_PADRAO, formatBRL } from '@/lib/comercial/precificacao';
+import hbsLogo from '@/assets/hbs-logo.png';
 
 function addDias(base: number, dias: number) {
   const d = new Date(base);
   d.setDate(d.getDate() + dias);
   return d.toLocaleDateString('pt-BR');
 }
+
+const CRONOGRAMA = [
+  { titulo: 'Contratação', desc: 'Assinatura do contrato e início dos trabalhos.' },
+  { titulo: 'Levantamento e Projetos', desc: 'Visita técnica e elaboração das peças gráficas.' },
+  { titulo: 'Documentação', desc: 'Memorial descritivo e peças complementares.' },
+  { titulo: 'Protocolo e Acompanhamento', desc: 'Submissão e acompanhamento junto aos órgãos competentes.' },
+  { titulo: 'Entrega', desc: 'Conclusão e entrega da documentação ao cliente.' },
+];
 
 export default function PropostaImpressaoPage() {
   const { propostaId } = useParams<{ propostaId: string }>();
@@ -30,6 +39,10 @@ export default function PropostaImpressaoPage() {
     );
   }
 
+  const validadeDias = config.validadePropostaDias || 15;
+  const validadeData = proposta.enviadaEm ? addDias(proposta.enviadaEm, validadeDias) : addDias(proposta.createdAt, validadeDias);
+  const nomeEmpresa = config.razaoSocial || 'HBS Engenharia';
+
   const grupos = GRUPOS.map(g => ({
     nome: g,
     itens: proposta.itens.filter(i => i.grupo === g).map(i => ({
@@ -37,10 +50,6 @@ export default function PropostaImpressaoPage() {
       descricao: ETAPAS_PADRAO.find(e => e.id === i.etapaId)?.descricao,
     })),
   })).filter(g => g.itens.length > 0);
-
-  const validade = proposta.enviadaEm
-    ? addDias(proposta.enviadaEm, config.validadePropostaDias || 15)
-    : addDias(proposta.createdAt, config.validadePropostaDias || 15);
 
   return (
     <div className="flex flex-col gap-[18px] pb-10 animate-hbs-in">
@@ -53,67 +62,124 @@ export default function PropostaImpressaoPage() {
         </button>
       </div>
 
-      <div className="documento-folha">
-        <div className="documento-header">
-          <div style={{ flex: 1, textAlign: 'center' }}>
-            <h1>Proposta comercial</h1>
-            <div className="sub">{config.razaoSocial || 'HBS Engenharia'}</div>
-          </div>
-          <div className="kicker">{proposta.codigo}</div>
+      {/* Capa */}
+      <div className="proposta-capa">
+        <div className="logo-circle"><img src={hbsLogo} alt={nomeEmpresa} /></div>
+        <div className="regra" />
+        <h1>PROPOSTA COMERCIAL</h1>
+        <div className="subtitulo">Serviços Técnicos de Engenharia</div>
+
+        <div className="capa-info">
+          <div className="lbl">Cliente</div>
+          <div className="val">{cliente?.nome || 'A definir'}</div>
+          <div className="lbl">Emitida em</div>
+          <div className="val">{new Date(proposta.createdAt).toLocaleDateString('pt-BR')}</div>
+        </div>
+        <div className="capa-numero">Proposta nº {proposta.codigo}</div>
+
+        <div className="capa-rodape">{nomeEmpresa.toUpperCase()}</div>
+      </div>
+
+      {/* Conteúdo */}
+      <div className="proposta-folha">
+        <div className="proposta-topo">
+          <div className="linha"><span className="lbl">Cliente</span><span className="val">{cliente?.nome || 'A definir'}</span></div>
+          <div className="linha"><span className="lbl">Prazo estimado</span><span className="val">{proposta.prazoDias ? `${proposta.prazoDias} dias` : 'A definir'}</span></div>
+          <div className="linha"><span className="lbl">Validade da proposta</span><span className="val">{validadeDias} dias</span></div>
         </div>
 
-        <div className="documento-idbox">
-          <div className="row"><div className="lbl">Cliente</div><div className="val">{cliente?.nome || '(a preencher)'}</div></div>
-          <div className="row"><div className="lbl">Objeto</div><div className="val">{proposta.titulo}</div></div>
-          <div className="row"><div className="lbl">Data</div><div className="val">{new Date(proposta.createdAt).toLocaleDateString('pt-BR')}</div></div>
-          <div className="row"><div className="lbl">Validade da proposta</div><div className="val">{validade}</div></div>
-          {proposta.prazoDias && <div className="row"><div className="lbl">Prazo de execução</div><div className="val">{proposta.prazoDias} dias, a contar da assinatura</div></div>}
-          {proposta.formaPagamento && <div className="row"><div className="lbl">Condições de pagamento</div><div className="val">{proposta.formaPagamento}</div></div>}
+        <div className="proposta-secao">
+          <div className="titulo"><span className="num">01</span><span>Objeto da contratação</span></div>
         </div>
+        <p style={{ fontSize: '13px', lineHeight: 1.6 }}>
+          A presente proposta tem por objeto a prestação de serviços técnicos de engenharia para {proposta.titulo.toLowerCase()}.
+        </p>
 
-        <div className="documento-section-title"><div className="n">1</div><div className="t">Escopo dos serviços</div></div>
+        <div className="proposta-secao">
+          <div className="titulo"><span className="num">02</span><span>Escopo dos serviços</span></div>
+        </div>
         {grupos.map(g => (
-          <div key={g.nome} style={{ marginBottom: '1.1rem' }}>
-            <p className="documento-p" style={{ fontWeight: 700, marginBottom: '0.4rem' }}>{g.nome}</p>
+          <div key={g.nome}>
+            <div className="proposta-modulo">{g.nome.toUpperCase()}</div>
             {g.itens.map(i => (
-              <p key={i.etapaId} className="documento-p" style={{ marginLeft: '1rem' }}>
-                <strong>{i.nome}.</strong>{i.descricao ? ` ${i.descricao}` : ''}
-              </p>
+              <div key={i.etapaId} className="proposta-item">
+                <strong>{i.nome}</strong>
+                {i.descricao && <span className="desc">{i.descricao}</span>}
+              </div>
             ))}
           </div>
         ))}
 
-        <div className="documento-section-title"><div className="n">2</div><div className="t">Investimento</div></div>
-        <table className="documento-table">
-          <tbody>
-            <tr>
-              <td style={{ fontWeight: 700 }}>Valor total dos serviços</td>
-              <td style={{ textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700 }}>{formatBRL(proposta.resultado.precoVenda)}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div className="documento-nota">
-          <p>Proposta válida até {validade}. Valores sujeitos a alteração após esse prazo. O início dos trabalhos fica condicionado à formalização do contrato e às condições de pagamento acordadas.</p>
+        <div className="proposta-nao-incluso">
+          <div className="titulo-mini">NÃO INCLUSO</div>
+          <ul>
+            <li>Taxas de prefeitura (emolumentos do município)</li>
+            {proposta.custosProtocolo.art && <li>Taxa de emissão de ART/RRT ({formatBRL(CUSTOS_PROTOCOLO_PADRAO.art)})</li>}
+            <li>Emolumentos de cartório e impostos incidentes sobre o imóvel</li>
+          </ul>
         </div>
 
-        <div className="documento-assinaturas">
-          <div className="documento-section-title"><div className="n">✓</div><div className="t">Aceite</div></div>
-          <div className="documento-sign-grid" style={{ gap: '48px 24px', marginTop: '4rem' }}>
-            <div>
-              <div className="linha">{config.responsavelNome || '(configure em Configurações)'}</div>
-              <div className="papel">{config.responsavelTitulo || ''}{config.responsavelCrea ? ` — ${config.responsavelCrea}` : ''}</div>
+        <div className="proposta-secao">
+          <div className="titulo"><span className="num">03</span><span>Cronograma / Trâmite</span></div>
+        </div>
+        <div className="proposta-timeline">
+          {CRONOGRAMA.map((passo, i) => (
+            <div key={passo.titulo} className="passo">
+              <div className="bolha">{String(i + 1).padStart(2, '0')}</div>
+              <div className="titulo-passo">{passo.titulo}</div>
+              <div className="desc-passo">{passo.desc}</div>
             </div>
-            <div>
-              <div className="linha">{cliente?.nome || '(a preencher)'}</div>
-              <div className="papel">{cliente?.documento ? `CPF/CNPJ: ${cliente.documento}` : 'Cliente'}</div>
+          ))}
+        </div>
+
+        <div className="proposta-secao">
+          <div className="titulo"><span className="num">04</span><span>Investimento</span></div>
+        </div>
+        <div className="proposta-investimento">
+          <span className="lbl">Valor total do investimento</span>
+          <span className="val">{formatBRL(proposta.resultado.precoVenda)}</span>
+        </div>
+
+        <div className="proposta-secao">
+          <div className="titulo"><span className="num">05</span><span>Condições de pagamento</span></div>
+        </div>
+        <div className="proposta-pagamento-item">
+          <span>{proposta.formaPagamento || 'A definir'}</span>
+          <span className="val">{formatBRL(proposta.resultado.precoVenda)}</span>
+        </div>
+
+        <div className="proposta-secao">
+          <div className="titulo"><span className="num">06</span><span>Validade e observações</span></div>
+        </div>
+        <div className="proposta-observacoes">
+          <p>Esta proposta possui validade de {validadeDias} dias a partir da data de emissão.</p>
+          <ul>
+            <li>O prazo estimado refere-se à execução das peças técnicas sob responsabilidade da {nomeEmpresa}. O tempo de tramitação e aprovação junto aos órgãos públicos pode variar e não está sob o controle da contratada.</li>
+            <li>Documentos do imóvel e do contratante devem ser fornecidos no início dos trabalhos.</li>
+            <li>Alterações de escopo solicitadas após a aprovação são tratadas em aditivo específico.</li>
+            <li>Taxas de prefeitura são de responsabilidade do contratante.</li>
+            <li>Emolumentos de cartório e impostos incidentes sobre o imóvel são de responsabilidade do contratante.</li>
+          </ul>
+        </div>
+
+        <div className="proposta-secao">
+          <div className="titulo"><span className="num">07</span><span>Aceite da proposta</span></div>
+        </div>
+        <div className="proposta-aceite">
+          <div className="campo">Contratante:<span className="linha-preenchimento" /></div>
+          <div className="campo">Data: {new Date(proposta.createdAt).toLocaleDateString('pt-BR')}</div>
+          <div className="assinaturas">
+            <div className="linha">Assinatura do Contratante</div>
+            <div className="linha">
+              <span className="nome">{config.responsavelNome || '(configure em Configurações)'}</span>
+              {config.responsavelCrea ? `CREA: ${config.responsavelCrea}` : ''}
             </div>
           </div>
         </div>
 
-        <div className="documento-footer">
-          <div>{config.endereco || 'HBS Engenharia'}</div>
-          <div>{[config.telefone, config.email].filter(Boolean).join(' | ')}</div>
+        <div className="proposta-rodape">
+          <span>{nomeEmpresa}</span>
+          <span>Proposta {proposta.codigo}</span>
         </div>
       </div>
     </div>
