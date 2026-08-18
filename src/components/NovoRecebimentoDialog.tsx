@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Trash2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { CATEGORIAS_ENTRADA } from '@/lib/types';
+import { CATEGORIAS_ENTRADA, Process } from '@/lib/types';
 import { getClients, getProcesses, addTransaction, registrarEvento } from '@/lib/storage';
 
 interface ParcelaInput {
@@ -19,6 +19,8 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
+  /** Quando informado, trava cliente e trabalho neste Trabalho — usado ao abrir a partir da ficha do Trabalho. */
+  trabalhoFixo?: Process;
 }
 
 function todayPlus(days: number) {
@@ -32,16 +34,23 @@ function fmt(v: number) {
 }
 
 /** Novo recebimento — único ou parcelado em N vezes, cada parcela com data própria. Cada parcela vira um Transaction 'A Receber' independente, e aparece em Próximos compromissos assim que estiver dentro de 15 dias. */
-export function NovoRecebimentoDialog({ open, onClose, onCreated }: Props) {
+export function NovoRecebimentoDialog({ open, onClose, onCreated, trabalhoFixo }: Props) {
   const clients = useMemo(() => getClients(), [open]);
-  const [clienteId, setClienteId] = useState('');
+  const [clienteId, setClienteId] = useState(trabalhoFixo?.clienteId || '');
   const trabalhosDoCliente = useMemo(() => getProcesses().filter(p => !p.isArchived && p.clienteId === clienteId), [clienteId]);
-  const [trabalhoId, setTrabalhoId] = useState('');
+  const [trabalhoId, setTrabalhoId] = useState(trabalhoFixo?.id || '');
   const [descricaoBase, setDescricaoBase] = useState('');
   const [categoria, setCategoria] = useState(CATEGORIAS_ENTRADA[0]);
   const [modo, setModo] = useState<'unico' | 'parcelado'>('unico');
   const [valorTotal, setValorTotal] = useState('');
   const [parcelas, setParcelas] = useState<ParcelaInput[]>([{ descricao: '', valor: 0, data: todayPlus(0) }]);
+
+  useEffect(() => {
+    if (!open) return;
+    setClienteId(trabalhoFixo?.clienteId || '');
+    setTrabalhoId(trabalhoFixo?.id || '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, trabalhoFixo?.id]);
 
   const totalParcelas = parcelas.reduce((s, p) => s + p.valor, 0);
 
@@ -84,7 +93,7 @@ export function NovoRecebimentoDialog({ open, onClose, onCreated }: Props) {
   }
 
   function reset() {
-    setClienteId(''); setTrabalhoId(''); setDescricaoBase(''); setCategoria(CATEGORIAS_ENTRADA[0]);
+    setClienteId(trabalhoFixo?.clienteId || ''); setTrabalhoId(trabalhoFixo?.id || ''); setDescricaoBase(''); setCategoria(CATEGORIAS_ENTRADA[0]);
     setModo('unico'); setValorTotal(''); setParcelas([{ descricao: '', valor: 0, data: todayPlus(0) }]);
   }
 
@@ -130,23 +139,31 @@ export function NovoRecebimentoDialog({ open, onClose, onCreated }: Props) {
   return (
     <Dialog open={open} onOpenChange={v => !v && (reset(), onClose())}>
       <DialogContent className="sm:max-w-lg max-h-[88vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Novo recebimento</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{trabalhoFixo ? `Novo recebimento — ${trabalhoFixo.objeto}` : 'Novo recebimento'}</DialogTitle></DialogHeader>
 
         <div className="space-y-4 py-1">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Cliente</Label>
-              <Select value={clienteId} onValueChange={v => { setClienteId(v); setTrabalhoId(''); }}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
-              </Select>
+              {trabalhoFixo ? (
+                <div className="h-10 px-3 rounded-lg border-2 bg-surface-2 text-[13px] flex items-center text-muted-foreground">{clients.find(c => c.id === clienteId)?.nome || '—'}</div>
+              ) : (
+                <Select value={clienteId} onValueChange={v => { setClienteId(v); setTrabalhoId(''); }}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
+                </Select>
+              )}
             </div>
             <div className="space-y-1.5">
-              <Label>Trabalho (opcional)</Label>
-              <Select value={trabalhoId} onValueChange={setTrabalhoId} disabled={!clienteId || trabalhosDoCliente.length === 0}>
-                <SelectTrigger><SelectValue placeholder={trabalhosDoCliente.length === 0 ? 'Nenhum trabalho' : 'Selecione'} /></SelectTrigger>
-                <SelectContent>{trabalhosDoCliente.map(p => <SelectItem key={p.id} value={p.id}>{p.objeto}</SelectItem>)}</SelectContent>
-              </Select>
+              <Label>Trabalho</Label>
+              {trabalhoFixo ? (
+                <div className="h-10 px-3 rounded-lg border-2 bg-surface-2 text-[13px] flex items-center text-muted-foreground truncate">{trabalhoFixo.objeto}</div>
+              ) : (
+                <Select value={trabalhoId} onValueChange={setTrabalhoId} disabled={!clienteId || trabalhosDoCliente.length === 0}>
+                  <SelectTrigger><SelectValue placeholder={trabalhosDoCliente.length === 0 ? 'Nenhum trabalho' : 'Selecione (opcional)'} /></SelectTrigger>
+                  <SelectContent>{trabalhosDoCliente.map(p => <SelectItem key={p.id} value={p.id}>{p.objeto}</SelectItem>)}</SelectContent>
+                </Select>
+              )}
             </div>
           </div>
 

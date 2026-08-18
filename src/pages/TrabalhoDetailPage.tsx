@@ -10,6 +10,7 @@ import { computeTrabalhoFinancials } from '@/lib/financials';
 import { TrabalhoEtapa } from '@/lib/types';
 import { DOCUMENT_REGISTRY } from '@/lib/producao/registry';
 import { NovoRepasseDialog } from '@/components/trabalhos/NovoRepasseDialog';
+import { NovoRecebimentoDialog } from '@/components/NovoRecebimentoDialog';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -36,6 +37,7 @@ export default function TrabalhoDetailPage() {
   const [key, setKey] = useState(0);
   const [novaTarefa, setNovaTarefa] = useState('');
   const [repasseOpen, setRepasseOpen] = useState(false);
+  const [recebimentoOpen, setRecebimentoOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const { trabalho, cliente, fin, tasks, documentos, historico, contrato, lancamentos } = useMemo(() => {
@@ -239,18 +241,24 @@ export default function TrabalhoDetailPage() {
           <section className="bg-card border border-border rounded-xl p-[17px_18px]">
             <div className="flex items-center justify-between">
               <div className="text-[13.5px] font-semibold">Financeiro do trabalho</div>
-              <button onClick={() => setRepasseOpen(true)} className="text-[11.5px] font-medium text-accent flex items-center gap-1">
-                <Plus className="w-3.5 h-3.5" /> Repasse
-              </button>
+              <div className="flex items-center gap-3.5">
+                <button onClick={() => setRecebimentoOpen(true)} className="text-[11.5px] font-medium text-success flex items-center gap-1">
+                  <Plus className="w-3.5 h-3.5" /> Receita
+                </button>
+                <button onClick={() => setRepasseOpen(true)} className="text-[11.5px] font-medium text-accent flex items-center gap-1">
+                  <Plus className="w-3.5 h-3.5" /> Repasse
+                </button>
+              </div>
             </div>
             <div className="flex gap-[18px] mt-3.5 flex-wrap">
               <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">Contratado</div><div className="font-mono-hbs text-[18px] mt-1">{fmt(fin.contratado)}</div></div>
               <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">Recebido</div><div className="font-mono-hbs text-[18px] mt-1 text-success">{fmt(fin.recebido)}</div></div>
               <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">A receber</div><div className="font-mono-hbs text-[18px] mt-1 text-destructive">{fmt(fin.aReceber)}</div></div>
               {(fin.repassado > 0 || fin.repasseAPagar > 0) && (
-                <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">Repasse a parceiros</div><div className="font-mono-hbs text-[18px] mt-1 text-warning">{fmt(fin.repassado + fin.repasseAPagar)}</div></div>
+                <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">Repassado a parceiros</div><div className="font-mono-hbs text-[18px] mt-1 text-warning">{fmt(fin.repassado)}{fin.repasseAPagar > 0 && <span className="text-mute-3 text-[13px]"> / {fmt(fin.repasseAPagar)} previsto</span>}</div></div>
               )}
-              <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">Resultado previsto</div><div className="font-mono-hbs text-[18px] mt-1">{fmt(fin.resultadoPrevisto)}</div></div>
+              <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">Sobrou até agora</div><div className="font-mono-hbs text-[18px] mt-1">{fmt(fin.resultadoRealizado)}</div></div>
+              <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">Resultado previsto (final)</div><div className="font-mono-hbs text-[18px] mt-1">{fmt(fin.resultadoPrevisto)}</div></div>
             </div>
             {fin.proximoVencimento && (
               <div className="text-[12px] text-muted-foreground mt-3 pt-3 border-t border-3">Próximo vencimento · <strong className="text-foreground font-medium">{fmt(fin.proximoVencimento.valor)} em {new Date(fin.proximoVencimento.data + 'T12:00:00').toLocaleDateString('pt-BR')}</strong></div>
@@ -325,6 +333,7 @@ export default function TrabalhoDetailPage() {
       </section>
 
       <NovoRepasseDialog open={repasseOpen} onClose={() => setRepasseOpen(false)} trabalho={trabalho} onCreated={() => setKey(k => k + 1)} />
+      <NovoRecebimentoDialog open={recebimentoOpen} onClose={() => setRecebimentoOpen(false)} trabalhoFixo={trabalho} onCreated={() => setKey(k => k + 1)} />
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
