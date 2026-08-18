@@ -1,4 +1,4 @@
-import { Transaction, Client, Process, Task, Account, DocumentRecord, CompanyConfig, Proposta, Contrato, PrecificacaoConfig, HistoricoEvent, HistoricoModulo } from './types';
+import { Transaction, Client, Process, Task, Account, Partner, DocumentRecord, CompanyConfig, Proposta, Contrato, PrecificacaoConfig, HistoricoEvent, HistoricoModulo } from './types';
 import { CUSTOS_FIXOS_PADRAO, CUSTOS_VARIAVEIS_PADRAO, INVESTIMENTOS_PADRAO, HORAS_PRODUTIVAS_PADRAO, CUSTOS_PROTOCOLO_PADRAO } from './comercial/precificacao';
 
 const STORAGE_KEY = 'hbs_transactions';
@@ -380,6 +380,50 @@ export function updateAccount(updated: Account): void {
 export function deleteAccount(id: string): void {
   const all = loadAllAccounts();
   saveAllAccounts(all.filter(a => a.id !== id));
+}
+
+// --- PARTNERS (Parceiros) ---
+const STORAGE_KEY_PARTNERS = 'hbs_partners';
+
+function loadAllPartners(): Partner[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PARTNERS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveAllPartners(partners: Partner[]) {
+  localStorage.setItem(STORAGE_KEY_PARTNERS, JSON.stringify(partners));
+}
+
+export function getPartners(): Partner[] {
+  return loadAllPartners().sort((a, b) => a.nome.localeCompare(b.nome));
+}
+
+export function getPartner(id: string): Partner | undefined {
+  return loadAllPartners().find(p => p.id === id);
+}
+
+export function addPartner(partner: Partner): void {
+  const all = loadAllPartners();
+  all.push(partner);
+  saveAllPartners(all);
+}
+
+export function updatePartner(updated: Partner): void {
+  const all = loadAllPartners();
+  const idx = all.findIndex(p => p.id === updated.id);
+  if (idx >= 0) all[idx] = updated;
+  saveAllPartners(all);
+}
+
+export function deletePartner(id: string): void {
+  const all = loadAllPartners();
+  saveAllPartners(all.filter(p => p.id !== id));
 }
 
 // --- DOCUMENTOS ---

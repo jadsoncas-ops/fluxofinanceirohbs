@@ -52,6 +52,14 @@ export interface TrabalhoFinancials {
   atrasado: number;
   /** Próxima parcela a vencer (não atrasada), se houver. */
   proximoVencimento: { valor: number; data: string } | null;
+  /** Repasses a parceiros já pagos, vinculados a este trabalho. */
+  repassado: number;
+  /** Repasses a parceiros ainda pendentes, vinculados a este trabalho. */
+  repasseAPagar: number;
+  /** Resultado previsto = contratado - repasses (pagos + a pagar). */
+  resultadoPrevisto: number;
+  /** Resultado realizado = recebido - repasses já pagos. */
+  resultadoRealizado: number;
 }
 
 /** Agregação financeira de um trabalho específico — usada na página de detalhe do Trabalho. */
@@ -69,11 +77,21 @@ export function computeTrabalhoFinancials(trabalho: Process, transactions: Trans
 
   const proximo = pendentes.filter(t => t.data >= today).sort((a, b) => a.data.localeCompare(b.data))[0];
 
+  const repasses = txs.filter(t => t.isRepasse);
+  const repassado = repasses.filter(t => t.status === 'Concluído').reduce((s, t) => s + t.valor, 0);
+  const repasseAPagar = repasses.filter(t => t.status !== 'Concluído').reduce((s, t) => s + t.valor, 0);
+
+  const contratado = trabalho.valorContrato || 0;
+
   return {
-    contratado: trabalho.valorContrato || 0,
+    contratado,
     recebido,
     aReceber,
     atrasado,
     proximoVencimento: proximo ? { valor: proximo.valor, data: proximo.data } : null,
+    repassado,
+    repasseAPagar,
+    resultadoPrevisto: contratado - (repassado + repasseAPagar),
+    resultadoRealizado: recebido - repassado,
   };
 }

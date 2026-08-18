@@ -1,17 +1,19 @@
 import { useState, useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Switch } from '@/components/ui/switch';
-import { Plus, Wallet, Edit, Trash2, Landmark } from 'lucide-react';
+import { Plus, Wallet, Pencil, Trash2, Landmark } from 'lucide-react';
 import { getAccounts, addAccount, updateAccount, deleteAccount } from '@/lib/storage';
 import { Account, AccountType } from '@/lib/types';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 const TIPOS: AccountType[] = ['Conta Corrente', 'Poupança', 'Conta Digital', 'Caixa', 'Investimento'];
+
+function fmt(v: number) {
+  return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
 export default function FinanceiroContasPage() {
   const [key, setKey] = useState(0);
@@ -28,27 +30,18 @@ export default function FinanceiroContasPage() {
 
   function openNew() {
     setEditItem(null);
-    setNome('');
-    setTipo('Conta Corrente');
-    setSaldo('');
-    setAtivo(true);
+    setNome(''); setTipo('Conta Corrente'); setSaldo(''); setAtivo(true);
     setOpen(true);
   }
 
   function openEdit(a: Account) {
     setEditItem(a);
-    setNome(a.nome);
-    setTipo(a.tipo);
-    setSaldo(String(a.saldo));
-    setAtivo(a.ativo);
+    setNome(a.nome); setTipo(a.tipo); setSaldo(String(a.saldo)); setAtivo(a.ativo);
     setOpen(true);
   }
 
   function handleSave() {
-    if (!nome.trim()) {
-      toast.error('Dê um nome para a conta.');
-      return;
-    }
+    if (!nome.trim()) { toast.error('Dê um nome para a conta.'); return; }
     const valor = parseFloat(saldo.replace(',', '.')) || 0;
     if (editItem) {
       updateAccount({ ...editItem, nome: nome.trim(), tipo, saldo: valor, ativo });
@@ -70,90 +63,74 @@ export default function FinanceiroContasPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-[18px] pb-10 animate-hbs-in">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-lg font-black tracking-tight">Contas</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Bancos, contas digitais e caixa — saldo mantido manualmente por você</p>
+          <h2 className="text-[16px] font-semibold">Contas</h2>
+          <p className="text-[12.5px] text-muted-foreground mt-0.5">Bancos, contas digitais e caixa — saldo mantido manualmente por você</p>
         </div>
-        <Button size="sm" onClick={openNew} className="gap-1.5 font-bold rounded-lg">
-          <Plus className="w-4 h-4" /> Nova Conta
-        </Button>
+        <button onClick={openNew} className="h-9 px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] font-medium hover:bg-primary-hover transition-colors flex items-center gap-1.5">
+          <Plus className="w-3.5 h-3.5" /> Nova conta
+        </button>
       </div>
 
-      <Card className="rounded-2xl border-primary/30 bg-primary/5">
-        <CardContent className="p-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10"><Wallet className="w-5 h-5 text-primary" /></div>
-            <span className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Dinheiro disponível (contas ativas)</span>
-          </div>
-          <span className="text-2xl font-black tabular-nums text-primary">R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-        </CardContent>
-      </Card>
+      <div className="bg-primary text-primary-foreground rounded-xl p-[18px] flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-white/10 grid place-items-center"><Wallet className="w-4.5 h-4.5" /></div>
+          <span className="text-[12.5px] font-medium uppercase tracking-[.05em] text-white/70">Dinheiro disponível (contas ativas)</span>
+        </div>
+        <span className="font-mono-hbs text-[22px]">{fmt(total)}</span>
+      </div>
 
       {accounts.length === 0 ? (
-        <Card className="border-border/40 shadow-none bg-muted/20">
-          <CardContent className="p-10 text-center text-muted-foreground flex flex-col items-center">
-            <div className="bg-primary/5 p-4 rounded-full mb-4"><Landmark className="w-10 h-10 text-primary/40" /></div>
-            <p className="text-sm font-bold uppercase tracking-wide">Nenhuma conta cadastrada</p>
-            <p className="text-xs mt-1.5 mb-5 opacity-80 max-w-xs leading-relaxed">Cadastre suas contas bancárias e caixa para ver quanto dinheiro sua empresa tem disponível de verdade.</p>
-            <Button variant="outline" size="sm" onClick={openNew} className="rounded-full font-semibold text-primary border-primary/20 bg-primary/5">+ Cadastrar Primeira Conta</Button>
-          </CardContent>
-        </Card>
+        <div className="bg-card border border-border rounded-xl py-16 text-center">
+          <Landmark className="w-8 h-8 mx-auto text-mute-3 mb-3" strokeWidth={1.5} />
+          <p className="text-sm font-medium">Nenhuma conta cadastrada.</p>
+          <p className="text-xs text-muted-foreground mt-1">Cadastre suas contas bancárias e caixa para ver quanto dinheiro sua empresa tem disponível de verdade.</p>
+        </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
           {accounts.map(a => (
-            <Card key={a.id} className={`border-border/60 rounded-2xl ${!a.ativo ? 'opacity-50' : ''}`}>
-              <CardContent className="p-5 flex items-center justify-between gap-3">
+            <div key={a.id} className={cn('bg-card border border-border rounded-xl p-[15px_18px]', !a.ativo && 'opacity-50')}>
+              <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm truncate">{a.nome}</span>
-                    {!a.ativo && <span className="text-[9px] font-black uppercase bg-muted px-1.5 py-0.5 rounded-full text-muted-foreground">Inativa</span>}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[13px] font-medium truncate">{a.nome}</span>
+                    {!a.ativo && <span className="text-[9.5px] uppercase font-medium bg-neutral-soft text-mute-2 px-1.5 py-[1px] rounded-[4px]">Inativa</span>}
                   </div>
-                  <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{a.tipo}</span>
-                  <div className="text-xl font-black tabular-nums mt-1">R$ {a.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                  <div className="text-[11px] text-mute-2 uppercase tracking-[.05em] mt-0.5">{a.tipo}</div>
                 </div>
-                <div className="flex gap-1 shrink-0">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(a)}><Edit className="w-3.5 h-3.5" /></Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(a)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                <div className="flex gap-0.5 flex-none">
+                  <button onClick={() => openEdit(a)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 transition-colors text-mute-2"><Pencil className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => handleDelete(a)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-destructive-soft transition-colors text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+              <div className="font-mono-hbs text-[19px] mt-2.5">{fmt(a.saldo)}</div>
+            </div>
           ))}
         </div>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{editItem ? 'Editar Conta' : 'Nova Conta'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Nome</Label>
-              <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Banco do Brasil" />
-            </div>
+          <DialogHeader><DialogTitle>{editItem ? 'Editar conta' : 'Nova conta'}</DialogTitle></DialogHeader>
+          <div className="space-y-3.5 py-2">
+            <div className="space-y-1.5"><Label>Nome</Label><Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Banco do Brasil" /></div>
             <div className="space-y-1.5">
               <Label>Tipo</Label>
               <Select value={tipo} onValueChange={v => setTipo(v as AccountType)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {TIPOS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                </SelectContent>
+                <SelectContent>{TIPOS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Saldo atual</Label>
-              <Input type="number" step="0.01" value={saldo} onChange={e => setSaldo(e.target.value)} placeholder="0,00" />
-            </div>
-            <div className="flex items-center justify-between pt-1">
-              <Label htmlFor="ativo-switch" className="cursor-pointer">Conta ativa</Label>
-              <Switch id="ativo-switch" checked={ativo} onCheckedChange={setAtivo} />
-            </div>
+            <div className="space-y-1.5"><Label>Saldo atual</Label><Input type="number" step="0.01" value={saldo} onChange={e => setSaldo(e.target.value)} placeholder="0,00" /></div>
+            <label className="flex items-center gap-2 text-[12.5px] cursor-pointer pt-1">
+              <input type="checkbox" checked={ativo} onChange={e => setAtivo(e.target.checked)} className="w-3.5 h-3.5 accent-primary" /> Conta ativa
+            </label>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave}>{editItem ? 'Salvar' : 'Criar Conta'}</Button>
+            <button onClick={() => setOpen(false)} className="h-9 px-3.5 border-2 rounded-lg text-[12.5px]">Cancelar</button>
+            <button onClick={handleSave} className="h-9 px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] font-medium">{editItem ? 'Salvar' : 'Criar conta'}</button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

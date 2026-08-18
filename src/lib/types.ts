@@ -11,6 +11,8 @@ export interface Transaction {
   status: TransactionStatus;
   isRepasse: boolean;
   parentId?: string; // Links repasse to parent transaction
+  /** Parceiro que recebe este repasse — presente quando o repasse tem um parceiro cadastrado vinculado. */
+  partnerId?: string | null;
   clienteId?: string | null; // Vinculo com o cliente
   processId?: string; // Vinculo com o processo específico (Suporte a múltiplos processos p/ mesmo cliente)
   previsaoData?: string; // Data esperada p/ o evento (YYYY-MM-DD)
@@ -177,6 +179,16 @@ export interface Process {
   contratoId?: string;
   createdAt: number;
   updatedAt: number;
+}
+
+/** Parceiro que recebe repasses da HBS (comissionado, indicador, prestador terceirizado). */
+export interface Partner {
+  id: string;
+  nome: string;
+  documento?: string | null;
+  contato?: string | null;
+  observacao?: string | null;
+  createdAt: number;
 }
 
 export type AccountType = 'Conta Corrente' | 'Poupança' | 'Conta Digital' | 'Caixa' | 'Investimento';

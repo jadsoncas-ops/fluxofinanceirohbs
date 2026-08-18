@@ -8,6 +8,7 @@ const items = [
   { to: '/caixa/receitas', label: 'Receitas' },
   { to: '/caixa/despesas', label: 'Despesas' },
   { to: '/caixa/contas', label: 'Contas' },
+  { to: '/caixa/parceiros', label: 'Parceiros' },
 ];
 
 export default function FinanceiroLayout() {

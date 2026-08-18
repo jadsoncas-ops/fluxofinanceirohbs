@@ -22,6 +22,7 @@ import CaixaFluxoDeCaixaPage from "./pages/financeiro/FluxoDeCaixaPage";
 import CaixaReceitasPage from "./pages/financeiro/ReceitasPage";
 import CaixaDespesasPage from "./pages/financeiro/DespesasPage";
 import CaixaContasPage from "./pages/financeiro/ContasPage";
+import CaixaParceirosPage from "./pages/financeiro/ParceirosPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -58,6 +59,7 @@ const App = () => (
               <Route path="receitas" element={<CaixaReceitasPage />} />
               <Route path="despesas" element={<CaixaDespesasPage />} />
               <Route path="contas" element={<CaixaContasPage />} />
+              <Route path="parceiros" element={<CaixaParceirosPage />} />
             </Route>
             <Route path="/financeiro/*" element={<Navigate to="/caixa" replace />} />
 
