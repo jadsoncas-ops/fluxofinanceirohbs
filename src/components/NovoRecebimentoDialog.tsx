@@ -219,14 +219,29 @@ export function NovoRecebimentoDialog({ open, onClose, onCreated, trabalhoFixo, 
               )}
             </div>
             <div className="space-y-2">
-              {parcelas.map((p, i) => (
-                <div key={i} className="flex gap-2 items-center">
-                  {modo === 'parcelado' && <Input value={p.descricao} onChange={e => updateParcela(i, { descricao: e.target.value })} placeholder="Descrição" className="flex-1 h-8 text-xs" />}
-                  <Input type="number" value={p.valor || ''} onChange={e => updateParcela(i, { valor: Number(e.target.value) || 0 })} placeholder="Valor" className={`h-8 text-xs ${modo === 'parcelado' ? 'w-24' : 'flex-1'}`} />
-                  <Input type="date" value={p.data} onChange={e => updateParcela(i, { data: e.target.value })} className="w-36 h-8 text-xs" />
-                  {modo === 'parcelado' && parcelas.length > 1 && <button onClick={() => removeParcela(i)} className="text-destructive p-1"><Trash2 className="w-3.5 h-3.5" /></button>}
-                </div>
-              ))}
+              {parcelas.map((p, i) => {
+                const totalRef = parseFloat(valorTotal.replace(',', '.')) || 0;
+                return (
+                  <div key={i} className="flex gap-2 items-center">
+                    {modo === 'parcelado' && <Input value={p.descricao} onChange={e => updateParcela(i, { descricao: e.target.value })} placeholder="Descrição" className="flex-1 h-8 text-xs" />}
+                    {modo === 'parcelado' && (
+                      <div className="relative w-16 flex-none">
+                        <Input
+                          type="number"
+                          value={totalRef > 0 ? Math.round((p.valor / totalRef) * 1000) / 10 || '' : ''}
+                          onChange={e => { const pct = Number(e.target.value) || 0; updateParcela(i, { valor: Math.round(totalRef * (pct / 100) * 100) / 100 }); }}
+                          placeholder="%"
+                          className="h-8 text-xs pr-4"
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-mute-3 pointer-events-none">%</span>
+                      </div>
+                    )}
+                    <Input type="number" value={p.valor || ''} onChange={e => updateParcela(i, { valor: Number(e.target.value) || 0 })} placeholder="Valor" className={`h-8 text-xs ${modo === 'parcelado' ? 'w-24' : 'flex-1'}`} />
+                    <Input type="date" value={p.data} onChange={e => updateParcela(i, { data: e.target.value })} className="w-36 h-8 text-xs" />
+                    {modo === 'parcelado' && parcelas.length > 1 && <button onClick={() => removeParcela(i)} className="text-destructive p-1"><Trash2 className="w-3.5 h-3.5" /></button>}
+                  </div>
+                );
+              })}
             </div>
             {modo === 'parcelado' && <div className="text-xs mt-2 font-mono-hbs text-muted-foreground">Total das parcelas: {fmt(totalParcelas)}</div>}
           </div>

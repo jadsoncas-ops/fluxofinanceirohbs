@@ -245,6 +245,19 @@ export function NovaPropostaDialog({ open, onClose, onSaved, clienteIdInicial, e
                 {parcelas.map((p, i) => (
                   <div key={i} className="flex gap-2 items-center">
                     <Input value={p.descricao} onChange={e => updateParcela(i, { descricao: e.target.value })} placeholder="Descrição" className="flex-1 h-8 text-xs" />
+                    <div className="relative w-16">
+                      <Input
+                        type="number"
+                        value={resultado.precoVenda > 0 ? Math.round((p.valor / resultado.precoVenda) * 1000) / 10 || '' : ''}
+                        onChange={e => {
+                          const pct = Number(e.target.value) || 0;
+                          updateParcela(i, { valor: Math.round(resultado.precoVenda * (pct / 100) * 100) / 100 });
+                        }}
+                        placeholder="%"
+                        className="h-8 text-xs pr-4"
+                      />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-mute-3 pointer-events-none">%</span>
+                    </div>
                     <Input type="number" value={p.valor || ''} onChange={e => updateParcela(i, { valor: Number(e.target.value) || 0 })} placeholder="Valor" className="w-28 h-8 text-xs" />
                     <button onClick={() => removeParcela(i)} className="text-destructive p-1"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
