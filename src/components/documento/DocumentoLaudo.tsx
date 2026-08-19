@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Process, Client, CompanyConfig } from '@/lib/types';
 import { montarLaudo } from '@/lib/producao/laudo';
+import logoJadsonCastro from '@/assets/logo-jadson-castro.png';
 
 export function DocumentoLaudo({ trabalho, cliente, config }: { trabalho: Process; cliente: Client | undefined; config: CompanyConfig }) {
   const [inadequacoes, setInadequacoes] = useState('');
@@ -24,6 +25,7 @@ export function DocumentoLaudo({ trabalho, cliente, config }: { trabalho: Proces
       </div>
 
       <div className="documento-header">
+        <img src={logoJadsonCastro} alt="Jadson Castro — Engenheiro Civil" className="documento-logo" />
         <div style={{ flex: 1, textAlign: 'center' }}>
           <h1>Relatório de vistoria e laudo de habitabilidade</h1>
           <div className="sub">Conforme vistoria técnica realizada no imóvel</div>

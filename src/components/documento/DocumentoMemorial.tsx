@@ -2,6 +2,7 @@ import { MemorialData } from '@/lib/producao/memorial';
 import { descricaoAreas } from '@/lib/producao/documentoShared';
 import { fmt, fmtProsa } from '@/lib/producao/fracaoIdeal';
 import { AssinaturaTitular } from './AssinaturaTitular';
+import logoJadsonCastro from '@/assets/logo-jadson-castro.png';
 
 export function DocumentoMemorial({ dados }: { dados: MemorialData }) {
   const hoje = new Date().toLocaleDateString('pt-BR');
@@ -9,6 +10,7 @@ export function DocumentoMemorial({ dados }: { dados: MemorialData }) {
   return (
     <div className="documento-folha">
       <div className="documento-header">
+        <img src={logoJadsonCastro} alt="Jadson Castro — Engenheiro Civil" className="documento-logo" />
         <div style={{ flex: 1, textAlign: 'center' }}>
           <h1>Memorial descritivo · fração ideal</h1>
           <div className="sub">Conforme levantamento cadastral e projeto arquitetônico apresentados à prefeitura municipal</div>

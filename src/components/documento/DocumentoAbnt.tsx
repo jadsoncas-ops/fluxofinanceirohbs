@@ -4,6 +4,7 @@ import { calcularQuadroAbnt, fmtMoeda } from '@/lib/producao/abnt';
 import { fmt } from '@/lib/producao/fracaoIdeal';
 import { ConjugeAssinatura } from '@/lib/producao/documentoShared';
 import { AssinaturaTitular } from './AssinaturaTitular';
+import logoJadsonCastro from '@/assets/logo-jadson-castro.png';
 
 function Th({ principal, secundario }: { principal: string; secundario?: string }) {
   return (
@@ -90,6 +91,7 @@ export function DocumentoAbnt({
       </div>
 
       <div className="documento-header">
+        <img src={logoJadsonCastro} alt="Jadson Castro — Engenheiro Civil" className="documento-logo" />
         <div style={{ flex: 1, textAlign: 'center' }}>
           <div className="kicker">Conforme ABNT NBR 12721:2006</div>
           <h1>Quadros IV-A e IV-B</h1>

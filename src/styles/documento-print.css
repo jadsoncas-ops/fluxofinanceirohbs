@@ -35,6 +35,12 @@
   padding-bottom: 16px;
   margin-bottom: 1.75rem;
 }
+.documento-header img.documento-logo {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
 .documento-header .kicker {
   font-family: system-ui, sans-serif;
   font-size: 10.5px;
