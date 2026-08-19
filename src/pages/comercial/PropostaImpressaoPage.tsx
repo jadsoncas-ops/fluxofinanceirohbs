@@ -65,17 +65,11 @@ export default function PropostaImpressaoPage() {
       {/* Capa */}
       <div className="proposta-capa">
         <div className="logo-circle"><img src={hbsLogo} alt={nomeEmpresa} /></div>
-        <div className="regra" />
         <h1>PROPOSTA COMERCIAL</h1>
         <div className="subtitulo">Serviços Técnicos de Engenharia</div>
 
-        <div className="capa-info">
-          <div className="lbl">Cliente</div>
-          <div className="val">{cliente?.nome || 'A definir'}</div>
-          <div className="lbl">Emitida em</div>
-          <div className="val">{new Date(proposta.createdAt).toLocaleDateString('pt-BR')}</div>
-        </div>
-        <div className="capa-numero">Proposta nº {proposta.codigo}</div>
+        <div className="capa-cliente">{cliente?.nome || 'A definir'}</div>
+        <div className="capa-numero">Proposta nº {proposta.codigo} · {new Date(proposta.createdAt).toLocaleDateString('pt-BR')}</div>
 
         <div className="capa-rodape">{nomeEmpresa.toUpperCase()}</div>
       </div>

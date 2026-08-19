@@ -189,10 +189,10 @@ export function AppShell() {
   };
 
   return (
-    <div className="h-screen bg-background flex overflow-hidden">
+    <div className="app-shell-root h-screen bg-background flex overflow-hidden">
       <AppSidebar onOpenCommand={() => setCommandOpen(true)} badges={sidebarBadges} />
 
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+      <div className="app-shell-column flex-1 flex flex-col overflow-hidden min-w-0">
         {showInstallBanner && (
           <div className="bg-primary p-2 text-primary-foreground flex justify-between items-center px-4">
             <span className="text-[10px] font-semibold uppercase tracking-widest">Instale o app HBS no seu celular</span>
@@ -265,7 +265,7 @@ export function AppShell() {
           </div>
         )}
 
-        <main className="flex-1 max-w-[1360px] mx-auto w-full px-4 lg:px-[26px] pb-24 lg:pb-10 overflow-y-auto mt-3 lg:mt-4">
+        <main className="app-shell-main flex-1 max-w-[1360px] mx-auto w-full px-4 lg:px-[26px] pb-24 lg:pb-10 overflow-y-auto mt-3 lg:mt-4">
           <Outlet context={ctx} />
         </main>
 
