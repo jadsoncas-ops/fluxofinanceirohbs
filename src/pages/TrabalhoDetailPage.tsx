@@ -38,6 +38,7 @@ export default function TrabalhoDetailPage() {
   const [novaTarefa, setNovaTarefa] = useState('');
   const [repasseOpen, setRepasseOpen] = useState(false);
   const [recebimentoOpen, setRecebimentoOpen] = useState(false);
+  const [recebimentoValorInicial, setRecebimentoValorInicial] = useState<number | undefined>(undefined);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editandoContratado, setEditandoContratado] = useState(false);
   const [contratadoInput, setContratadoInput] = useState('');
@@ -271,7 +272,10 @@ export default function TrabalhoDetailPage() {
               documentos.map(d => (
                 <div key={d.id} className={cn('group flex items-center gap-[11px] px-[18px] py-[10px] border-t border-3 hover:bg-surface-3 transition-colors')}>
                   <FileText className="w-3.5 h-3.5 text-mute-2 flex-none" />
-                  <button onClick={() => d.tipoTecnico && navigate(`/producao/${trabalho.id}/${d.tipoTecnico}`)} className={cn('text-[12.5px] flex-1 min-w-0 truncate text-left', d.tipoTecnico && 'hover:underline')}>{d.nome}</button>
+                  <div className="flex-1 min-w-0">
+                    <button onClick={() => d.tipoTecnico && navigate(`/producao/${trabalho.id}/${d.tipoTecnico}`)} className={cn('text-[12.5px] block truncate text-left', d.tipoTecnico && 'hover:underline')}>{d.nome}</button>
+                    <div className="text-[10.5px] text-mute-3 font-mono-hbs">{d.versao ? `v${d.versao} · ` : ''}atualizado {new Date(d.updatedAt).toLocaleDateString('pt-BR')}</div>
+                  </div>
                   <span className="text-[11px] text-mute-2">{d.situacao}</span>
                   <button onClick={() => removerDocumento(d.id, d.nome)} className="opacity-0 group-hover:opacity-100 transition-opacity text-mute-3 hover:text-destructive flex-none">
                     <Trash2 className="w-3.5 h-3.5" />
@@ -311,6 +315,13 @@ export default function TrabalhoDetailPage() {
               <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">A receber</div><div className="font-mono-hbs text-[18px] mt-1 text-destructive">{fmt(fin.aReceber)}</div></div>
               <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">Sobrou até agora</div><div className="font-mono-hbs text-[18px] mt-1">{fmt(fin.resultadoRealizado)}</div></div>
             </div>
+
+            {fin.semParcelaRegistrada > 0 && (
+              <div className="flex items-center justify-between gap-3 bg-warning-soft text-warning rounded-lg px-3 py-2.5 mt-3 text-[12px]">
+                <span>{fmt(fin.semParcelaRegistrada)} do valor contratado ainda não tem parcela registrada como a receber.</span>
+                <button onClick={() => { setRecebimentoValorInicial(fin.semParcelaRegistrada); setRecebimentoOpen(true); }} className="h-7 px-2.5 rounded-lg bg-warning text-white text-[11px] font-medium flex-none whitespace-nowrap">Registrar como a receber</button>
+              </div>
+            )}
 
             {(fin.repassado > 0 || fin.repasseAPagar > 0 || fin.proximoVencimento || fin.atrasado > 0) && (
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-muted-foreground mt-3 pt-3 border-t border-3">
@@ -357,7 +368,7 @@ export default function TrabalhoDetailPage() {
                     </div>
                   </div>
                   <div className="flex gap-3 pt-1 border-t border-3">
-                    <button onClick={() => { setNovoLancamentoAberto(false); setRecebimentoOpen(true); }} className="text-[10.5px] text-mute-2 hover:text-accent underline">Receita parcelada em várias vezes</button>
+                    <button onClick={() => { setNovoLancamentoAberto(false); setRecebimentoValorInicial(undefined); setRecebimentoOpen(true); }} className="text-[10.5px] text-mute-2 hover:text-accent underline">Receita parcelada em várias vezes</button>
                     <button onClick={() => { setNovoLancamentoAberto(false); setRepasseOpen(true); }} className="text-[10.5px] text-mute-2 hover:text-accent underline">Repasse a um parceiro</button>
                   </div>
                 </div>
@@ -428,7 +439,14 @@ export default function TrabalhoDetailPage() {
       </section>
 
       <NovoRepasseDialog open={repasseOpen} onClose={() => setRepasseOpen(false)} trabalho={trabalho} onCreated={() => shell.refresh()} />
-      <NovoRecebimentoDialog open={recebimentoOpen} onClose={() => setRecebimentoOpen(false)} trabalhoFixo={trabalho} onCreated={() => shell.refresh()} />
+      <NovoRecebimentoDialog
+        open={recebimentoOpen}
+        onClose={() => setRecebimentoOpen(false)}
+        trabalhoFixo={trabalho}
+        valorInicial={recebimentoValorInicial}
+        descricaoInicial={recebimentoValorInicial ? 'Saldo restante do contrato' : undefined}
+        onCreated={() => shell.refresh()}
+      />
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>

@@ -60,6 +60,8 @@ export interface TrabalhoFinancials {
   resultadoPrevisto: number;
   /** Resultado realizado = recebido - repasses já pagos. */
   resultadoRealizado: number;
+  /** Contratado - recebido - a receber já registrado. > 0 quando falta lançar alguma parcela do valor contratado. */
+  semParcelaRegistrada: number;
 }
 
 /** Agregação financeira de um trabalho específico — usada na página de detalhe do Trabalho. */
@@ -93,5 +95,6 @@ export function computeTrabalhoFinancials(trabalho: Process, transactions: Trans
     repasseAPagar,
     resultadoPrevisto: contratado - (repassado + repasseAPagar),
     resultadoRealizado: recebido - repassado,
+    semParcelaRegistrada: Math.max(0, Math.round((contratado - recebido - aReceber) * 100) / 100),
   };
 }

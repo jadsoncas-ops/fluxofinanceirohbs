@@ -23,6 +23,9 @@ interface Props {
   trabalhoFixo?: Process;
   /** Quando informado (sem trabalhoFixo), pré-seleciona o cliente mas deixa o trabalho livre — usado ao abrir a partir da ficha do Cliente. */
   clienteIdInicial?: string;
+  /** Pré-preenche valor total e descrição — usado quando já se sabe quanto falta receber (ex.: saldo do contrato). */
+  valorInicial?: number;
+  descricaoInicial?: string;
 }
 
 function todayPlus(days: number) {
@@ -36,23 +39,26 @@ function fmt(v: number) {
 }
 
 /** Novo recebimento — único ou parcelado em N vezes, cada parcela com data própria. Cada parcela vira um Transaction 'A Receber' independente, e aparece em Próximos compromissos assim que estiver dentro de 15 dias. */
-export function NovoRecebimentoDialog({ open, onClose, onCreated, trabalhoFixo, clienteIdInicial }: Props) {
+export function NovoRecebimentoDialog({ open, onClose, onCreated, trabalhoFixo, clienteIdInicial, valorInicial, descricaoInicial }: Props) {
   const clients = useMemo(() => getClients(), [open]);
   const [clienteId, setClienteId] = useState(trabalhoFixo?.clienteId || clienteIdInicial || '');
   const trabalhosDoCliente = useMemo(() => getProcesses().filter(p => !p.isArchived && p.clienteId === clienteId), [clienteId]);
   const [trabalhoId, setTrabalhoId] = useState(trabalhoFixo?.id || '');
-  const [descricaoBase, setDescricaoBase] = useState('');
+  const [descricaoBase, setDescricaoBase] = useState(descricaoInicial || '');
   const [categoria, setCategoria] = useState(CATEGORIAS_ENTRADA[0]);
   const [modo, setModo] = useState<'unico' | 'parcelado'>('unico');
-  const [valorTotal, setValorTotal] = useState('');
-  const [parcelas, setParcelas] = useState<ParcelaInput[]>([{ descricao: '', valor: 0, data: todayPlus(0) }]);
+  const [valorTotal, setValorTotal] = useState(valorInicial ? String(valorInicial) : '');
+  const [parcelas, setParcelas] = useState<ParcelaInput[]>([{ descricao: '', valor: valorInicial || 0, data: todayPlus(0) }]);
 
   useEffect(() => {
     if (!open) return;
     setClienteId(trabalhoFixo?.clienteId || clienteIdInicial || '');
     setTrabalhoId(trabalhoFixo?.id || '');
+    setDescricaoBase(descricaoInicial || '');
+    setValorTotal(valorInicial ? String(valorInicial) : '');
+    setParcelas([{ descricao: '', valor: valorInicial || 0, data: todayPlus(0) }]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, trabalhoFixo?.id, clienteIdInicial]);
+  }, [open, trabalhoFixo?.id, clienteIdInicial, valorInicial, descricaoInicial]);
 
   const totalParcelas = parcelas.reduce((s, p) => s + p.valor, 0);
 
@@ -95,8 +101,8 @@ export function NovoRecebimentoDialog({ open, onClose, onCreated, trabalhoFixo, 
   }
 
   function reset() {
-    setClienteId(trabalhoFixo?.clienteId || clienteIdInicial || ''); setTrabalhoId(trabalhoFixo?.id || ''); setDescricaoBase(''); setCategoria(CATEGORIAS_ENTRADA[0]);
-    setModo('unico'); setValorTotal(''); setParcelas([{ descricao: '', valor: 0, data: todayPlus(0) }]);
+    setClienteId(trabalhoFixo?.clienteId || clienteIdInicial || ''); setTrabalhoId(trabalhoFixo?.id || ''); setDescricaoBase(descricaoInicial || ''); setCategoria(CATEGORIAS_ENTRADA[0]);
+    setModo('unico'); setValorTotal(valorInicial ? String(valorInicial) : ''); setParcelas([{ descricao: '', valor: valorInicial || 0, data: todayPlus(0) }]);
   }
 
   function handleCreate() {

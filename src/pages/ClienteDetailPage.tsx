@@ -29,11 +29,12 @@ function fmt(v: number) {
   return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-const statusBadge: Record<string, string> = {
-  Levantamento: 'bg-neutral-soft text-mute-2',
-  Protocolo: 'bg-accent-soft text-accent',
-  Exigência: 'bg-warning-soft text-warning',
-  Finalizado: 'bg-success-soft text-success',
+const etapaBadge: Record<string, string> = {
+  Planejamento: 'bg-neutral-soft text-mute-2',
+  'Em andamento': 'bg-accent-soft text-accent',
+  'Aguardando cliente': 'bg-warning-soft text-warning',
+  Revisão: 'bg-warning-soft text-warning',
+  Concluído: 'bg-success-soft text-success',
 };
 
 export default function ClienteDetailPage() {
@@ -179,12 +180,12 @@ export default function ClienteDetailPage() {
             <div className="px-[18px] pb-4 text-xs text-muted-foreground">Nenhum trabalho vinculado ainda.</div>
           ) : (
             processes.map(p => (
-              <div key={p.id} onClick={() => navigate(`/trabalhos/${p.id}`)} className="flex items-center gap-3 px-[18px] py-[11px] border-t border-3 cursor-pointer hover:bg-surface-3 transition-colors">
+              <div key={p.id} onClick={() => navigate(`/trabalhos/${p.id}`)} className={cn('flex items-center gap-3 px-[18px] py-[11px] border-t border-3 cursor-pointer hover:bg-surface-3 transition-colors', p.isArchived && 'opacity-60')}>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[12.5px] font-medium truncate">{p.objeto || 'Serviço'}</div>
-                  <div className="text-[11px] text-mute-2 font-mono-hbs mt-0.5">{p.dataProtocolo ? `protocolo ${p.dataProtocolo}` : 'sem protocolo'}</div>
+                  <div className="text-[12.5px] font-medium truncate">{p.objeto || '(sem descrição)'}{p.isArchived && ' · arquivado'}</div>
+                  <div className="text-[11px] text-mute-2 font-mono-hbs mt-0.5">{typeof p.valorContrato === 'number' && p.valorContrato > 0 ? fmt(p.valorContrato) : 'sem valor definido'}</div>
                 </div>
-                <span className={cn('flex-none text-[11px] px-2 py-[3px] rounded-[5px] font-medium', statusBadge[p.status] || 'bg-neutral-soft text-mute-2')}>{p.status}</span>
+                <span className={cn('flex-none text-[11px] px-2 py-[3px] rounded-[5px] font-medium', etapaBadge[p.etapa || 'Planejamento'])}>{p.etapa || 'Planejamento'}</span>
               </div>
             ))
           )}

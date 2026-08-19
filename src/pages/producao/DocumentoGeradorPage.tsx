@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Printer, Save } from 'lucide-react';
-import { getProcesses, getClients, getCompanyConfig, getDocuments, addDocument, registrarEvento } from '@/lib/storage';
+import { getProcesses, getClients, getCompanyConfig, getDocuments, addDocument, updateDocument, registrarEvento } from '@/lib/storage';
 import { TipoDocumentoTecnico } from '@/lib/types';
 import { buscarTemplate } from '@/lib/producao/registry';
 import { montarMemorial } from '@/lib/producao/memorial';
@@ -46,20 +46,31 @@ export default function DocumentoGeradorPage() {
   }
 
   function salvarDocumento() {
-    const doc = {
-      id: crypto.randomUUID(),
-      nome: `${template!.label} — ${trabalho!.objeto}`,
-      clienteId: trabalho!.clienteId,
-      processId: trabalho!.id,
-      tipoTecnico: tipo,
-      situacao: 'Concluído' as const,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    addDocument(doc);
-    registrarEvento({ modulo: 'Produção Técnica', texto: `Documento gerado — ${template!.label}`, clienteId: trabalho!.clienteId, trabalhoId: trabalho!.id });
-    setGerado(doc.id);
-    toast.success('Documento gerado e salvo no trabalho.');
+    const existente = getDocuments().find(d => d.processId === trabalho!.id && d.tipoTecnico === tipo);
+
+    if (existente) {
+      const proximaVersao = (parseInt(existente.versao || '1', 10) || 1) + 1;
+      updateDocument({ ...existente, versao: String(proximaVersao), situacao: 'Concluído', updatedAt: Date.now() });
+      registrarEvento({ modulo: 'Produção Técnica', texto: `Documento atualizado (v${proximaVersao}) — ${template!.label}`, clienteId: trabalho!.clienteId, trabalhoId: trabalho!.id });
+      setGerado(existente.id);
+      toast.success(`Documento atualizado para a versão ${proximaVersao}.`);
+    } else {
+      const doc = {
+        id: crypto.randomUUID(),
+        nome: `${template!.label} — ${trabalho!.objeto}`,
+        clienteId: trabalho!.clienteId,
+        processId: trabalho!.id,
+        tipoTecnico: tipo,
+        versao: '1',
+        situacao: 'Concluído' as const,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      addDocument(doc);
+      registrarEvento({ modulo: 'Produção Técnica', texto: `Documento gerado — ${template!.label}`, clienteId: trabalho!.clienteId, trabalhoId: trabalho!.id });
+      setGerado(doc.id);
+      toast.success('Documento gerado e salvo no trabalho.');
+    }
   }
 
   const jaExiste = getDocuments().some(d => d.processId === trabalho.id && d.tipoTecnico === tipo);
