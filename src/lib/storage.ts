@@ -227,12 +227,30 @@ export function deleteClient(id: string): void {
 // --- PROCESSES ---
 const STORAGE_KEY_PROCESSES = 'hbs_processes';
 
+/** Migração das etapas antigas do Kanban de Trabalhos pras novas (fluxo de regularização) — sem isso,
+ *  trabalhos já salvos com o nome antigo "somem" do Kanban porque não batem com nenhuma coluna atual. */
+const MIGRACAO_ETAPA: Record<string, Process['etapa']> = {
+  Planejamento: 'Levantamento',
+  'Em andamento': 'Tramitando',
+  Revisão: 'Devolutiva',
+};
+
 function loadAllProcesses(): Process[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_PROCESSES);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+
+    let precisouMigrar = false;
+    const migrados: Process[] = parsed.map((p: Process) => {
+      const novaEtapa = p.etapa && MIGRACAO_ETAPA[p.etapa];
+      if (!novaEtapa) return p;
+      precisouMigrar = true;
+      return { ...p, etapa: novaEtapa };
+    });
+    if (precisouMigrar) saveAllProcesses(migrados);
+    return migrados;
   } catch {
     return [];
   }

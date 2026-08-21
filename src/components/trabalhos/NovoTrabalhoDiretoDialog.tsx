@@ -35,7 +35,7 @@ export function NovoTrabalhoDiretoDialog({ open, onClose, onCreated }: Props) {
       clienteId,
       objeto: objeto.trim(),
       status: 'Levantamento' as const,
-      etapa: 'Planejamento' as const,
+      etapa: 'Levantamento' as const,
       tipoTrabalho,
       endereco: endereco.trim() || undefined,
       valorContrato: valorContrato ? Number(valorContrato) : undefined,

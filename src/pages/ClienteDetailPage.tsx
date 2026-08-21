@@ -29,10 +29,10 @@ function fmt(v: number) {
 }
 
 const etapaBadge: Record<string, string> = {
-  Planejamento: 'bg-neutral-soft text-mute-2',
-  'Em andamento': 'bg-accent-soft text-accent',
   'Aguardando cliente': 'bg-warning-soft text-warning',
-  Revisão: 'bg-warning-soft text-warning',
+  Levantamento: 'bg-neutral-soft text-mute-2',
+  Tramitando: 'bg-accent-soft text-accent',
+  Devolutiva: 'bg-destructive-soft text-destructive',
   Concluído: 'bg-success-soft text-success',
 };
 
@@ -78,7 +78,7 @@ export default function ClienteDetailPage() {
   const pctFin = financials && financials.totalContratado > 0 ? Math.min(100, Math.round((financials.recebido / financials.totalContratado) * 100)) : 0;
 
   const txsAvulsos = txs.filter(t => !t.processId);
-  const trabalhosAtivos = processes.filter(p => !p.isArchived && (p.etapa || 'Planejamento') !== 'Concluído').length;
+  const trabalhosAtivos = processes.filter(p => !p.isArchived && (p.etapa || 'Levantamento') !== 'Concluído').length;
   const propostasAprovadas = propostas.filter(p => p.status === 'Aprovada').length;
   const docsPendentes = documents.filter(d => d.situacao === 'Pendente' || d.situacao === 'Em produção').length;
   const podeExcluir = processes.length === 0 && txs.length === 0 && propostas.length === 0;
@@ -192,7 +192,7 @@ export default function ClienteDetailPage() {
                   <div className="text-[12.5px] font-medium truncate">{p.objeto || '(sem descrição)'}{p.isArchived && ' · arquivado'}</div>
                   <div className="text-[11px] text-mute-2 font-mono-hbs mt-0.5">{typeof p.valorContrato === 'number' && p.valorContrato > 0 ? fmt(p.valorContrato) : 'sem valor definido'}</div>
                 </div>
-                <span className={cn('flex-none text-[11px] px-2 py-[3px] rounded-[5px] font-medium', etapaBadge[p.etapa || 'Planejamento'])}>{p.etapa || 'Planejamento'}</span>
+                <span className={cn('flex-none text-[11px] px-2 py-[3px] rounded-[5px] font-medium', etapaBadge[p.etapa || 'Levantamento'])}>{p.etapa || 'Levantamento'}</span>
               </div>
             ))
           )}

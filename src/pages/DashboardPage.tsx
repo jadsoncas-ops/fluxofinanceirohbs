@@ -12,9 +12,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { CalendarioTarefas } from '@/components/CalendarioTarefas';
 
 const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-const STAGE_PCT: Record<TrabalhoEtapa, number> = { Planejamento: 15, 'Em andamento': 50, 'Aguardando cliente': 70, Revisão: 88, Concluído: 100 };
-const STAGE_COLOR: Record<TrabalhoEtapa, string> = { Planejamento: 'text-mute-2', 'Em andamento': 'text-accent', 'Aguardando cliente': 'text-warning', Revisão: 'text-warning', Concluído: 'text-success' };
-const PROXIMA_ACAO: Record<TrabalhoEtapa, string> = { Planejamento: 'Iniciar levantamento', 'Em andamento': 'Continuar produção técnica', 'Aguardando cliente': 'Cobrar retorno do cliente', Revisão: 'Concluir revisão', Concluído: 'Arquivar trabalho' };
+const STAGE_PCT: Record<TrabalhoEtapa, number> = { 'Aguardando cliente': 10, Levantamento: 30, Tramitando: 65, Devolutiva: 80, Concluído: 100 };
+const STAGE_COLOR: Record<TrabalhoEtapa, string> = { 'Aguardando cliente': 'text-warning', Levantamento: 'text-mute-2', Tramitando: 'text-accent', Devolutiva: 'text-destructive', Concluído: 'text-success' };
+const PROXIMA_ACAO: Record<TrabalhoEtapa, string> = { 'Aguardando cliente': 'Cobrar retorno do cliente', Levantamento: 'Fazer levantamento do imóvel/documentação', Tramitando: 'Acompanhar trâmite no órgão', Devolutiva: 'Atender exigência/pendência', Concluído: 'Arquivar trabalho' };
 
 function fmtMoney(v: number) {
   return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -63,7 +63,7 @@ export default function DashboardPage() {
       .filter(t => { const d = new Date(t.data + 'T12:00:00'); const prev = new Date(now.getFullYear(), now.getMonth() - 1); return d.getMonth() === prev.getMonth() && d.getFullYear() === prev.getFullYear(); })
       .reduce((s, t) => s + t.valor, 0);
 
-    const trabalhosAtivos = processes.filter(p => !p.isArchived && (p.etapa || 'Planejamento') !== 'Concluído');
+    const trabalhosAtivos = processes.filter(p => !p.isArchived && (p.etapa || 'Levantamento') !== 'Concluído');
     const aguardandoCliente = trabalhosAtivos.filter(p => p.etapa === 'Aguardando cliente').length;
 
     const kpis = [
@@ -128,7 +128,7 @@ export default function DashboardPage() {
       .sort((a, b) => b.updatedAt - a.updatedAt)
       .slice(0, 3)
       .map(p => {
-        const etapa = p.etapa || 'Planejamento';
+        const etapa = p.etapa || 'Levantamento';
         return {
           id: p.id,
           nome: p.objeto || 'Trabalho',

@@ -7,7 +7,7 @@ import { NovoTrabalhoDiretoDialog } from '@/components/trabalhos/NovoTrabalhoDir
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-const COLUNAS: TrabalhoEtapa[] = ['Planejamento', 'Em andamento', 'Aguardando cliente', 'Revisão', 'Concluído'];
+const COLUNAS: TrabalhoEtapa[] = ['Aguardando cliente', 'Levantamento', 'Tramitando', 'Devolutiva', 'Concluído'];
 
 function fmt(v: number) {
   return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -34,7 +34,7 @@ export default function TrabalhosPage() {
     const clients = getClients();
     return {
       trabalhos, clients,
-      ativos: trabalhos.filter(t => (t.etapa || 'Planejamento') !== 'Concluído').length,
+      ativos: trabalhos.filter(t => (t.etapa || 'Levantamento') !== 'Concluído').length,
       aguardando: trabalhos.filter(t => t.etapa === 'Aguardando cliente').length,
     };
   }, [key]);
@@ -43,7 +43,7 @@ export default function TrabalhosPage() {
 
   function moverEtapa(id: string, etapa: TrabalhoEtapa) {
     const t = trabalhos.find(x => x.id === id);
-    if (!t || (t.etapa || 'Planejamento') === etapa) return;
+    if (!t || (t.etapa || 'Levantamento') === etapa) return;
     updateProcess({ ...t, etapa });
     registrarEvento({ modulo: 'Trabalhos', texto: `"${t.objeto}" movido para ${etapa}`, clienteId: t.clienteId, trabalhoId: t.id });
     toast.success(`Movido para ${etapa}.`);
@@ -68,7 +68,7 @@ export default function TrabalhosPage() {
       {view === 'kanban' ? (
         <div className="grid gap-3.5 items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(228px, 1fr))' }}>
           {COLUNAS.map(col => {
-            const items = trabalhos.filter(t => (t.etapa || 'Planejamento') === col);
+            const items = trabalhos.filter(t => (t.etapa || 'Levantamento') === col);
             return (
               <div
                 key={col}
@@ -124,7 +124,7 @@ export default function TrabalhosPage() {
           ) : (
             trabalhos.map(t => {
               const pi = prazoInfo(t.prazo);
-              const etapa = t.etapa || 'Planejamento';
+              const etapa = t.etapa || 'Levantamento';
               return (
                 <div key={t.id} onClick={() => navigate(`/trabalhos/${t.id}`)} className="flex gap-3.5 items-center px-[18px] py-3 border-b border-3 last:border-b-0 cursor-pointer hover:bg-surface-3 transition-colors">
                   <div className="flex-[2.4] min-w-0">

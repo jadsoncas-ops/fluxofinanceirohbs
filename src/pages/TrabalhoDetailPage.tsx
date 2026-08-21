@@ -17,12 +17,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 
-const ETAPAS: TrabalhoEtapa[] = ['Planejamento', 'Em andamento', 'Aguardando cliente', 'Revisão', 'Concluído'];
+const ETAPAS: TrabalhoEtapa[] = ['Aguardando cliente', 'Levantamento', 'Tramitando', 'Devolutiva', 'Concluído'];
 const ETAPA_BADGE: Record<TrabalhoEtapa, string> = {
-  Planejamento: 'bg-neutral-soft text-mute-2',
-  'Em andamento': 'bg-accent-soft text-accent',
   'Aguardando cliente': 'bg-warning-soft text-warning',
-  Revisão: 'bg-warning-soft text-warning',
+  Levantamento: 'bg-neutral-soft text-mute-2',
+  Tramitando: 'bg-accent-soft text-accent',
+  Devolutiva: 'bg-destructive-soft text-destructive',
   Concluído: 'bg-success-soft text-success',
 };
 
@@ -76,7 +76,7 @@ export default function TrabalhoDetailPage() {
     );
   }
 
-  const etapaAtual = trabalho.etapa || 'Planejamento';
+  const etapaAtual = trabalho.etapa || 'Levantamento';
   const idxEtapa = ETAPAS.indexOf(etapaAtual);
   const proximaEtapa = ETAPAS[Math.min(idxEtapa + 1, ETAPAS.length - 1)];
 

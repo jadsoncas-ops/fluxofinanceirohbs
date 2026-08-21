@@ -93,8 +93,10 @@ export interface Client {
 
 export type ProcessStatus = 'Levantamento' | 'Protocolo' | 'Exigência' | 'Finalizado';
 
-/** Etapa do Kanban de Trabalhos — independente do ProcessStatus (que descreve a fase perante o órgão). */
-export type TrabalhoEtapa = 'Planejamento' | 'Em andamento' | 'Aguardando cliente' | 'Revisão' | 'Concluído';
+/** Etapa do Kanban de Trabalhos — independente do ProcessStatus (que descreve a fase perante o órgão).
+ *  Ordem reflete o fluxo real de regularização: aguarda o cliente, levanta o imóvel/documentação,
+ *  tramita no órgão (prefeitura/cartório), pode voltar em devolutiva (exigência) até concluir. */
+export type TrabalhoEtapa = 'Aguardando cliente' | 'Levantamento' | 'Tramitando' | 'Devolutiva' | 'Concluído';
 
 export interface ProcessNote {
   id: string;
@@ -168,7 +170,7 @@ export interface Process {
   clienteId: string;
   objeto: string;
   status: ProcessStatus;
-  /** Etapa no Kanban de Trabalhos. Novos trabalhos entram em 'Planejamento'. */
+  /** Etapa no Kanban de Trabalhos. Novos trabalhos entram em 'Levantamento'. */
   etapa?: TrabalhoEtapa;
   /** Tipo do trabalho — usado como rótulo no Kanban (ex.: "Regularização de imóvel", "Projeto arquitetônico"). */
   tipoTrabalho?: string;

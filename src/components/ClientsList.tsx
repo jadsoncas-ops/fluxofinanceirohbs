@@ -85,7 +85,7 @@ export function ClientsList({ refreshSignal = 0 }: Props = {}) {
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="flex gap-3.5 px-[18px] py-[11px] border-b border-border bg-surface-2 text-[10.5px] tracking-[.07em] uppercase text-mute-2">
           <span className="flex-[2.4] min-w-0">Cliente</span>
-          <span className="flex-[1.6] min-w-0">Em andamento</span>
+          <span className="flex-[1.6] min-w-0">Trabalhos ativos</span>
           <span className="flex-[1.7] min-w-0">Financeiro</span>
           <span className="flex-1 min-w-0 text-right">Último contato</span>
         </div>
