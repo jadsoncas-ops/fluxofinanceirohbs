@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Trash2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { Process } from '@/lib/types';
 import { getPartners, addTransaction, registrarEvento } from '@/lib/storage';
 import { Link } from 'react-router-dom';
 
@@ -19,7 +18,9 @@ interface ParcelaRepasse {
 interface Props {
   open: boolean;
   onClose: () => void;
-  trabalho: Process;
+  clienteId: string;
+  /** Presente quando o repasse é lançado a partir de um Trabalho — ausente quando lançado direto do Cliente (sem trabalho vinculado). */
+  processId?: string;
   onCreated: () => void;
 }
 
@@ -33,8 +34,9 @@ function fmt(v: number) {
   return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-/** Registra um repasse (parcelado ou único) a um Parceiro, vinculado a este Trabalho. Reaproveita o modelo de Transaction existente (isRepasse) — apenas com partnerId. */
-export function NovoRepasseDialog({ open, onClose, trabalho, onCreated }: Props) {
+/** Registra um repasse (parcelado ou único) a um Parceiro, vinculado ao Cliente e, quando houver, a um Trabalho.
+ *  Reaproveita o modelo de Transaction existente (isRepasse) — apenas com partnerId. */
+export function NovoRepasseDialog({ open, onClose, clienteId, processId, onCreated }: Props) {
   const partners = useMemo(() => getPartners(), [open]);
   const [partnerId, setPartnerId] = useState('');
   const [valorTotal, setValorTotal] = useState('');
@@ -78,12 +80,12 @@ export function NovoRepasseDialog({ open, onClose, trabalho, onCreated }: Props)
         status: 'Pendente',
         isRepasse: true,
         partnerId: partner.id,
-        clienteId: trabalho.clienteId,
-        processId: trabalho.id,
+        clienteId,
+        processId,
       });
     });
 
-    registrarEvento({ modulo: 'Financeiro', texto: `${parcelas.length} repasse${parcelas.length > 1 ? 's' : ''} previsto${parcelas.length > 1 ? 's' : ''} para ${partner.nome} — total de ${fmt(totalParcelas)}`, clienteId: trabalho.clienteId, trabalhoId: trabalho.id });
+    registrarEvento({ modulo: 'Financeiro', texto: `${parcelas.length} repasse${parcelas.length > 1 ? 's' : ''} previsto${parcelas.length > 1 ? 's' : ''} para ${partner.nome} — total de ${fmt(totalParcelas)}`, clienteId, trabalhoId: processId });
     toast.success('Repasse registrado.');
     onCreated();
     onClose();

@@ -1,11 +1,17 @@
 import { MemorialData } from '@/lib/producao/memorial';
 import { descricaoAreas } from '@/lib/producao/documentoShared';
-import { fmt, fmtProsa } from '@/lib/producao/fracaoIdeal';
+import { fmtProsa, formatarQuadroFracao } from '@/lib/producao/fracaoIdeal';
+import { Process } from '@/lib/types';
 import { AssinaturaTitular } from './AssinaturaTitular';
+import { QuadroFracaoIdeal } from './QuadroFracaoIdeal';
 import logoJadsonCastro from '@/assets/logo-jadson-castro.png';
 
-export function DocumentoMemorial({ dados }: { dados: MemorialData }) {
+export function DocumentoMemorial({ dados, trabalho, onSaved }: { dados: MemorialData; trabalho?: Process; onSaved?: () => void }) {
   const hoje = new Date().toLocaleDateString('pt-BR');
+  // Mesmos valores (mesma precisão por coluna, mesmos ajustes manuais) do Quadro de Fração Ideal, pra prosa e tabela nunca divergirem na mesma unidade.
+  const overrides = trabalho?.tecnico?.quadroFracaoOverrides;
+  const casasPorColuna = trabalho?.tecnico?.quadroFracaoCasas;
+  const formatadoPorId = new Map(formatarQuadroFracao(dados.quadro, casasPorColuna, overrides).linhas.map((f, i) => [dados.quadro[i].unidade.id, f]));
 
   return (
     <div className="documento-folha">
@@ -67,7 +73,7 @@ export function DocumentoMemorial({ dados }: { dados: MemorialData }) {
         ) : (
           <p key={p.unidade.id} className="documento-p">
             <strong>{p.pavimento.toUpperCase()} ({p.unidade.nome}):</strong>{' '}
-            {descricaoAreas(p, dados.semFracao)}. É constituído por {p.unidade.comodos || '(descreva os cômodos ao editar a unidade)'}.
+            {descricaoAreas(p, dados.semFracao, true, formatadoPorId.get(p.unidade.id))}. É constituído por {p.unidade.comodos || '(descreva os cômodos ao editar a unidade)'}.
           </p>
         )
       )}
@@ -78,41 +84,7 @@ export function DocumentoMemorial({ dados }: { dados: MemorialData }) {
             <div className="n">2</div>
             <div className="t">Quadro de fração ideal</div>
           </div>
-          <table className="documento-table">
-            <thead>
-              <tr>
-                {['Pavimento', 'Unid.', 'Banh.', 'Privat.', 'Garagem', 'Comum', 'Σ', 'Fração m²', 'Fração %'].map(h => <th key={h}>{h}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {dados.quadro.map(l => (
-                <tr key={l.unidade.id}>
-                  <td>{l.unidade.pavimento}</td>
-                  <td>{l.unidade.nome}</td>
-                  <td>{l.unidade.banheiros}</td>
-                  <td>{fmt(l.unidade.areaPrivativa)}</td>
-                  <td>{fmt(l.unidade.areaGaragem)}</td>
-                  <td>{fmt(l.unidade.areaComum)}</td>
-                  <td>{fmt(l.soma)}</td>
-                  <td>{fmt(l.fracaoM2)}</td>
-                  <td>{fmt(l.fracaoPct, 2)}%</td>
-                </tr>
-              ))}
-              {dados.verificacao && (
-                <tr className="verificacao">
-                  <td>Verificação</td>
-                  <td></td>
-                  <td>{dados.verificacao.banheiros}</td>
-                  <td>{fmt(dados.verificacao.areaPrivativa)}</td>
-                  <td>{fmt(dados.verificacao.areaGaragem)}</td>
-                  <td>{fmt(dados.verificacao.areaComum)}</td>
-                  <td>{fmt(dados.verificacao.soma)}</td>
-                  <td>{fmt(dados.verificacao.fracaoM2)}</td>
-                  <td>{fmt(dados.verificacao.fracaoPct, 2)}%</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <QuadroFracaoIdeal linhas={dados.quadro} trabalho={trabalho} onSaved={onSaved} />
         </>
       )}
 

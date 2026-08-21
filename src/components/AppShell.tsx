@@ -45,9 +45,7 @@ function useRouteMeta(pathname: string, clientCount: number, trabalhosAtivos: nu
   if (pathname.startsWith('/producao')) return { title: 'Produção Técnica', meta: null };
   if (pathname.startsWith('/comercial')) return { title: 'Comercial', meta: null };
   if (pathname.startsWith('/caixa/visao-geral')) return { title: 'Fluxo de Caixa', meta: 'Visão geral' };
-  if (pathname.startsWith('/caixa/fluxo-de-caixa')) return { title: 'Fluxo de Caixa', meta: 'Fluxo de caixa' };
-  if (pathname.startsWith('/caixa/receitas')) return { title: 'Fluxo de Caixa', meta: 'Receitas' };
-  if (pathname.startsWith('/caixa/despesas')) return { title: 'Fluxo de Caixa', meta: 'Despesas' };
+  if (pathname.startsWith('/caixa/receitas')) return { title: 'Fluxo de Caixa', meta: 'Receitas & despesas' };
   if (pathname.startsWith('/caixa/contas')) return { title: 'Fluxo de Caixa', meta: 'Contas' };
   if (pathname.startsWith('/relatorios')) return { title: 'Relatórios', meta: null };
   if (pathname.startsWith('/tarefas')) return { title: 'Tarefas & agenda', meta: null };
@@ -357,6 +355,7 @@ function MobileBottomNav() {
     { to: '/clientes', label: 'Clientes', icon: Users },
     { to: '/trabalhos', label: 'Trabalhos', icon: Layers },
     { to: '/producao', label: 'Produção', icon: FileStack },
+    { to: '/comercial', label: 'Comercial', icon: Handshake },
     { to: '/caixa', label: 'Caixa', icon: Landmark },
   ];
   return (

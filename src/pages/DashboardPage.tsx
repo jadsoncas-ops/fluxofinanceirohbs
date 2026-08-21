@@ -1,11 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Layers, FileStack, Handshake, Landmark } from 'lucide-react';
+import { ChevronRight, Layers, FileStack, Handshake, Landmark, MessageCircle } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
 import { getAccounts, getProcesses, getClients, getTasks, getPropostas } from '@/lib/storage';
 import { computeAttentionItems, AttentionItem } from '@/lib/attention';
+import { montarMensagemLembreteVencimento, linkWhatsApp } from '@/lib/mensagens';
 import { TrabalhoEtapa } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { CalendarioTarefas } from '@/components/CalendarioTarefas';
 
 const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 const STAGE_PCT: Record<TrabalhoEtapa, number> = { Planejamento: 15, 'Em andamento': 50, 'Aguardando cliente': 70, Revisão: 88, Concluído: 100 };
@@ -33,8 +37,10 @@ export default function DashboardPage() {
   const shell = useShell();
   const navigate = useNavigate();
   const { allTransactions: transactions } = shell;
+  const [lembrete, setLembrete] = useState<{ clienteNome: string; telefone: { ddd: string; numero: string }; mensagem: string } | null>(null);
+  const [mensagemEditada, setMensagemEditada] = useState('');
 
-  const { kpis, attention, cashflow, upcoming, continuando, resumo } = useMemo(() => {
+  const { kpis, attention, venceAmanha, cashflow, upcoming, continuando, resumo, tasks } = useMemo(() => {
     const accounts = getAccounts();
     const processes = getProcesses();
     const clients = getClients();
@@ -69,6 +75,28 @@ export default function DashboardPage() {
     ];
 
     const attention = computeAttentionItems(transactions, clients, tasks, processes, getPropostas());
+
+    const amanha = new Date();
+    amanha.setDate(amanha.getDate() + 1);
+    const amanhaStr = amanha.toISOString().slice(0, 10);
+    const venceAmanhaMap = new Map<string, { valor: number; itens: { descricao: string; valor: number; trabalho?: string }[] }>();
+    transactions
+      .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído' && t.data === amanhaStr && t.clienteId)
+      .forEach(t => {
+        const cur = venceAmanhaMap.get(t.clienteId!) || { valor: 0, itens: [] };
+        cur.valor += t.valor;
+        cur.itens.push({ descricao: t.descricao, valor: t.valor, trabalho: processes.find(p => p.id === t.processId)?.objeto });
+        venceAmanhaMap.set(t.clienteId!, cur);
+      });
+    const venceAmanha = Array.from(venceAmanhaMap.entries())
+      .map(([clienteId, v]) => {
+        const client = clients.find(c => c.id === clienteId);
+        if (!client) return null;
+        const telefone = client.telefone?.ddd && client.telefone?.numero ? { ddd: client.telefone.ddd, numero: client.telefone.numero } : null;
+        const mensagem = montarMensagemLembreteVencimento({ clienteNome: client.nome, data: amanhaStr, itens: v.itens });
+        return { clienteId, clienteNome: client.nome, valor: v.valor, itens: v.itens, telefone, mensagem };
+      })
+      .filter((v): v is NonNullable<typeof v> => v !== null);
 
     const cashflow = Array.from({ length: 6 }).map((_, i) => {
       const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
@@ -113,7 +141,7 @@ export default function DashboardPage() {
 
     const resumo = `${trabalhosAtivos.length} trabalho${trabalhosAtivos.length !== 1 ? 's' : ''} aberto${trabalhosAtivos.length !== 1 ? 's' : ''} · ${attention.length} pendência${attention.length !== 1 ? 's' : ''}`;
 
-    return { kpis, attention, cashflow, upcoming, continuando, resumo };
+    return { kpis, attention, venceAmanha, cashflow, upcoming, continuando, resumo, tasks };
   }, [transactions]);
 
   const maxCash = Math.max(1, ...cashflow.flatMap(m => [m.receita, m.despesa]));
@@ -143,6 +171,39 @@ export default function DashboardPage() {
           </button>
         ))}
       </div>
+
+      {/* Vence amanhã — avisar cliente */}
+      {venceAmanha.length > 0 && (
+        <section className="bg-warning-soft border border-warning/30 rounded-xl overflow-hidden">
+          <div className="px-[18px] py-[15px] border-b border-warning/20 flex items-center justify-between">
+            <div>
+              <div className="text-[16px] font-semibold text-warning">Vence amanhã</div>
+              <div className="text-[11.5px] text-mute-2 mt-0.5 font-mono-hbs">envie o lembrete antes que vença</div>
+            </div>
+            <span className="text-[11px] font-mono-hbs text-mute-2">{venceAmanha.length} cliente{venceAmanha.length > 1 ? 's' : ''}</span>
+          </div>
+          {venceAmanha.map(v => (
+            <div key={v.clienteId} className="flex items-center gap-[13px] px-[18px] py-[13px] border-b border-warning/20 last:border-b-0">
+              <div className="min-w-0 flex-1 cursor-pointer" onClick={() => navigate(`/clientes/${v.clienteId}`)}>
+                <div className="text-[13px] font-medium leading-[1.35]">{v.clienteNome}</div>
+                <div className="text-[11.5px] text-muted-foreground mt-0.5">
+                  {v.itens.length > 1 ? `${v.itens.length} parcelas · ` : ''}{v.itens[0].descricao}{v.itens.length === 1 && v.itens[0].trabalho ? ` — ${v.itens[0].trabalho}` : ''} · {fmtMoney(v.valor)}
+                </div>
+              </div>
+              {v.telefone ? (
+                <button
+                  onClick={e => { e.stopPropagation(); setLembrete({ clienteNome: v.clienteNome, telefone: v.telefone!, mensagem: v.mensagem }); setMensagemEditada(v.mensagem); }}
+                  className="flex-none h-[34px] px-3.5 bg-warning text-warning-foreground rounded-lg text-[12px] font-medium flex items-center gap-1.5 hover:opacity-90 transition-opacity"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" /> Avisar no WhatsApp
+                </button>
+              ) : (
+                <span className="flex-none text-[11px] text-mute-2">sem telefone cadastrado</span>
+              )}
+            </div>
+          ))}
+        </section>
+      )}
 
       <div className="grid gap-[18px] items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
         {/* Precisa da sua atenção */}
@@ -208,6 +269,8 @@ export default function DashboardPage() {
               ))
             )}
           </section>
+
+          <CalendarioTarefas tasks={tasks} />
         </div>
       </div>
 
@@ -245,6 +308,29 @@ export default function DashboardPage() {
           </div>
         )}
       </section>
+
+      <Dialog open={!!lembrete} onOpenChange={v => !v && setLembrete(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Lembrete para {lembrete?.clienteNome}</DialogTitle>
+          </DialogHeader>
+          <p className="text-[12px] text-muted-foreground -mt-2">Revise ou ajuste o texto antes de enviar — quem for mandar (Luanna ou você) pode adaptar à vontade.</p>
+          <Textarea value={mensagemEditada} onChange={e => setMensagemEditada(e.target.value)} className="min-h-[220px] text-[13px]" />
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={() => setLembrete(null)} className="h-9 px-3.5 rounded-lg text-[12.5px] font-medium text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
+            <button
+              onClick={() => {
+                if (!lembrete) return;
+                window.open(linkWhatsApp(lembrete.telefone.ddd, lembrete.telefone.numero, mensagemEditada), '_blank', 'noreferrer');
+                setLembrete(null);
+              }}
+              className="h-9 px-3.5 bg-warning text-warning-foreground rounded-lg text-[12.5px] font-medium hover:opacity-90 transition-opacity flex items-center gap-1.5"
+            >
+              <MessageCircle className="w-3.5 h-3.5" /> Abrir no WhatsApp
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

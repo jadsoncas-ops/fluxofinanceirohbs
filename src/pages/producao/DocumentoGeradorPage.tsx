@@ -18,6 +18,7 @@ import { DocumentoConvencao } from '@/components/documento/DocumentoConvencao';
 import { DocumentoInstituicaoSimplificada } from '@/components/documento/DocumentoInstituicaoSimplificada';
 import { DocumentoLaudo } from '@/components/documento/DocumentoLaudo';
 import { DocumentoRequerimento } from '@/components/documento/DocumentoRequerimento';
+import { RequerimentoAverbacaoWizard } from './RequerimentoAverbacaoWizard';
 import { toast } from 'sonner';
 
 export default function DocumentoGeradorPage() {
@@ -43,6 +44,10 @@ export default function DocumentoGeradorPage() {
         <button onClick={() => navigate('/producao')} className="mt-4 h-9 px-3.5 border-2 rounded-lg text-xs">Voltar para Produção Técnica</button>
       </div>
     );
+  }
+
+  if (tipo === 'requerimento_averbacao') {
+    return <RequerimentoAverbacaoWizard trabalho={trabalho} cliente={cliente} />;
   }
 
   function salvarDocumento() {
@@ -107,7 +112,7 @@ export default function DocumentoGeradorPage() {
           </div>
 
           {tipo === 'memorial' && (
-            <DocumentoMemorial dados={montarMemorial(trabalho, cliente, config, clientes)} />
+            <DocumentoMemorial dados={montarMemorial(trabalho, cliente, config, clientes)} trabalho={trabalho} onSaved={() => setKey(k => k + 1)} />
           )}
           {tipo === 'abnt' && (
             <DocumentoAbnt
@@ -125,7 +130,7 @@ export default function DocumentoGeradorPage() {
             <DocumentoConvencao dados={montarConvencao(trabalho, cliente, clientes)} />
           )}
           {tipo === 'instituicao_simplificada' && (
-            <DocumentoInstituicaoSimplificada dados={montarInstituicaoSimplificada(trabalho, cliente, clientes)} />
+            <DocumentoInstituicaoSimplificada dados={montarInstituicaoSimplificada(trabalho, cliente, clientes)} trabalho={trabalho} onSaved={() => setKey(k => k + 1)} />
           )}
           {tipo === 'laudo' && (
             <DocumentoLaudo trabalho={trabalho} cliente={cliente} config={config} />

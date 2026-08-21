@@ -96,6 +96,15 @@ export const DOCUMENT_REGISTRY: DocumentTemplate[] = [
     disponivel: true,
     requisitos: trabalho => [{ label: 'Pelo menos um ato registral selecionado', ok: !!(trabalho.tecnico?.atosRegistraisRequerimento || []).length, nivel: 'aviso' }],
   },
+  {
+    slug: 'requerimento_averbacao',
+    label: 'Requerimento de Averbação',
+    descricao: 'Prepare o requerimento para averbação de construção, ampliação, reforma ou regularização da edificação.',
+    icon: '🏗️',
+    grupo: 'Registro/Regularização',
+    disponivel: true,
+    requisitos: () => [],
+  },
 ];
 
 export function buscarTemplate(slug: TipoDocumentoTecnico): DocumentTemplate {

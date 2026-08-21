@@ -93,7 +93,7 @@ export default function PropostaImpressaoPage() {
           <div className="titulo"><span className="num">02</span><span>Escopo dos serviços</span></div>
         </div>
         {grupos.map(g => (
-          <div key={g.nome}>
+          <div key={g.nome} className="proposta-grupo">
             <div className="proposta-modulo">{g.nome.toUpperCase()}</div>
             {g.itens.map(i => (
               <div key={i.etapaId} className="proposta-item">

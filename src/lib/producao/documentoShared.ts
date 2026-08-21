@@ -1,5 +1,5 @@
 import { Client, QualificacaoJuridica, Process, DadosTecnicosTrabalho } from '@/lib/types';
-import { fmtProsa } from './fracaoIdeal';
+import { fmtProsa, LinhaFracaoFormatada } from './fracaoIdeal';
 
 /** Helpers de texto compartilhados pelos 7 geradores — portado de cota_saas (lib/documentos/shared.ts). */
 
@@ -40,22 +40,32 @@ export function proprietariosDoTrabalho(trabalho: Process, cliente: Client | und
   return [];
 }
 
-/** Fonte única da frase de áreas — usada por Memorial, Instituição e Convenção. */
+/** Fonte única da frase de áreas — usada por Memorial, Instituição e Convenção. Quando `formatado` é
+ *  passado (linha já arredondada coluna a coluna pelo Quadro de Fração Ideal), usa esses valores em vez
+ *  de arredondar de novo isoladamente — evita o texto dizer um número e a tabela mostrar outro para a
+ *  mesma unidade. */
 export function descricaoAreas(
   p: { unidade: { areaComum: number; areaGaragem: number; areaPrivativa: number; garagemNoPavimento?: boolean }; soma: number; fracaoPct: number },
   semFracao: boolean,
-  incluirFracao = true
+  incluirFracao = true,
+  formatado?: LinhaFracaoFormatada
 ): string {
-  if (semFracao) return `Área total de ${fmtProsa(p.soma)}m²`;
+  const areaComum = formatado ? formatado.areaComum : fmtProsa(p.unidade.areaComum);
+  const areaGaragem = formatado ? formatado.areaGaragem : fmtProsa(p.unidade.areaGaragem);
+  const areaPrivativa = formatado ? formatado.areaPrivativa : fmtProsa(p.unidade.areaPrivativa);
+  const soma = formatado ? formatado.soma : fmtProsa(p.soma);
+  const fracaoPct = formatado ? formatado.fracaoPct : fmtProsa(p.fracaoPct);
+
+  if (semFracao) return `Área total de ${soma}m²`;
 
   const partes: string[] = [];
-  if (p.unidade.areaComum > 0) partes.push(`área comum de ${fmtProsa(p.unidade.areaComum)}m²`);
+  if (p.unidade.areaComum > 0) partes.push(`área comum de ${areaComum}m²`);
   if (p.unidade.areaGaragem > 0 && p.unidade.garagemNoPavimento !== false) {
-    partes.push(`área de garagem de ${fmtProsa(p.unidade.areaGaragem)}m²`);
+    partes.push(`área de garagem de ${areaGaragem}m²`);
   }
-  if (p.unidade.areaPrivativa > 0) partes.push(`área privativa de ${fmtProsa(p.unidade.areaPrivativa)}m²`);
-  partes.push(`área total de ${fmtProsa(p.soma)}m²`);
-  if (incluirFracao) partes.push(`fração ideal de ${fmtProsa(p.fracaoPct)}%`);
+  if (p.unidade.areaPrivativa > 0) partes.push(`área privativa de ${areaPrivativa}m²`);
+  partes.push(`área total de ${soma}m²`);
+  if (incluirFracao) partes.push(`fração ideal de ${fracaoPct}%`);
 
   const texto = partes.join(', ');
   return texto.charAt(0).toUpperCase() + texto.slice(1);

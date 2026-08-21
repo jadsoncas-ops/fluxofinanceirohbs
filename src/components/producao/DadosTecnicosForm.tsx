@@ -1,10 +1,14 @@
 import { useState } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, Divide } from 'lucide-react';
 import { Process, Unidade, ProprietarioGeral } from '@/lib/types';
 import { updateProcess } from '@/lib/storage';
 import { ATOS_REGISTRAIS_OPCOES } from '@/lib/producao/requerimento';
 import { compoemMedidas } from '@/lib/producao/documentoShared';
+import { distribuirIgualmente } from '@/lib/producao/fracaoIdeal';
 import { Input } from '@/components/ui/input';
+
+type CampoArea = 'areaPrivativa' | 'areaGaragem' | 'areaComum';
+const CAMPO_LABEL: Record<CampoArea, string> = { areaPrivativa: 'Privativa', areaGaragem: 'Garagem', areaComum: 'Comum' };
 
 function novaUnidade(): Unidade {
   return { id: crypto.randomUUID(), pavimento: '', nome: '', tipo: 'Apartamento', banheiros: 1, areaPrivativa: 0, areaGaragem: 0, areaComum: 0, autonoma: true };
@@ -14,6 +18,8 @@ function novaUnidade(): Unidade {
 export function DadosTecnicosForm({ trabalho, onChange }: { trabalho: Process; onChange: () => void }) {
   const [aberto, setAberto] = useState(!trabalho.tecnico?.units?.length);
   const [unidadeExpandida, setUnidadeExpandida] = useState<string | null>(null);
+  const [divCampo, setDivCampo] = useState<CampoArea>('areaPrivativa');
+  const [divTotal, setDivTotal] = useState('');
   const tecnico = trabalho.tecnico || { units: [] };
   const proprietariosGerais = tecnico.proprietariosGerais || [];
   const atos = tecnico.atosRegistraisRequerimento || [];
@@ -38,6 +44,17 @@ export function DadosTecnicosForm({ trabalho, onChange }: { trabalho: Process; o
 
   function removeUnidade(id: string) {
     salvar({ units: tecnico.units.filter(u => u.id !== id) });
+  }
+
+  const unidadesAutonomas = tecnico.units.filter(u => u.autonoma !== false);
+
+  function aplicarDivisaoIgual() {
+    const total = parseFloat(divTotal.replace(',', '.'));
+    if (!total || total <= 0 || unidadesAutonomas.length === 0) return;
+    const valores = distribuirIgualmente(total, unidadesAutonomas.length);
+    let i = 0;
+    salvar({ units: tecnico.units.map(u => (u.autonoma === false ? u : { ...u, [divCampo]: valores[i++] })) });
+    setDivTotal('');
   }
 
   function addProprietario() {
@@ -173,6 +190,23 @@ export function DadosTecnicosForm({ trabalho, onChange }: { trabalho: Process; o
                 <Plus className="w-3 h-3" /> Unidade
               </button>
             </div>
+
+            {unidadesAutonomas.length >= 2 && (
+              <div className="flex flex-wrap items-end gap-2 bg-surface-2 border border-3 rounded-lg p-2.5 mb-2.5">
+                <MiniField label="Dividir área total entre as unidades">
+                  <select value={divCampo} onChange={e => setDivCampo(e.target.value as CampoArea)} className="h-8 px-2 rounded-lg border-2 bg-card text-xs">
+                    {(Object.keys(CAMPO_LABEL) as CampoArea[]).map(c => <option key={c} value={c}>{CAMPO_LABEL[c]}</option>)}
+                  </select>
+                </MiniField>
+                <MiniField label="Total (m²)">
+                  <Input type="number" value={divTotal} onChange={e => setDivTotal(e.target.value)} placeholder="0,0000" className="h-8 text-xs w-[110px]" />
+                </MiniField>
+                <button onClick={aplicarDivisaoIgual} className="h-8 px-2.5 rounded-lg bg-primary text-primary-foreground text-[11.5px] font-medium flex items-center gap-1.5">
+                  <Divide className="w-3 h-3" /> Dividir entre {unidadesAutonomas.length} unidades
+                </button>
+                <span className="text-[10.5px] text-mute-2 basis-full">A soma sempre fecha exata com o total — sem precisar ajustar 0,0001 na mão.</span>
+              </div>
+            )}
 
             {tecnico.units.length === 0 ? (
               <div className="text-xs text-muted-foreground py-3">Nenhuma unidade ainda — adicione ao menos uma para gerar os documentos.</div>

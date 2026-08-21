@@ -7,7 +7,6 @@ import { computeClientFinancials } from '@/lib/financials';
 import { formatBRL } from '@/lib/comercial/precificacao';
 import { ClientForm } from '@/components/ClientForm';
 import { PropostaDetailDialog } from '@/components/comercial/PropostaDetailDialog';
-import { NovoRecebimentoDialog } from '@/components/NovoRecebimentoDialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -44,7 +43,6 @@ export default function ClienteDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [localKey, setLocalKey] = useState(0);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [recebimentoOpen, setRecebimentoOpen] = useState(false);
 
   const [propostaAberta, setPropostaAberta] = useState<string | null>(null);
 
@@ -79,6 +77,7 @@ export default function ClienteDetailPage() {
   const desde = client.createdAt ? new Date(client.createdAt).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }) : '—';
   const pctFin = financials && financials.totalContratado > 0 ? Math.min(100, Math.round((financials.recebido / financials.totalContratado) * 100)) : 0;
 
+  const txsAvulsos = txs.filter(t => !t.processId);
   const trabalhosAtivos = processes.filter(p => !p.isArchived && (p.etapa || 'Planejamento') !== 'Concluído').length;
   const propostasAprovadas = propostas.filter(p => p.status === 'Aprovada').length;
   const docsPendentes = documents.filter(d => d.situacao === 'Pendente' || d.situacao === 'Em produção').length;
@@ -132,7 +131,6 @@ export default function ClienteDetailPage() {
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
-          <button onClick={() => setRecebimentoOpen(true)} className="h-[34px] px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] hover:bg-primary-hover transition-colors">+ Novo recebimento</button>
         </div>
       </div>
 
@@ -171,6 +169,15 @@ export default function ClienteDetailPage() {
               ? (pctFin >= 100 ? 'Contrato integralmente quitado.' : `${pctFin}% recebido.${financials.atrasado > 0 ? ` ${fmt(financials.atrasado)} em atraso.` : ''}`)
               : 'Sem contrato de valor definido ainda.'}
           </div>
+          <div className="text-[11px] text-mute-2 mt-3 pt-3 border-t border-3">
+            Este resumo é a soma dos Trabalhos deste cliente. Para lançar ou editar valores, entre no Trabalho correspondente.
+          </div>
+          {txsAvulsos.length > 0 && (
+            <div className="text-[11px] text-warning bg-warning-soft rounded-lg px-2.5 py-2 mt-2.5">
+              {txsAvulsos.length} lançamento{txsAvulsos.length > 1 ? 's' : ''} deste cliente sem trabalho vinculado. Edite em{' '}
+              <button onClick={() => navigate('/caixa/receitas')} className="underline font-medium">Fluxo de Caixa</button> (busque pelo nome do cliente).
+            </div>
+          )}
         </section>
 
         {/* Trabalhos */}
@@ -269,7 +276,6 @@ export default function ClienteDetailPage() {
 
       <ClientForm open={editOpen} onClose={() => setEditOpen(false)} onSave={() => { setEditOpen(false); setLocalKey(k => k + 1); }} editItem={client} />
       <PropostaDetailDialog propostaId={propostaAberta} onClose={() => setPropostaAberta(null)} onChanged={() => setLocalKey(k => k + 1)} />
-      <NovoRecebimentoDialog open={recebimentoOpen} onClose={() => setRecebimentoOpen(false)} clienteIdInicial={clienteId} onCreated={() => shell.refresh()} />
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>

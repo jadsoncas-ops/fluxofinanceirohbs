@@ -1,12 +1,17 @@
 import { InstituicaoSimplificadaData } from '@/lib/producao/instituicaoSimplificada';
 import { descricaoAreas, TEXTO_ATIPICIDADE_SIMPLIFICADA } from '@/lib/producao/documentoShared';
-import { fmt, fmtProsa } from '@/lib/producao/fracaoIdeal';
+import { fmtProsa, formatarQuadroFracao } from '@/lib/producao/fracaoIdeal';
+import { Process } from '@/lib/types';
 import { AssinaturaTitular } from './AssinaturaTitular';
+import { QuadroFracaoIdeal } from './QuadroFracaoIdeal';
 
-export function DocumentoInstituicaoSimplificada({ dados }: { dados: InstituicaoSimplificadaData }) {
+export function DocumentoInstituicaoSimplificada({ dados, trabalho, onSaved }: { dados: InstituicaoSimplificadaData; trabalho?: Process; onSaved?: () => void }) {
   const medidasBruto = dados.medidas || '(medidas do lote a preencher)';
   const jaTemArea = /totalizando|área total/i.test(medidasBruto);
   const medidasTexto = medidasBruto.replace(/\.\s*$/, '');
+  const overrides = trabalho?.tecnico?.quadroFracaoOverrides;
+  const casasPorColuna = trabalho?.tecnico?.quadroFracaoCasas;
+  const formatadoPorId = new Map(formatarQuadroFracao(dados.quadro, casasPorColuna, overrides).linhas.map((f, i) => [dados.quadro[i].unidade.id, f]));
 
   return (
     <div className="documento-folha">
@@ -40,34 +45,12 @@ export function DocumentoInstituicaoSimplificada({ dados }: { dados: Instituicao
       {dados.paragrafos.map(p => (
         <p key={p.unidade.id} className="documento-p">
           <strong>{p.pavimento.toUpperCase()} ({p.unidade.nome}):</strong>{' '}
-          {descricaoAreas(p, dados.semFracao, p.unidade.autonoma !== false)}, com as seguintes características: {p.unidade.comodos || '(cômodos a preencher)'}.{' '}
+          {descricaoAreas(p, dados.semFracao, p.unidade.autonoma !== false, formatadoPorId.get(p.unidade.id))}, com as seguintes características: {p.unidade.comodos || '(cômodos a preencher)'}.{' '}
           {p.unidade.inscricao ? `Inscrição municipal: ${p.unidade.inscricao}.` : ''}
         </p>
       ))}
 
-      {!dados.semFracao && dados.quadro.length > 0 && (
-        <table className="documento-table">
-          <thead>
-            <tr>{['Pavimento', 'Unid.', 'Banh.', 'Privat.', 'Garagem', 'Comum', 'Σ', 'Fração m²', 'Fração %'].map(h => <th key={h}>{h}</th>)}</tr>
-          </thead>
-          <tbody>
-            {dados.quadro.map(l => (
-              <tr key={l.unidade.id}>
-                <td>{l.unidade.pavimento}</td><td>{l.unidade.nome}</td><td>{l.unidade.banheiros}</td>
-                <td>{fmt(l.unidade.areaPrivativa)}</td><td>{fmt(l.unidade.areaGaragem)}</td><td>{fmt(l.unidade.areaComum)}</td>
-                <td>{fmt(l.soma)}</td><td>{fmt(l.fracaoM2)}</td><td>{fmt(l.fracaoPct, 2)}%</td>
-              </tr>
-            ))}
-            {dados.verificacao && (
-              <tr className="verificacao">
-                <td>Verificação</td><td></td><td>{dados.verificacao.banheiros}</td>
-                <td>{fmt(dados.verificacao.areaPrivativa)}</td><td>{fmt(dados.verificacao.areaGaragem)}</td><td>{fmt(dados.verificacao.areaComum)}</td>
-                <td>{fmt(dados.verificacao.soma)}</td><td>{fmt(dados.verificacao.fracaoM2)}</td><td>{fmt(dados.verificacao.fracaoPct, 2)}%</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      )}
+      {!dados.semFracao && dados.quadro.length > 0 && <QuadroFracaoIdeal linhas={dados.quadro} trabalho={trabalho} onSaved={onSaved} />}
 
       <div className="documento-section-title"><div className="n">5</div><div className="t">Do uso das unidades autônomas</div></div>
       <p className="documento-p">

@@ -19,9 +19,7 @@ import PropostaImpressaoPage from "./pages/comercial/PropostaImpressaoPage";
 import RelatoriosPage from "./pages/RelatoriosPage";
 import CaixaLayout from "./pages/financeiro/FinanceiroLayout";
 import CaixaVisaoGeralPage from "./pages/financeiro/VisaoGeralPage";
-import CaixaFluxoDeCaixaPage from "./pages/financeiro/FluxoDeCaixaPage";
-import CaixaReceitasPage from "./pages/financeiro/ReceitasPage";
-import CaixaDespesasPage from "./pages/financeiro/DespesasPage";
+import CaixaMovimentacoesPage from "./pages/financeiro/MovimentacoesPage";
 import CaixaContasPage from "./pages/financeiro/ContasPage";
 import CaixaParceirosPage from "./pages/financeiro/ParceirosPage";
 import NotFound from "./pages/NotFound.tsx";
@@ -57,9 +55,9 @@ const App = () => (
             <Route path="/caixa" element={<CaixaLayout />}>
               <Route index element={<Navigate to="/caixa/visao-geral" replace />} />
               <Route path="visao-geral" element={<CaixaVisaoGeralPage />} />
-              <Route path="fluxo-de-caixa" element={<CaixaFluxoDeCaixaPage />} />
-              <Route path="receitas" element={<CaixaReceitasPage />} />
-              <Route path="despesas" element={<CaixaDespesasPage />} />
+              <Route path="fluxo-de-caixa" element={<Navigate to="/caixa/visao-geral" replace />} />
+              <Route path="receitas" element={<CaixaMovimentacoesPage />} />
+              <Route path="despesas" element={<Navigate to="/caixa/receitas" replace />} />
               <Route path="contas" element={<CaixaContasPage />} />
               <Route path="parceiros" element={<CaixaParceirosPage />} />
             </Route>

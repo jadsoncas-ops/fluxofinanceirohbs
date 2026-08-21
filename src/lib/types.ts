@@ -154,6 +154,13 @@ export interface DadosTecnicosTrabalho {
   atosRegistraisRequerimento?: ('especificacao' | 'instituicao' | 'convencao' | 'inventario' | 'partilha' | 'transmissao' | 'doacao' | 'outros')[];
   proprietariosGerais?: ProprietarioGeral[];
   units: Unidade[];
+  /** Ajustes manuais dos valores exibidos no Quadro de Fração Ideal, por unidade — usado quando o
+   *  arredondamento automático precisa de correção pontual para bater com uma exigência específica do
+   *  cartório. Chave: `Unidade.id`. Persiste até nova edição. */
+  quadroFracaoOverrides?: Record<string, Partial<Record<'areaPrivativa' | 'areaGaragem' | 'areaComum' | 'soma' | 'fracaoM2' | 'fracaoPct', number>>>;
+  /** Quantas casas decimais mostrar em cada coluna do Quadro de Fração Ideal — cada coluna tem sua
+   *  própria precisão natural. Sem valor definido, usa o perfil padrão (ver `CASAS_PADRAO`). */
+  quadroFracaoCasas?: Partial<Record<'areaPrivativa' | 'areaGaragem' | 'areaComum' | 'soma' | 'fracaoM2' | 'fracaoPct', number>>;
 }
 
 export interface Process {
@@ -177,6 +184,8 @@ export interface Process {
   tecnico?: DadosTecnicosTrabalho;
   /** Preenchido quando o trabalho nasceu de um contrato aprovado no módulo Comercial. */
   contratoId?: string;
+  /** Presente apenas quando este trabalho gera um Requerimento de Averbação (Produção Técnica). */
+  averbacao?: AverbacaoData;
   createdAt: number;
   updatedAt: number;
 }
@@ -205,7 +214,7 @@ export interface Account {
 
 export type DocumentSituacao = 'Vigente' | 'Pendente' | 'Entregue' | 'Modelo' | 'Em produção' | 'Em revisão' | 'Rascunho' | 'Desatualizado' | 'Concluído';
 
-/** Os 7 tipos de documento técnico que a Produção Técnica sabe gerar (motor portado do cota_saas). */
+/** Os tipos de documento técnico que a Produção Técnica sabe gerar (motor portado do cota_saas + geradores nativos da HBS). */
 export type TipoDocumentoTecnico =
   | 'memorial'
   | 'abnt'
@@ -213,7 +222,55 @@ export type TipoDocumentoTecnico =
   | 'convencao'
   | 'instituicao_simplificada'
   | 'laudo'
-  | 'requerimento';
+  | 'requerimento'
+  | 'requerimento_averbacao';
+
+export type TipoAtoAverbacao = 'averbacao_construcao' | 'averbacao_ampliacao' | 'averbacao_reforma' | 'regularizacao_existente';
+
+/** Dados do Requerimento de Averbação — usado quando o Trabalho NÃO envolve instituição de condomínio
+ *  (averbação de construção/ampliação/reforma ou regularização de construção existente perante o RI).
+ *  Persistido no Trabalho para permitir reabrir, editar e regenerar sem perder o preenchimento. */
+export interface AverbacaoData {
+  requerenteNome?: string;
+  requerenteDocumento?: string;
+  requerenteEstadoCivil?: EstadoCivil;
+  requerenteProfissao?: string;
+  requerenteConjugeNome?: string;
+  requerenteEndereco?: string;
+  /** Preenchidos apenas quando o requerente é pessoa jurídica. */
+  representanteNome?: string;
+  representanteCpf?: string;
+  representanteQualificacao?: string;
+
+  matricula?: string;
+  cartorio?: string;
+  imovelEndereco?: string;
+  imovelNumero?: string;
+  imovelComplemento?: string;
+  imovelBairro?: string;
+  imovelCidade?: string;
+  imovelEstado?: string;
+  inscricaoMunicipal?: string;
+
+  tipoAto?: TipoAtoAverbacao;
+  areaConstruida?: number;
+  pavimentos?: number;
+  finalidade?: string;
+  anoConstrucao?: string;
+  /** Valor atribuído à construção/obra para fins registrais — NÃO é valor de terreno nem valor de mercado do imóvel. */
+  valorConstrucao?: number;
+
+  temAlvara?: boolean;
+  temHabiteSe?: boolean;
+  temArt?: boolean;
+  temRrt?: boolean;
+  temTrt?: boolean;
+  temCertidao?: boolean;
+  temPlantasAprovadas?: boolean;
+  outrosDocumentos?: string;
+
+  dataDocumento?: string; // YYYY-MM-DD
+}
 
 export interface DocumentRecord {
   id: string;

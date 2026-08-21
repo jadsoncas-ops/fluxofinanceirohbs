@@ -97,17 +97,21 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
             >
               <Printer className="w-3.5 h-3.5" /> Imprimir / PDF
             </button>
+            <button onClick={() => setEditOpen(true)} className="h-9 px-3 rounded-lg border-2 text-[12.5px] font-medium hover:border-hover transition-colors flex items-center justify-center gap-1.5">
+              <Pencil className="w-3.5 h-3.5" /> Editar
+            </button>
             {!contrato && (
-              <>
-                <button onClick={() => setEditOpen(true)} className="h-9 px-3 rounded-lg border-2 text-[12.5px] font-medium hover:border-hover transition-colors flex items-center justify-center gap-1.5">
-                  <Pencil className="w-3.5 h-3.5" /> Editar
-                </button>
-                <button onClick={() => setDeleteConfirm('proposta')} className="h-9 px-3 rounded-lg border-2 text-[12.5px] font-medium text-destructive hover:border-destructive transition-colors flex items-center justify-center gap-1.5">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </>
+              <button onClick={() => setDeleteConfirm('proposta')} className="h-9 px-3 rounded-lg border-2 text-[12.5px] font-medium text-destructive hover:border-destructive transition-colors flex items-center justify-center gap-1.5">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             )}
           </div>
+
+          {contrato && (
+            <div className="text-[11.5px] text-warning bg-warning-soft rounded-lg px-3 py-2.5 leading-[1.4]">
+              Esta proposta já gerou o contrato {contrato.codigo}. Alterações aqui não atualizam o valor/parcelas já registrados no contrato — revise o contrato separadamente se o valor mudar.
+            </div>
+          )}
 
           <div className="space-y-4">
             <div className="text-[13px] text-muted-foreground">

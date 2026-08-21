@@ -61,6 +61,32 @@ export function computeAttentionItems(
     });
   });
 
+  // 1.5 Vencimentos de amanhã, agrupados por cliente
+  const amanha = new Date();
+  amanha.setDate(amanha.getDate() + 1);
+  const amanhaStr = amanha.toISOString().slice(0, 10);
+  const receberAmanha = new Map<string, { valor: number; count: number }>();
+  transactions.forEach(t => {
+    if ((t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído' && t.data === amanhaStr && t.clienteId) {
+      const cur = receberAmanha.get(t.clienteId) || { valor: 0, count: 0 };
+      cur.valor += t.valor;
+      cur.count += 1;
+      receberAmanha.set(t.clienteId, cur);
+    }
+  });
+  receberAmanha.forEach((v, clienteId) => {
+    const client = clients.find(c => c.id === clienteId);
+    if (!client) return;
+    items.push({
+      id: `vence-amanha-${clienteId}`,
+      severity: 'warning',
+      title: `Vence amanhã: ${client.nome}`,
+      sub: `${v.count} parcela${v.count > 1 ? 's' : ''} · ${fmtMoney(v.valor)} · envie o lembrete de cobrança`,
+      cta: 'Ver cliente',
+      to: `/clientes/${clienteId}`,
+    });
+  });
+
   // 2. Pagamentos (nossos) atrasados
   const pagarAtrasado = transactions.filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído' && t.data < today);
   if (pagarAtrasado.length > 0) {

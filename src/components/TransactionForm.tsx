@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Transaction, TransactionType, TransactionStatus, getCategorias } from '@/lib/types';
-import { updateTransaction, addTransaction, deleteTransaction } from '@/lib/storage';
+import { updateTransaction, addTransaction, deleteTransaction, getClients } from '@/lib/storage';
 import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
 
@@ -49,6 +49,7 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
 
   const categorias = getCategorias(tipo);
   const numValor = parseFloat(valor) || 0;
+  const clienteVinculado = editItem?.clienteId ? getClients().find(c => c.id === editItem.clienteId) : null;
 
   function statusParaTipo(t: TransactionType, s: TransactionStatus): TransactionType {
     const isPago = s === 'Concluído';
@@ -113,7 +114,11 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
             </div>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <p className="text-xs text-muted-foreground -mt-2">Despesa geral do escritório — sem cliente nem trabalho. Receita de cliente ou repasse a parceiro são lançados no Trabalho.</p>
+            <p className="text-xs text-muted-foreground -mt-2">
+              {clienteVinculado
+                ? `Lançamento avulso de ${clienteVinculado.nome}, sem trabalho vinculado.`
+                : 'Despesa geral do escritório — sem cliente nem trabalho. Receita de cliente ou repasse a parceiro são lançados no Trabalho.'}
+            </p>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">

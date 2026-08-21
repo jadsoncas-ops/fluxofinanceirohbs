@@ -1,10 +1,19 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { AlertTriangle } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
-import { getClients, getAccounts } from '@/lib/storage';
+import { getClients, getAccounts, getProcesses } from '@/lib/storage';
+import { computeTrabalhoFinancials } from '@/lib/financials';
 import { cn } from '@/lib/utils';
+
+const HORIZONS = [
+  { key: '7', label: 'Semana', days: 7 },
+  { key: '30', label: 'Mês', days: 30 },
+  { key: '90', label: '3 meses', days: 90 },
+  { key: '180', label: '6 meses', days: 180 },
+  { key: '365', label: '12 meses', days: 365 },
+] as const;
 
 function fmt(v: number) {
   return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -13,8 +22,9 @@ function fmt(v: number) {
 export default function FinanceiroVisaoGeralPage() {
   const { allTransactions } = useShell();
   const navigate = useNavigate();
+  const [horizon, setHorizon] = useState<(typeof HORIZONS)[number]>(HORIZONS[2]);
 
-  const { kpis, points, negativeAlert, proximasReceber, proximasPagar, movimentacoes, clientes } = useMemo(() => {
+  const { kpis, points, negativeAlert, receitasPrevisto, receitasRealizado, despesasPrevisto, despesasRealizado, clientes, lucroTrabalhos, lucroLiquidoRealizadoTotal } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayStr = today.toISOString().slice(0, 10);
@@ -37,9 +47,9 @@ export default function FinanceiroVisaoGeralPage() {
     const aPagar = pendentes.filter(isExpense).reduce((s, t) => s + t.valor, 0);
     const saldoProjetado = saldoAtual + aReceber - aPagar;
 
-    // Projeção 90 dias (usada no gráfico)
+    // Projeção de saldo no horizonte selecionado (usada no gráfico)
     const horizonEnd = new Date(today);
-    horizonEnd.setDate(horizonEnd.getDate() + 90);
+    horizonEnd.setDate(horizonEnd.getDate() + horizon.days);
     const horizonEndStr = horizonEnd.toISOString().slice(0, 10);
     const futuras = pendentes.filter(t => t.data >= todayStr && t.data <= horizonEndStr).sort((a, b) => a.data.localeCompare(b.data));
     const byDate = new Map<string, number>();
@@ -57,18 +67,30 @@ export default function FinanceiroVisaoGeralPage() {
 
     const nomeCliente = (id?: string | null) => clientes.find(c => c.id === id)?.nome || 'Sem cliente';
 
-    const proximasReceber = pendentes.filter(isIncome).sort((a, b) => a.data.localeCompare(b.data)).slice(0, 6)
+    const receitasPrevisto = pendentes.filter(isIncome).sort((a, b) => a.data.localeCompare(b.data))
       .map(t => ({ ...t, atrasado: t.data < todayStr, clienteNome: nomeCliente(t.clienteId) }));
-    const proximasPagar = pendentes.filter(isExpense).sort((a, b) => a.data.localeCompare(b.data)).slice(0, 6)
+    const despesasPrevisto = pendentes.filter(isExpense).sort((a, b) => a.data.localeCompare(b.data))
       .map(t => ({ ...t, atrasado: t.data < todayStr, clienteNome: nomeCliente(t.clienteId) }));
-    const movimentacoes = realizadas.sort((a, b) => b.data.localeCompare(a.data)).slice(0, 8)
-      .map(t => ({ ...t, clienteNome: nomeCliente(t.clienteId) }));
+    const receitasRealizado = realizadas.filter(isIncome).sort((a, b) => b.data.localeCompare(a.data))
+      .map(t => ({ ...t, atrasado: false, clienteNome: nomeCliente(t.clienteId) }));
+    const despesasRealizado = realizadas.filter(isExpense).sort((a, b) => b.data.localeCompare(a.data))
+      .map(t => ({ ...t, atrasado: false, clienteNome: nomeCliente(t.clienteId) }));
+
+    const lucroTrabalhos = getProcesses()
+      .filter(p => !p.isArchived && (p.valorContrato || 0) > 0)
+      .map(p => {
+        const fin = computeTrabalhoFinancials(p, allTransactions);
+        return { id: p.id, nome: p.objeto || 'Trabalho', clienteNome: nomeCliente(p.clienteId), previsto: fin.resultadoPrevisto, realizado: fin.resultadoRealizado };
+      })
+      .sort((a, b) => b.previsto - a.previsto);
+    const lucroLiquidoPrevistoTotal = lucroTrabalhos.reduce((s, t) => s + t.previsto, 0);
+    const lucroLiquidoRealizadoTotal = lucroTrabalhos.reduce((s, t) => s + t.realizado, 0);
 
     return {
-      kpis: { saldoAtual, entradasMes, saidasMes, aReceber, aPagar, saldoProjetado },
-      points, negativeAlert, proximasReceber, proximasPagar, movimentacoes, clientes,
+      kpis: { saldoAtual, entradasMes, saidasMes, aReceber, aPagar, saldoProjetado, lucroLiquidoPrevistoTotal },
+      points, negativeAlert, receitasPrevisto, receitasRealizado, despesasPrevisto, despesasRealizado, clientes, lucroTrabalhos, lucroLiquidoRealizadoTotal,
     };
-  }, [allTransactions]);
+  }, [allTransactions, horizon]);
 
   const kpiCards = [
     { label: 'Saldo atual', value: kpis.saldoAtual, cls: kpis.saldoAtual >= 0 ? 'text-foreground' : 'text-destructive' },
@@ -77,6 +99,7 @@ export default function FinanceiroVisaoGeralPage() {
     { label: 'A receber', value: kpis.aReceber, cls: 'text-accent' },
     { label: 'A pagar', value: kpis.aPagar, cls: 'text-warning' },
     { label: 'Saldo projetado', value: kpis.saldoProjetado, cls: kpis.saldoProjetado >= 0 ? 'text-foreground' : 'text-destructive' },
+    { label: 'Lucro líquido previsto', value: kpis.lucroLiquidoPrevistoTotal, cls: 'text-accent' },
   ];
 
   return (
@@ -94,15 +117,59 @@ export default function FinanceiroVisaoGeralPage() {
         <div className="bg-destructive-soft border border-destructive/30 rounded-xl p-[14px_18px] flex items-center gap-3">
           <AlertTriangle className="w-4.5 h-4.5 text-destructive flex-none" />
           <p className="text-[12.5px] text-foreground">
-            Seu caixa projetado fica <strong className="text-destructive">negativo em {fmt(Math.abs(negativeAlert.saldo))}</strong> por volta de <strong>{negativeAlert.date}</strong>.
+            Seu caixa projetado fica <strong className="text-destructive">negativo em {fmt(Math.abs(negativeAlert.saldo))}</strong> por volta de <strong>{negativeAlert.date}</strong>, considerando os lançamentos previstos até {horizon.label.toLowerCase()}.
           </p>
         </div>
       )}
 
+      {lucroTrabalhos.length > 0 && (
+        <section className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="px-[18px] py-[15px] border-b border-3 flex items-center justify-between">
+            <div>
+              <div className="text-[13.5px] font-semibold">Lucro líquido por trabalho</div>
+              <div className="text-[11.5px] text-mute-2 mt-0.5">contratado − repasses a parceiros — o que realmente fica com a HBS</div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">até agora</div>
+              <div className="font-mono-hbs text-[15px]">{fmt(lucroLiquidoRealizadoTotal)}</div>
+            </div>
+          </div>
+          {lucroTrabalhos.map(t => (
+            <div key={t.id} onClick={() => navigate(`/trabalhos/${t.id}`)} className="flex items-center gap-[13px] px-[18px] py-[11px] border-b border-3 last:border-b-0 cursor-pointer hover:bg-surface-3 transition-colors">
+              <div className="min-w-0 flex-1">
+                <div className="text-[12.5px] font-medium truncate">{t.nome}</div>
+                <div className="text-[11px] text-mute-2 mt-0.5 truncate">{t.clienteNome}</div>
+              </div>
+              <div className="text-right flex-none">
+                <div className="text-[10px] text-mute-2">previsto</div>
+                <div className="font-mono-hbs text-[13.5px]">{fmt(t.previsto)}</div>
+              </div>
+              <div className="text-right flex-none">
+                <div className="text-[10px] text-mute-2">até agora</div>
+                <div className="font-mono-hbs text-[13.5px] text-success">{fmt(t.realizado)}</div>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
       <section className="bg-card border border-border rounded-xl p-[17px_18px]">
-        <div className="flex items-center justify-between">
-          <div className="text-[13.5px] font-semibold">Fluxo dos próximos meses</div>
-          <button onClick={() => navigate('/caixa/fluxo-de-caixa')} className="text-[11.5px] font-medium text-accent">Ver detalhado →</button>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="text-[13.5px] font-semibold">Projeção de saldo</div>
+          <div className="flex gap-1 bg-surface-2 p-1 rounded-xl border border-3">
+            {HORIZONS.map(h => (
+              <button
+                key={h.key}
+                onClick={() => setHorizon(h)}
+                className={cn(
+                  'px-2.5 py-[6px] rounded-lg text-[10.5px] font-medium uppercase tracking-wide transition-colors whitespace-nowrap',
+                  horizon.key === h.key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {h.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="h-[220px] mt-3">
           <ResponsiveContainer width="100%" height="100%">
@@ -124,65 +191,69 @@ export default function FinanceiroVisaoGeralPage() {
         </div>
       </section>
 
-      <div className="grid gap-[18px] items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
-        <ListaSection titulo="Contas a receber" itens={proximasReceber} vazio="Nada a receber no momento." verHref="/caixa/receitas" navigate={navigate} tipo="receber" />
-        <ListaSection titulo="Contas a pagar" itens={proximasPagar} vazio="Nada a pagar no momento." verHref="/caixa/despesas" navigate={navigate} tipo="pagar" />
+      <div className="grid gap-[18px] items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))' }}>
+        <ColunaFinanceira titulo="Receitas" cls="text-success" previsto={receitasPrevisto} realizado={receitasRealizado} />
+        <ColunaFinanceira titulo="Despesas" cls="text-destructive" previsto={despesasPrevisto} realizado={despesasRealizado} />
       </div>
-
-      <section className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="px-[18px] py-[15px] border-b border-3 text-[13.5px] font-semibold">Movimentações recentes</div>
-        {movimentacoes.length === 0 ? (
-          <div className="px-[18px] py-8 text-center text-xs text-muted-foreground">Nenhuma movimentação concluída ainda.</div>
-        ) : (
-          movimentacoes.map(t => {
-            const isIncome = t.tipo === 'Entrada' || t.tipo === 'A Receber';
-            return (
-              <div key={t.id} className="flex items-center gap-3 px-[18px] py-[10px] border-t border-3">
-                <div className="flex-1 min-w-0">
-                  <div className="text-[12.5px] font-medium truncate">{t.descricao}</div>
-                  <div className="text-[11px] text-mute-2">{t.clienteNome} · {new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR')}</div>
-                </div>
-                <span className={cn('font-mono-hbs text-[12.5px] flex-none', isIncome ? 'text-success' : 'text-destructive')}>{isIncome ? '+' : '−'} {fmt(t.valor)}</span>
-              </div>
-            );
-          })
-        )}
-      </section>
     </div>
   );
 }
 
-function ListaSection({ titulo, itens, vazio, verHref, navigate, tipo }: {
-  titulo: string;
-  itens: { id: string; descricao: string; valor: number; data: string; atrasado: boolean; clienteNome: string }[];
-  vazio: string;
-  verHref: string;
-  navigate: (href: string) => void;
-  tipo: 'receber' | 'pagar';
-}) {
+interface LinhaFinanceira { id: string; descricao: string; valor: number; data: string; atrasado: boolean; clienteNome: string }
+
+function ColunaFinanceira({ titulo, cls, previsto, realizado }: { titulo: string; cls: string; previsto: LinhaFinanceira[]; realizado: LinhaFinanceira[] }) {
+  const totalPrevisto = previsto.reduce((s, t) => s + t.valor, 0);
+  const totalRealizado = realizado.reduce((s, t) => s + t.valor, 0);
   return (
     <section className="bg-card border border-border rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between px-[18px] py-[15px] border-b border-3">
-        <span className="text-[13.5px] font-semibold">{titulo}</span>
-        <button onClick={() => navigate(verHref)} className="text-[11.5px] font-medium text-accent">Ver todas →</button>
+      <div className="px-[18px] py-[15px] border-b border-3 text-[13.5px] font-semibold">{titulo}</div>
+
+      <div className="px-[18px] pt-[13px] pb-2 flex items-center justify-between">
+        <span className="text-[11px] uppercase tracking-[.07em] text-mute-2">Previsto</span>
+        <span className={cn('font-mono-hbs text-[12px]', cls)}>{fmt(totalPrevisto)}</span>
       </div>
-      {itens.length === 0 ? (
-        <div className="px-[18px] py-8 text-center text-xs text-muted-foreground">{vazio}</div>
+      {previsto.length === 0 ? (
+        <div className="px-[18px] pb-3 text-xs text-muted-foreground">Nada previsto.</div>
       ) : (
-        itens.map(t => (
-          <div key={t.id} className="flex items-center gap-3 px-[18px] py-[10px] border-t border-3">
-            <div className="flex-1 min-w-0">
-              <div className="text-[12.5px] font-medium truncate">{t.descricao}</div>
-              <div className="text-[11px] text-mute-2">{t.clienteNome}</div>
-            </div>
-            <div className="text-right flex-none">
-              <div className={cn('font-mono-hbs text-[12.5px]', tipo === 'receber' ? 'text-accent' : 'text-warning')}>{fmt(t.valor)}</div>
-              <div className={cn('text-[10.5px] mt-0.5', t.atrasado ? 'text-destructive font-medium' : 'text-mute-3')}>
-                {t.atrasado ? 'Atrasada' : new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR')}
+        <div className="max-h-[280px] overflow-y-auto">
+          {previsto.map(t => (
+            <div key={t.id} className="flex items-center gap-3 px-[18px] py-[9px] border-t border-3">
+              <div className="flex-1 min-w-0">
+                <div className="text-[12.5px] font-medium truncate">{t.descricao}</div>
+                <div className="text-[11px] text-mute-2 truncate">{t.clienteNome}</div>
+              </div>
+              <div className="text-right flex-none">
+                <div className={cn('font-mono-hbs text-[12.5px]', cls)}>{fmt(t.valor)}</div>
+                <div className={cn('text-[10.5px] mt-0.5', t.atrasado ? 'text-destructive font-medium' : 'text-mute-3')}>
+                  {t.atrasado ? 'Atrasada' : new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR')}
+                </div>
               </div>
             </div>
-          </div>
-        ))
+          ))}
+        </div>
+      )}
+
+      <div className="px-[18px] pt-[13px] pb-2 flex items-center justify-between border-t border-3">
+        <span className="text-[11px] uppercase tracking-[.07em] text-mute-2">Realizado</span>
+        <span className={cn('font-mono-hbs text-[12px]', cls)}>{fmt(totalRealizado)}</span>
+      </div>
+      {realizado.length === 0 ? (
+        <div className="px-[18px] pb-4 text-xs text-muted-foreground">Nada realizado ainda.</div>
+      ) : (
+        <div className="max-h-[280px] overflow-y-auto">
+          {realizado.map(t => (
+            <div key={t.id} className="flex items-center gap-3 px-[18px] py-[9px] border-t border-3">
+              <div className="flex-1 min-w-0">
+                <div className="text-[12.5px] font-medium truncate">{t.descricao}</div>
+                <div className="text-[11px] text-mute-2 truncate">{t.clienteNome}</div>
+              </div>
+              <div className="text-right flex-none">
+                <div className={cn('font-mono-hbs text-[12.5px]', cls)}>{fmt(t.valor)}</div>
+                <div className="text-[10.5px] mt-0.5 text-mute-3">{new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR')}</div>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </section>
   );
