@@ -35,8 +35,9 @@ export default function CadastroPage() {
         navigate('/login', { replace: true });
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '';
-      toast.error(msg === 'Código de convite inválido.' ? msg : 'Não foi possível criar a conta.');
+      console.error('Falha no cadastro:', err);
+      const msg = err instanceof Error ? err.message : 'Não foi possível criar a conta.';
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
