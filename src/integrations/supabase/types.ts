@@ -14,45 +14,432 @@ export type Database = {
   }
   public: {
     Tables: {
-      transactions: {
+      hbs_profiles: {
+        Row: { id: string; nome: string | null; role: string; created_at: string }
+        Insert: { id: string; nome?: string | null; role?: string; created_at?: string }
+        Update: { id?: string; nome?: string | null; role?: string; created_at?: string }
+        Relationships: []
+      }
+      hbs_app_settings: {
+        Row: { key: string; value: Json; updated_at: string }
+        Insert: { key: string; value: Json; updated_at?: string }
+        Update: { key?: string; value?: Json; updated_at?: string }
+        Relationships: []
+      }
+      hbs_clients: {
         Row: {
-          categoria: string
-          created_at: string
-          data: string
-          descricao: string
           id: string
-          is_repasse: boolean
-          status: string
-          tipo: string
-          updated_at: string
-          user_id: string
-          valor: number
+          nome: string
+          tipo: string | null
+          documento: string | null
+          telefone: Json | null
+          endereco: Json | null
+          descricao: string | null
+          qualificacao: Json | null
+          created_at: string
+          created_by: string | null
         }
         Insert: {
-          categoria: string
-          created_at?: string
-          data: string
-          descricao: string
           id?: string
-          is_repasse?: boolean
-          status?: string
-          tipo: string
-          updated_at?: string
-          user_id: string
-          valor: number
+          nome: string
+          tipo?: string | null
+          documento?: string | null
+          telefone?: Json | null
+          endereco?: Json | null
+          descricao?: string | null
+          qualificacao?: Json | null
+          created_at?: string
+          created_by?: string | null
         }
         Update: {
-          categoria?: string
-          created_at?: string
-          data?: string
-          descricao?: string
           id?: string
-          is_repasse?: boolean
-          status?: string
-          tipo?: string
+          nome?: string
+          tipo?: string | null
+          documento?: string | null
+          telefone?: Json | null
+          endereco?: Json | null
+          descricao?: string | null
+          qualificacao?: Json | null
+          created_at?: string
+          created_by?: string | null
+        }
+        Relationships: []
+      }
+      hbs_processes: {
+        Row: {
+          id: string
+          cliente_id: string
+          objeto: string
+          status: string
+          etapa: string | null
+          tipo_trabalho: string | null
+          endereco: string | null
+          prazo: string | null
+          protocolo: string | null
+          data_protocolo: string | null
+          valor_contrato: number | null
+          drive_link: string | null
+          is_archived: boolean
+          notas: Json
+          tecnico: Json | null
+          contrato_id: string | null
+          averbacao: Json | null
+          created_at: string
+          updated_at: string
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          cliente_id: string
+          objeto: string
+          status: string
+          etapa?: string | null
+          tipo_trabalho?: string | null
+          endereco?: string | null
+          prazo?: string | null
+          protocolo?: string | null
+          data_protocolo?: string | null
+          valor_contrato?: number | null
+          drive_link?: string | null
+          is_archived?: boolean
+          notas?: Json
+          tecnico?: Json | null
+          contrato_id?: string | null
+          averbacao?: Json | null
+          created_at?: string
           updated_at?: string
-          user_id?: string
+          created_by?: string | null
+        }
+        Update: {
+          id?: string
+          cliente_id?: string
+          objeto?: string
+          status?: string
+          etapa?: string | null
+          tipo_trabalho?: string | null
+          endereco?: string | null
+          prazo?: string | null
+          protocolo?: string | null
+          data_protocolo?: string | null
+          valor_contrato?: number | null
+          drive_link?: string | null
+          is_archived?: boolean
+          notas?: Json
+          tecnico?: Json | null
+          contrato_id?: string | null
+          averbacao?: Json | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+        }
+        Relationships: []
+      }
+      hbs_tasks: {
+        Row: {
+          id: string
+          titulo: string
+          descricao: string | null
+          status: string
+          prioridade: string
+          prazo: string | null
+          process_id: string | null
+          cliente_id: string | null
+          created_at: string
+          updated_at: string
+          completed_at: string | null
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          titulo: string
+          descricao?: string | null
+          status?: string
+          prioridade?: string
+          prazo?: string | null
+          process_id?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          updated_at?: string
+          completed_at?: string | null
+          created_by?: string | null
+        }
+        Update: {
+          id?: string
+          titulo?: string
+          descricao?: string | null
+          status?: string
+          prioridade?: string
+          prazo?: string | null
+          process_id?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          updated_at?: string
+          completed_at?: string | null
+          created_by?: string | null
+        }
+        Relationships: []
+      }
+      hbs_accounts: {
+        Row: { id: string; nome: string; tipo: string; saldo: number; ativo: boolean; created_at: string; created_by: string | null }
+        Insert: { id?: string; nome: string; tipo: string; saldo?: number; ativo?: boolean; created_at?: string; created_by?: string | null }
+        Update: { id?: string; nome?: string; tipo?: string; saldo?: number; ativo?: boolean; created_at?: string; created_by?: string | null }
+        Relationships: []
+      }
+      hbs_partners: {
+        Row: { id: string; nome: string; documento: string | null; contato: string | null; observacao: string | null; created_at: string; created_by: string | null }
+        Insert: { id?: string; nome: string; documento?: string | null; contato?: string | null; observacao?: string | null; created_at?: string; created_by?: string | null }
+        Update: { id?: string; nome?: string; documento?: string | null; contato?: string | null; observacao?: string | null; created_at?: string; created_by?: string | null }
+        Relationships: []
+      }
+      hbs_documents: {
+        Row: {
+          id: string
+          nome: string
+          cliente_id: string | null
+          process_id: string | null
+          tipo_tecnico: string | null
+          versao: string | null
+          situacao: string
+          link: string | null
+          created_at: string
+          updated_at: string
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          nome: string
+          cliente_id?: string | null
+          process_id?: string | null
+          tipo_tecnico?: string | null
+          versao?: string | null
+          situacao: string
+          link?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+        }
+        Update: {
+          id?: string
+          nome?: string
+          cliente_id?: string | null
+          process_id?: string | null
+          tipo_tecnico?: string | null
+          versao?: string | null
+          situacao?: string
+          link?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+        }
+        Relationships: []
+      }
+      hbs_transactions: {
+        Row: {
+          id: string
+          data: string
+          tipo: string
+          categoria: string
+          descricao: string
+          valor: number
+          status: string
+          is_repasse: boolean
+          parent_id: string | null
+          partner_id: string | null
+          cliente_id: string | null
+          process_id: string | null
+          previsao_data: string | null
+          original_total: number | null
+          created_at: string
+          updated_at: string
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          data: string
+          tipo: string
+          categoria: string
+          descricao: string
+          valor: number
+          status?: string
+          is_repasse?: boolean
+          parent_id?: string | null
+          partner_id?: string | null
+          cliente_id?: string | null
+          process_id?: string | null
+          previsao_data?: string | null
+          original_total?: number | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+        }
+        Update: {
+          id?: string
+          data?: string
+          tipo?: string
+          categoria?: string
+          descricao?: string
           valor?: number
+          status?: string
+          is_repasse?: boolean
+          parent_id?: string | null
+          partner_id?: string | null
+          cliente_id?: string | null
+          process_id?: string | null
+          previsao_data?: string | null
+          original_total?: number | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+        }
+        Relationships: []
+      }
+      hbs_propostas: {
+        Row: {
+          id: string
+          codigo: string
+          cliente_id: string
+          trabalho_id: string | null
+          titulo: string
+          itens: Json
+          custo_hora_base: number
+          lucro_percent: number
+          impostos_percent: number
+          comissao_percent: number
+          custos_protocolo: Json | null
+          resultado: Json
+          prazo_dias: number | null
+          forma_pagamento: string | null
+          parcelas_pagamento: Json | null
+          status: string
+          enviada_em: string | null
+          created_at: string
+          updated_at: string
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          codigo: string
+          cliente_id: string
+          trabalho_id?: string | null
+          titulo: string
+          itens?: Json
+          custo_hora_base?: number
+          lucro_percent?: number
+          impostos_percent?: number
+          comissao_percent?: number
+          custos_protocolo?: Json | null
+          resultado?: Json
+          prazo_dias?: number | null
+          forma_pagamento?: string | null
+          parcelas_pagamento?: Json | null
+          status?: string
+          enviada_em?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+        }
+        Update: {
+          id?: string
+          codigo?: string
+          cliente_id?: string
+          trabalho_id?: string | null
+          titulo?: string
+          itens?: Json
+          custo_hora_base?: number
+          lucro_percent?: number
+          impostos_percent?: number
+          comissao_percent?: number
+          custos_protocolo?: Json | null
+          resultado?: Json
+          prazo_dias?: number | null
+          forma_pagamento?: string | null
+          parcelas_pagamento?: Json | null
+          status?: string
+          enviada_em?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+        }
+        Relationships: []
+      }
+      hbs_contratos: {
+        Row: {
+          id: string
+          codigo: string
+          proposta_id: string
+          cliente_id: string
+          trabalho_id: string | null
+          valor: number
+          parcelas: Json
+          status: string
+          assinado_em: string | null
+          created_at: string
+          updated_at: string
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          codigo: string
+          proposta_id: string
+          cliente_id: string
+          trabalho_id?: string | null
+          valor: number
+          parcelas?: Json
+          status?: string
+          assinado_em?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+        }
+        Update: {
+          id?: string
+          codigo?: string
+          proposta_id?: string
+          cliente_id?: string
+          trabalho_id?: string | null
+          valor?: number
+          parcelas?: Json
+          status?: string
+          assinado_em?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+        }
+        Relationships: []
+      }
+      hbs_historico_events: {
+        Row: {
+          id: string
+          modulo: string
+          texto: string
+          cliente_id: string | null
+          trabalho_id: string | null
+          proposta_id: string | null
+          contrato_id: string | null
+          created_at: string
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          modulo: string
+          texto: string
+          cliente_id?: string | null
+          trabalho_id?: string | null
+          proposta_id?: string | null
+          contrato_id?: string | null
+          created_at?: string
+          created_by?: string | null
+        }
+        Update: {
+          id?: string
+          modulo?: string
+          texto?: string
+          cliente_id?: string | null
+          trabalho_id?: string | null
+          proposta_id?: string | null
+          contrato_id?: string | null
+          created_at?: string
+          created_by?: string | null
         }
         Relationships: []
       }
@@ -61,7 +448,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      hbs_check_invite_code: {
+        Args: { code: string }
+        Returns: boolean
+      }
+      hbs_next_proposta_codigo: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      hbs_next_contrato_codigo: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      hbs_profiles_count: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never

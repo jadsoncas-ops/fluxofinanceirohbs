@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRef } from 'react';
-import { Moon, Download, Upload, Shield, Trash2, Building2, Smartphone, Calculator, Plus } from 'lucide-react';
+import { Moon, Download, Upload, Shield, Trash2, Building2, Smartphone, Calculator, Plus, CloudUpload } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
 import { getCompanyConfig, saveCompanyConfig, getPrecificacaoConfig, savePrecificacaoConfig, exportBackup, importBackup, clearAllTransactions } from '@/lib/storage';
+import { remoteIsEmpty, importarDadosLocaisParaSupabase } from '@/lib/localImport';
 import { calcularCustoOperacionalTotal, calcularHorasProdutivas, calcularCustoHora, formatBRL } from '@/lib/comercial/precificacao';
 import { CustoItem } from '@/lib/comercial/precificacao';
 import { Input } from '@/components/ui/input';
@@ -56,6 +57,29 @@ export default function ConfiguracoesPage() {
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
   const [config, setConfig] = useState(() => getCompanyConfig());
   const [preco, setPreco] = useState(() => getPrecificacaoConfig());
+  const [showImportacaoUnica, setShowImportacaoUnica] = useState(false);
+  const [importando, setImportando] = useState(false);
+
+  useEffect(() => {
+    const temDadoLocal = !!localStorage.getItem('hbs_clients') || !!localStorage.getItem('hbs_transactions');
+    if (!temDadoLocal) return;
+    remoteIsEmpty().then(setShowImportacaoUnica).catch(() => setShowImportacaoUnica(false));
+  }, []);
+
+  async function handleImportacaoUnica() {
+    if (!confirm('Importar os dados deste navegador (clientes, trabalhos, financeiro, etc.) para o Supabase? Isso só deve ser feito uma vez, no computador que tem os dados reais.')) return;
+    setImportando(true);
+    try {
+      const resumo = await importarDadosLocaisParaSupabase();
+      toast.success(`Importado: ${resumo.clientes} clientes, ${resumo.lancamentos} lançamentos, ${resumo.processos} trabalhos.`);
+      setShowImportacaoUnica(false);
+      window.location.reload();
+    } catch {
+      toast.error('Não foi possível importar. Tente novamente.');
+    } finally {
+      setImportando(false);
+    }
+  }
 
   function toggleDark(checked: boolean) {
     setDark(checked);
@@ -204,12 +228,28 @@ export default function ConfiguracoesPage() {
         </button>
       </section>
 
+      {showImportacaoUnica && (
+        <section className="bg-accent-soft border border-accent/30 rounded-xl p-[17px_18px] space-y-3">
+          <div className="flex items-center gap-2">
+            <CloudUpload className="w-4 h-4 text-accent" />
+            <div className="text-[13.5px] font-semibold">Importar dados deste navegador para o Supabase</div>
+          </div>
+          <p className="text-[11.5px] text-muted-foreground">
+            Encontramos dados salvos localmente neste navegador que ainda não existem no Supabase. Importe uma vez aqui
+            (no computador com os dados reais) para que fiquem disponíveis em todos os dispositivos, inclusive no tablet.
+          </p>
+          <button onClick={handleImportacaoUnica} disabled={importando} className="h-9 px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] font-medium disabled:opacity-60">
+            {importando ? 'Importando…' : 'Importar agora'}
+          </button>
+        </section>
+      )}
+
       <section className="bg-card border border-border rounded-xl p-[17px_18px] space-y-3.5">
         <div className="flex items-center gap-2">
           <Shield className="w-4 h-4 text-accent" />
           <div className="text-[13.5px] font-semibold">Segurança dos dados</div>
         </div>
-        <p className="text-[11.5px] text-muted-foreground">Os seus dados são armazenados localmente no navegador. Faça backups regulares para segurança.</p>
+        <p className="text-[11.5px] text-muted-foreground">Os seus dados ficam no Supabase, sincronizados entre todos os dispositivos logados. Faça backups regulares para segurança.</p>
 
         <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
           <button onClick={handleExport} className="h-[52px] px-3.5 border-2 rounded-lg text-left hover:border-hover transition-colors flex items-center gap-2.5">
@@ -248,7 +288,7 @@ export default function ConfiguracoesPage() {
           <div className="text-[13.5px] font-semibold">Informações</div>
         </div>
         <div className="text-[11.5px] text-mute-2 space-y-0.5">
-          <p>Armazenamento: local (navegador)</p>
+          <p>Armazenamento: Supabase (sincronizado entre dispositivos)</p>
           <p>Versão: 1.1.0</p>
         </div>
       </section>

@@ -9,10 +9,11 @@ import { ClientForm } from '@/components/ClientForm';
 import { AppSidebar } from '@/components/AppSidebar';
 import { CommandPalette } from '@/components/CommandPalette';
 import { NotificationsDropdown } from '@/components/NotificationsDropdown';
-import { getTransactions, getTasks, getClients, getProcesses, getPropostas } from '@/lib/storage';
+import { getTransactions, getTasks, getClients, getProcesses, getPropostas, onStorageChange } from '@/lib/storage';
 import { computeAttentionItems } from '@/lib/attention';
 import { Transaction, Task, TransactionType } from '@/lib/types';
-import { Search, X } from 'lucide-react';
+import { Search, X, LogOut } from 'lucide-react';
+import { signOut } from '@/lib/auth';
 import hbsLogo from '@/assets/hbs-logo.png';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -75,6 +76,8 @@ export function AppShell() {
   const [pendingNewTask, setPendingNewTask] = useState<Partial<Task> | null>(null);
 
   const refresh = useCallback(() => setTxKey(k => k + 1), []);
+
+  useEffect(() => onStorageChange(refresh), [refresh]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -206,6 +209,7 @@ export function AppShell() {
             <img src={hbsLogo} alt="HBS Engenharia" className="h-7 w-auto dark:invert dark:brightness-200" />
             <span className="text-[13px] font-semibold flex-1 truncate">{title}</span>
             <button onClick={() => setCommandOpen(true)} className="w-8 h-8 grid place-items-center rounded-lg border-2 text-mute-2"><Search className="w-3.5 h-3.5" /></button>
+            <button onClick={() => signOut().then(() => navigate('/login', { replace: true }))} className="w-8 h-8 grid place-items-center rounded-lg border-2 text-mute-2"><LogOut className="w-3.5 h-3.5" /></button>
           </div>
         </header>
 

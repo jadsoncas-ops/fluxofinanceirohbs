@@ -1,12 +1,20 @@
 import { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Compass, Users, Layers, FileStack, Handshake, Landmark, BarChart3, Settings as SettingsIcon,
-  ChevronLeft, ChevronRight, Command,
+  ChevronLeft, ChevronRight, Command, LogOut,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { signOut } from '@/lib/auth';
+
+function initials(nome: string) {
+  const parts = nome.trim().split(/\s+/);
+  return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || 'U';
+}
 
 interface Props {
   onOpenCommand: () => void;
@@ -25,7 +33,15 @@ const items = [
 
 export function AppSidebar({ onOpenCommand, badges = {} }: Props) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { profile, session } = useAuth();
+  const nome = profile?.nome || session?.user.email || 'Usuário';
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('hbs_sidebar_collapsed') === '1');
+
+  async function handleSignOut() {
+    await signOut();
+    navigate('/login', { replace: true });
+  }
 
   function toggle() {
     setCollapsed(c => {
@@ -112,15 +128,24 @@ export function AppSidebar({ onOpenCommand, badges = {} }: Props) {
             {!collapsed && <span className="text-[13.5px] font-medium">Configurações</span>}
           </NavLink>
 
-          <div className="flex items-center gap-2.5 px-2.5 py-2.5">
-            <div className="w-[27px] h-[27px] flex-none rounded-full bg-avatar grid place-items-center text-[10.5px] font-semibold font-mono-hbs">JD</div>
-            {!collapsed && (
-              <div className="leading-[1.25] min-w-0">
-                <div className="text-[12.5px] font-medium whitespace-nowrap overflow-hidden text-ellipsis">Jádson</div>
-                <div className="text-[10.5px] text-white/40">HBS Engenharia</div>
-              </div>
-            )}
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className={cn('flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg transition-colors hover:bg-white/[.08] text-left', collapsed && 'justify-center px-0')}>
+                <div className="w-[27px] h-[27px] flex-none rounded-full bg-avatar grid place-items-center text-[10.5px] font-semibold font-mono-hbs">{initials(nome)}</div>
+                {!collapsed && (
+                  <div className="leading-[1.25] min-w-0">
+                    <div className="text-[12.5px] font-medium whitespace-nowrap overflow-hidden text-ellipsis">{nome}</div>
+                    <div className="text-[10.5px] text-white/40">HBS Engenharia</div>
+                  </div>
+                )}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" side="top" className="w-[180px]">
+              <DropdownMenuItem onClick={handleSignOut} className="gap-2 text-destructive focus:text-destructive">
+                <LogOut className="w-3.5 h-3.5" /> Sair
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <button
             onClick={toggle}

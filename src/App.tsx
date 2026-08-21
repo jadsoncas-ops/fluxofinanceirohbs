@@ -4,6 +4,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppShell } from "@/components/AppShell";
+import { RequireAuth } from "@/components/RequireAuth";
+import { AuthProvider } from "@/hooks/useAuth";
+import LoginPage from "./pages/LoginPage";
+import CadastroPage from "./pages/CadastroPage";
 import InicioPage from "./pages/DashboardPage";
 import ClientesPage from "./pages/ClientesPage";
 import ClienteDetailPage from "./pages/ClienteDetailPage";
@@ -32,7 +36,11 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <AuthProvider>
         <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/cadastro" element={<CadastroPage />} />
+          <Route element={<RequireAuth />}>
           <Route element={<AppShell />}>
             <Route path="/" element={<InicioPage />} />
             <Route path="/dashboard" element={<Navigate to="/" replace />} />
@@ -65,7 +73,9 @@ const App = () => (
 
             <Route path="*" element={<NotFound />} />
           </Route>
+          </Route>
         </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
