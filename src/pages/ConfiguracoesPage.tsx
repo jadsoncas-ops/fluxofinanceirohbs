@@ -62,8 +62,15 @@ export default function ConfiguracoesPage() {
 
   useEffect(() => {
     const temDadoLocal = !!localStorage.getItem('hbs_clients') || !!localStorage.getItem('hbs_transactions');
+    console.log('[importação única] dado local encontrado?', temDadoLocal);
     if (!temDadoLocal) return;
-    remoteIsEmpty().then(setShowImportacaoUnica).catch(() => setShowImportacaoUnica(false));
+    setShowImportacaoUnica(true); // mostra otimista — some depois se o Supabase confirmar que já tem dado
+    remoteIsEmpty()
+      .then(vazio => {
+        console.log('[importação única] Supabase está vazio?', vazio);
+        setShowImportacaoUnica(vazio);
+      })
+      .catch(err => console.error('[importação única] falha ao checar Supabase (mantendo botão visível):', err));
   }, []);
 
   async function handleImportacaoUnica() {
@@ -74,8 +81,10 @@ export default function ConfiguracoesPage() {
       toast.success(`Importado: ${resumo.clientes} clientes, ${resumo.lancamentos} lançamentos, ${resumo.processos} trabalhos.`);
       setShowImportacaoUnica(false);
       window.location.reload();
-    } catch {
-      toast.error('Não foi possível importar. Tente novamente.');
+    } catch (err) {
+      console.error('[importação única] falha ao importar:', err);
+      const msg = err instanceof Error ? err.message : 'Não foi possível importar. Tente novamente.';
+      toast.error(msg);
     } finally {
       setImportando(false);
     }
