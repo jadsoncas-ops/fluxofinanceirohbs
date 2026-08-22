@@ -152,8 +152,10 @@ export default function ConfiguracoesPage() {
       try {
         await importBackup(reader.result as string);
         toast.success('Backup importado com sucesso.');
-        shell.refresh();
-        setConfig(getCompanyConfig());
+        // Recarrega a página em vez de só atualizar o cache local: o backup pode não conter
+        // trabalhos/lançamentos que já existiam no Supabase, e um simples refresh do cache local
+        // (sem novo fetch) faria eles sumirem da tela até a próxima navegação.
+        window.location.reload();
       } catch (err) {
         console.error('[importar backup] falha:', err);
         toast.error('Ficheiro inválido. Verifique o formato JSON.');
