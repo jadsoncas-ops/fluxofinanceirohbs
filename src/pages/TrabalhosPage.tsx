@@ -16,7 +16,7 @@ function fmt(v: number) {
 function prazoInfo(prazo?: string): { label: string; color: string } {
   if (!prazo) return { label: '—', color: 'text-mute-2' };
   const dias = Math.round((new Date(prazo + 'T12:00:00').getTime() - Date.now()) / 86400000);
-  if (dias < 0) return { label: `parado há ${Math.abs(dias)}d`, color: 'text-destructive' };
+  if (dias < 0) return { label: `vencido há ${Math.abs(dias)}d`, color: 'text-destructive' };
   if (dias <= 7) return { label: `${dias}d`, color: 'text-warning' };
   return { label: new Date(prazo + 'T12:00:00').toLocaleDateString('pt-BR'), color: 'text-mute-2' };
 }
