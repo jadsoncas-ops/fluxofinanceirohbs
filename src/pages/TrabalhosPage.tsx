@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import { getProcesses, getClients, updateProcess, registrarEvento } from '@/lib/storage';
+import { getProcesses, getClients, getTransactions, updateProcess, registrarEvento } from '@/lib/storage';
 import { Process, TrabalhoEtapa } from '@/lib/types';
 import { NovoTrabalhoDiretoDialog } from '@/components/trabalhos/NovoTrabalhoDiretoDialog';
 import { cn } from '@/lib/utils';
@@ -28,12 +28,23 @@ export default function TrabalhosPage() {
   const [dragId, setDragId] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const { trabalhos, clients, ativos, aguardando } = useMemo(() => {
+  const { trabalhos, clients, ativos, aguardando, proximoPagamentoPorTrabalho } = useMemo(() => {
     void key;
     const trabalhos = getProcesses().filter(p => !p.isArchived);
     const clients = getClients();
+
+    const proximoPagamentoPorTrabalho = new Map<string, { data: string; valor: number }>();
+    getTransactions()
+      .filter(t => t.processId && t.tipo === 'A Receber' && (t.status === 'Pendente' || t.status === 'Parcial'))
+      .sort((a, b) => a.data.localeCompare(b.data))
+      .forEach(t => {
+        if (!proximoPagamentoPorTrabalho.has(t.processId!)) {
+          proximoPagamentoPorTrabalho.set(t.processId!, { data: t.data, valor: t.valor });
+        }
+      });
+
     return {
-      trabalhos, clients,
+      trabalhos, clients, proximoPagamentoPorTrabalho,
       ativos: trabalhos.filter(t => (t.etapa || 'Levantamento') !== 'Concluído').length,
       aguardando: trabalhos.filter(t => t.etapa === 'Aguardando cliente').length,
     };
@@ -83,6 +94,7 @@ export default function TrabalhosPage() {
                 <div className="flex flex-col gap-2.5">
                   {items.map(t => {
                     const pi = prazoInfo(t.prazo);
+                    const proximo = proximoPagamentoPorTrabalho.get(t.id);
                     return (
                       <div
                         key={t.id}
@@ -99,6 +111,14 @@ export default function TrabalhosPage() {
                           <span className={cn('text-[10.5px] font-mono-hbs', pi.color)}>{pi.label}</span>
                           {typeof t.valorContrato === 'number' && <span className="text-[11px] font-mono-hbs text-mute-2">{fmt(t.valorContrato)}</span>}
                         </div>
+                        {proximo && (
+                          <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-border/60">
+                            <span className="text-[9.5px] uppercase tracking-[.04em] text-mute-2">Próx. recebimento</span>
+                            <span className="text-[10.5px] font-mono-hbs text-accent">
+                              {new Date(proximo.data + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} · {fmt(proximo.valor)}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

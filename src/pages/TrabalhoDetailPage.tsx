@@ -10,6 +10,7 @@ import { computeTrabalhoFinancials } from '@/lib/financials';
 import { TrabalhoEtapa } from '@/lib/types';
 import { DOCUMENT_REGISTRY } from '@/lib/producao/registry';
 import { NovoRepasseDialog } from '@/components/trabalhos/NovoRepasseDialog';
+import { NovoTrabalhoDiretoDialog } from '@/components/trabalhos/NovoTrabalhoDiretoDialog';
 import { NovoRecebimentoDialog } from '@/components/NovoRecebimentoDialog';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
@@ -44,6 +45,7 @@ export default function TrabalhoDetailPage() {
   const [recebimentoOpen, setRecebimentoOpen] = useState(false);
   const [recebimentoValorInicial, setRecebimentoValorInicial] = useState<number | undefined>(undefined);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [editandoContratado, setEditandoContratado] = useState(false);
   const [contratadoInput, setContratadoInput] = useState('');
   const [novoLancamentoAberto, setNovoLancamentoAberto] = useState(false);
@@ -191,10 +193,22 @@ export default function TrabalhoDetailPage() {
         <button onClick={() => navigate('/trabalhos')} className="self-start text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
           <ArrowLeft className="w-3 h-3" /> Trabalhos
         </button>
-        <button onClick={() => setDeleteOpen(true)} className="text-xs text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1">
-          <Trash2 className="w-3.5 h-3.5" /> Excluir trabalho
-        </button>
+        <div className="flex items-center gap-3.5">
+          <button onClick={() => setEditOpen(true)} className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+            <Pencil className="w-3.5 h-3.5" /> Editar trabalho
+          </button>
+          <button onClick={() => setDeleteOpen(true)} className="text-xs text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1">
+            <Trash2 className="w-3.5 h-3.5" /> Excluir trabalho
+          </button>
+        </div>
       </div>
+
+      <NovoTrabalhoDiretoDialog
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        onCreated={() => setKey(k => k + 1)}
+        trabalho={trabalho}
+      />
 
       <div className="bg-card border border-border rounded-xl p-[18px]">
         <div className="flex flex-wrap gap-3.5 items-start">

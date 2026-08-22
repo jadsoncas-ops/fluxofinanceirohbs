@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Task } from '@/lib/types';
+import { Task, Transaction } from '@/lib/types';
 import { getProcesses, getClients } from '@/lib/storage';
 import { cn } from '@/lib/utils';
 
@@ -12,9 +12,17 @@ function toKey(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-/** Calendário mensal com bolinha nos dias que têm tarefa pendente com prazo — clique num dia pra ver a
- *  lista. Roxo/laranja indica atraso, âmbar indica previsto. Só considera tarefas não concluídas. */
-export function CalendarioTarefas({ tasks }: { tasks: Task[] }) {
+interface CalendarEvent {
+  id: string;
+  titulo: string;
+  vinculo: string | null;
+  navegarPara: string;
+}
+
+/** Calendário mensal com bolinha nos dias que têm tarefa, prazo de trabalho ou lançamento
+ *  financeiro pendente — clique num dia pra ver a lista. Vermelho indica atraso, âmbar indica
+ *  previsto. Só considera itens ainda não concluídos/pagos/recebidos. */
+export function CalendarioTarefas({ tasks, transactions }: { tasks: Task[]; transactions: Transaction[] }) {
   const navigate = useNavigate();
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
@@ -26,16 +34,42 @@ export function CalendarioTarefas({ tasks }: { tasks: Task[] }) {
   const clients = useMemo(() => getClients(), []);
 
   const porDia = useMemo(() => {
-    const map = new Map<string, Task[]>();
+    const map = new Map<string, CalendarEvent[]>();
+    function add(data: string | undefined, evento: CalendarEvent) {
+      if (!data) return;
+      const arr = map.get(data) || [];
+      arr.push(evento);
+      map.set(data, arr);
+    }
+
     tasks
       .filter(t => t.status !== 'Concluída' && t.prazo)
       .forEach(t => {
-        const arr = map.get(t.prazo!) || [];
-        arr.push(t);
-        map.set(t.prazo!, arr);
+        const vinculo = t.processId ? processes.find(p => p.id === t.processId)?.objeto : t.clienteId ? clients.find(c => c.id === t.clienteId)?.nome : null;
+        add(t.prazo, { id: `tarefa-${t.id}`, titulo: t.titulo, vinculo: vinculo || null, navegarPara: t.processId ? `/trabalhos/${t.processId}` : '/tarefas' });
       });
+
+    transactions
+      .filter(t => t.status !== 'Concluído')
+      .forEach(t => {
+        const isEntrada = t.tipo === 'Entrada' || t.tipo === 'A Receber';
+        const cliente = t.clienteId ? clients.find(c => c.id === t.clienteId)?.nome : null;
+        add(t.data, {
+          id: `tx-${t.id}`,
+          titulo: `${isEntrada ? 'Receber' : 'Pagar'}: ${t.descricao}`,
+          vinculo: cliente,
+          navegarPara: t.processId ? `/trabalhos/${t.processId}` : '/caixa/receitas',
+        });
+      });
+
+    processes
+      .filter(p => !p.isArchived && (p.etapa || 'Levantamento') !== 'Concluído' && p.prazo)
+      .forEach(p => {
+        add(p.prazo, { id: `trabalho-${p.id}`, titulo: `Prazo: ${p.objeto}`, vinculo: clients.find(c => c.id === p.clienteId)?.nome || null, navegarPara: `/trabalhos/${p.id}` });
+      });
+
     return map;
-  }, [tasks]);
+  }, [tasks, transactions, processes, clients]);
 
   const primeiroDiaSemana = (mes.getDay() + 6) % 7; // segunda-feira = 0
   const diasNoMes = new Date(mes.getFullYear(), mes.getMonth() + 1, 0).getDate();
@@ -44,13 +78,7 @@ export function CalendarioTarefas({ tasks }: { tasks: Task[] }) {
     ...Array.from({ length: diasNoMes }, (_, i) => new Date(mes.getFullYear(), mes.getMonth(), i + 1)),
   ];
 
-  function nomeVinculo(t: Task): string | null {
-    if (t.processId) return processes.find(p => p.id === t.processId)?.objeto || null;
-    if (t.clienteId) return clients.find(c => c.id === t.clienteId)?.nome || null;
-    return null;
-  }
-
-  const tarefasDoDia = diaSel ? porDia.get(diaSel) || [] : [];
+  const eventosDoDia = diaSel ? porDia.get(diaSel) || [] : [];
 
   return (
     <section className="bg-card border border-border rounded-xl overflow-hidden">
@@ -80,7 +108,7 @@ export function CalendarioTarefas({ tasks }: { tasks: Task[] }) {
             if (!d) return <div key={i} />;
             const key = toKey(d);
             const itens = porDia.get(key) || [];
-            const atrasada = itens.length > 0 && key < todayStr;
+            const atrasado = itens.length > 0 && key < todayStr;
             const isHoje = key === todayStr;
             const isSel = key === diaSel;
             return (
@@ -94,7 +122,7 @@ export function CalendarioTarefas({ tasks }: { tasks: Task[] }) {
               >
                 {d.getDate()}
                 {itens.length > 0 && (
-                  <span className={cn('w-1 h-1 rounded-full flex-none', isSel ? 'bg-primary-foreground' : atrasada ? 'bg-destructive' : 'bg-warning')} />
+                  <span className={cn('w-1 h-1 rounded-full flex-none', isSel ? 'bg-primary-foreground' : atrasado ? 'bg-destructive' : 'bg-warning')} />
                 )}
               </button>
             );
@@ -107,19 +135,19 @@ export function CalendarioTarefas({ tasks }: { tasks: Task[] }) {
           <div className="text-[11px] font-mono-hbs text-mute-2 mb-2 capitalize">
             {new Date(diaSel + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
           </div>
-          {tarefasDoDia.length === 0 ? (
+          {eventosDoDia.length === 0 ? (
             <div className="text-xs text-muted-foreground">Nada nesse dia.</div>
           ) : (
             <div className="space-y-2">
-              {tarefasDoDia.map(t => (
+              {eventosDoDia.map(e => (
                 <div
-                  key={t.id}
-                  onClick={() => navigate(t.processId ? `/trabalhos/${t.processId}` : '/tarefas')}
+                  key={e.id}
+                  onClick={() => navigate(e.navegarPara)}
                   className="flex items-center gap-2 text-[12.5px] cursor-pointer hover:text-accent transition-colors"
                 >
                   <span className={cn('w-1.5 h-1.5 rounded-full flex-none', diaSel < todayStr ? 'bg-destructive' : 'bg-warning')} />
-                  <span className="flex-1 min-w-0 truncate">{t.titulo}</span>
-                  {nomeVinculo(t) && <span className="text-mute-2 text-[11px] flex-none truncate max-w-[130px]">{nomeVinculo(t)}</span>}
+                  <span className="flex-1 min-w-0 truncate">{e.titulo}</span>
+                  {e.vinculo && <span className="text-mute-2 text-[11px] flex-none truncate max-w-[130px]">{e.vinculo}</span>}
                 </div>
               ))}
             </div>

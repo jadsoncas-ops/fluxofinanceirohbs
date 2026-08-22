@@ -2,35 +2,46 @@ export interface ItemVencimento {
   descricao: string;
   valor: number;
   trabalho?: string;
+  data: string; // YYYY-MM-DD
 }
 
 function fmtMoneyMsg(v: number) {
   return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function situacaoItem(data: string, hojeStr: string): string {
+  const dataFmt = new Date(data + 'T12:00:00').toLocaleDateString('pt-BR');
+  if (data < hojeStr) return `vencido em ${dataFmt}`;
+  if (data === hojeStr) return `vence hoje, ${dataFmt}`;
+  return `vence em ${dataFmt}`;
+}
+
 /**
- * Mensagem institucional de lembrete de vencimento — enviada pela HBS (não em nome pessoal),
- * tom profissional e cordial: lembra o compromisso sem soar como cobrança agressiva.
+ * Mensagem institucional de lembrete/cobrança — enviada pela HBS (não em nome pessoal), tom
+ * profissional e cordial. Adapta a abertura conforme haja ou não item já vencido na lista.
  */
 export function montarMensagemLembreteVencimento(params: {
   clienteNome: string;
-  data: string;
   itens: ItemVencimento[];
 }): string {
-  const dataFmt = new Date(params.data + 'T12:00:00').toLocaleDateString('pt-BR');
+  const hojeStr = new Date().toISOString().slice(0, 10);
   const primeiroNome = params.clienteNome.trim().split(' ')[0];
   const total = params.itens.reduce((s, i) => s + i.valor, 0);
+  const temVencido = params.itens.some(i => i.data < hojeStr);
 
   const linhas = params.itens
-    .map(i => `📄 ${i.descricao}${i.trabalho ? ` — ${i.trabalho}` : ''}\n💰 ${fmtMoneyMsg(i.valor)}`)
+    .map(i => `📄 ${i.descricao}${i.trabalho ? ` — ${i.trabalho}` : ''}\n💰 ${fmtMoneyMsg(i.valor)} · ${situacaoItem(i.data, hojeStr)}`)
     .join('\n\n');
   const totalLinha = params.itens.length > 1 ? `\n\nTotal: ${fmtMoneyMsg(total)}` : '';
+  const abertura = temVencido
+    ? 'Passando para lembrar de um compromisso financeiro em aberto:'
+    : 'Passando para lembrar de um vencimento agendado:';
 
   return `Olá, ${primeiroNome}! Tudo bem?
 
 Aqui é a equipe da HBS Engenharia.
 
-Passando para lembrar de um vencimento agendado para amanhã, ${dataFmt}:
+${abertura}
 
 ${linhas}${totalLinha}
 

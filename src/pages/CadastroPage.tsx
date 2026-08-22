@@ -44,45 +44,47 @@ export default function CadastroPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="flex flex-col items-center gap-2 mb-8">
-          <img src={hbsLogo} alt="HBS Engenharia" className="h-9 w-auto dark:invert dark:brightness-200" />
-          <span className="text-[10.5px] tracking-[.16em] text-mute-2 font-mono-hbs uppercase">Portal de Gestão</span>
-        </div>
-
-        {fechado ? (
-          <div className="bg-card border border-border rounded-xl p-6 text-center space-y-2">
-            <p className="text-[13px] font-medium">Cadastro encerrado.</p>
-            <p className="text-xs text-mute-2">As contas do escritório já foram criadas. Se precisar de acesso, fale com um administrador.</p>
-            <Link to="/login" className="inline-block text-xs text-accent hover:text-accent-hover font-medium mt-2">Ir para o login</Link>
+    <div className="fixed inset-0 overflow-y-auto bg-background">
+      <div className="min-h-full flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-sm">
+          <div className="flex flex-col items-center gap-2 mb-8">
+            <img src={hbsLogo} alt="HBS Engenharia" className="h-9 w-auto dark:invert dark:brightness-200" />
+            <span className="text-[10.5px] tracking-[.16em] text-mute-2 font-mono-hbs uppercase">Portal de Gestão</span>
           </div>
-        ) : (
-          <>
-            <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-6 space-y-4">
-              <div className="space-y-1.5">
-                <Label>Seu nome</Label>
-                <Input value={nome} onChange={e => setNome(e.target.value)} required autoFocus />
-              </div>
-              <div className="space-y-1.5">
-                <Label>E-mail</Label>
-                <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Senha</Label>
-                <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Código de convite</Label>
-                <Input value={inviteCode} onChange={e => setInviteCode(e.target.value)} required />
-              </div>
-              <Button type="submit" className="w-full" disabled={loading}>{loading ? 'Criando…' : 'Criar conta'}</Button>
-            </form>
-            <p className="text-center text-xs text-mute-2 mt-4">
-              Já tem conta? <Link to="/login" className="text-accent hover:text-accent-hover font-medium">Entrar</Link>
-            </p>
-          </>
-        )}
+
+          {fechado ? (
+            <div className="bg-card border border-border rounded-xl p-6 text-center space-y-2">
+              <p className="text-[13px] font-medium">Cadastro encerrado.</p>
+              <p className="text-xs text-mute-2">As contas do escritório já foram criadas. Se precisar de acesso, fale com um administrador.</p>
+              <Link to="/login" className="inline-block text-xs text-accent hover:text-accent-hover font-medium mt-2">Ir para o login</Link>
+            </div>
+          ) : (
+            <>
+              <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-6 space-y-4">
+                <div className="space-y-1.5">
+                  <Label>Seu nome</Label>
+                  <Input value={nome} onChange={e => setNome(e.target.value)} required autoFocus />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>E-mail</Label>
+                  <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Senha</Label>
+                  <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Código de convite</Label>
+                  <Input value={inviteCode} onChange={e => setInviteCode(e.target.value)} required />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>{loading ? 'Criando…' : 'Criar conta'}</Button>
+              </form>
+              <p className="text-center text-xs text-mute-2 mt-4">
+                Já tem conta? <Link to="/login" className="text-accent hover:text-accent-hover font-medium">Entrar</Link>
+              </p>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

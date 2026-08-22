@@ -79,24 +79,28 @@ export default function DashboardPage() {
     const amanha = new Date();
     amanha.setDate(amanha.getDate() + 1);
     const amanhaStr = amanha.toISOString().slice(0, 10);
-    const venceAmanhaMap = new Map<string, { valor: number; itens: { descricao: string; valor: number; trabalho?: string }[] }>();
+    // Cobre vencidos + o que vence amanhã — dá tempo do financeiro avisar o cliente antes do vencimento
+    // e também ter ciência do que já passou da data.
+    const avisosMap = new Map<string, { valor: number; itens: { descricao: string; valor: number; trabalho?: string; data: string }[] }>();
     transactions
-      .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído' && t.data === amanhaStr && t.clienteId)
+      .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído' && t.data <= amanhaStr && t.clienteId)
       .forEach(t => {
-        const cur = venceAmanhaMap.get(t.clienteId!) || { valor: 0, itens: [] };
+        const cur = avisosMap.get(t.clienteId!) || { valor: 0, itens: [] };
         cur.valor += t.valor;
-        cur.itens.push({ descricao: t.descricao, valor: t.valor, trabalho: processes.find(p => p.id === t.processId)?.objeto });
-        venceAmanhaMap.set(t.clienteId!, cur);
+        cur.itens.push({ descricao: t.descricao, valor: t.valor, trabalho: processes.find(p => p.id === t.processId)?.objeto, data: t.data });
+        avisosMap.set(t.clienteId!, cur);
       });
-    const venceAmanha = Array.from(venceAmanhaMap.entries())
+    const venceAmanha = Array.from(avisosMap.entries())
       .map(([clienteId, v]) => {
         const client = clients.find(c => c.id === clienteId);
         if (!client) return null;
         const telefone = client.telefone?.ddd && client.telefone?.numero ? { ddd: client.telefone.ddd, numero: client.telefone.numero } : null;
-        const mensagem = montarMensagemLembreteVencimento({ clienteNome: client.nome, data: amanhaStr, itens: v.itens });
-        return { clienteId, clienteNome: client.nome, valor: v.valor, itens: v.itens, telefone, mensagem };
+        const temVencido = v.itens.some(i => i.data < today);
+        const mensagem = montarMensagemLembreteVencimento({ clienteNome: client.nome, itens: v.itens });
+        return { clienteId, clienteNome: client.nome, valor: v.valor, itens: v.itens, telefone, mensagem, temVencido };
       })
-      .filter((v): v is NonNullable<typeof v> => v !== null);
+      .filter((v): v is NonNullable<typeof v> => v !== null)
+      .sort((a, b) => (b.temVencido ? 1 : 0) - (a.temVencido ? 1 : 0));
 
     const cashflow = Array.from({ length: 6 }).map((_, i) => {
       const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
@@ -172,20 +176,23 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Vence amanhã — avisar cliente */}
+      {/* Vencidos + vence amanhã — avisar/cobrar cliente */}
       {venceAmanha.length > 0 && (
         <section className="bg-warning-soft border border-warning/30 rounded-xl overflow-hidden">
           <div className="px-[18px] py-[15px] border-b border-warning/20 flex items-center justify-between">
             <div>
-              <div className="text-[16px] font-semibold text-warning">Vence amanhã</div>
-              <div className="text-[11.5px] text-mute-2 mt-0.5 font-mono-hbs">envie o lembrete antes que vença</div>
+              <div className="text-[16px] font-semibold text-warning">Cobranças</div>
+              <div className="text-[11.5px] text-mute-2 mt-0.5 font-mono-hbs">vencidos e o que vence amanhã — envie o lembrete</div>
             </div>
             <span className="text-[11px] font-mono-hbs text-mute-2">{venceAmanha.length} cliente{venceAmanha.length > 1 ? 's' : ''}</span>
           </div>
           {venceAmanha.map(v => (
             <div key={v.clienteId} className="flex items-center gap-[13px] px-[18px] py-[13px] border-b border-warning/20 last:border-b-0">
               <div className="min-w-0 flex-1 cursor-pointer" onClick={() => navigate(`/clientes/${v.clienteId}`)}>
-                <div className="text-[13px] font-medium leading-[1.35]">{v.clienteNome}</div>
+                <div className="text-[13px] font-medium leading-[1.35] flex items-center gap-1.5">
+                  {v.clienteNome}
+                  {v.temVencido && <span className="text-[10px] px-1.5 py-px rounded-[4px] bg-destructive-soft text-destructive font-medium uppercase tracking-wide">vencido</span>}
+                </div>
                 <div className="text-[11.5px] text-muted-foreground mt-0.5">
                   {v.itens.length > 1 ? `${v.itens.length} parcelas · ` : ''}{v.itens[0].descricao}{v.itens.length === 1 && v.itens[0].trabalho ? ` — ${v.itens[0].trabalho}` : ''} · {fmtMoney(v.valor)}
                 </div>
@@ -270,7 +277,7 @@ export default function DashboardPage() {
             )}
           </section>
 
-          <CalendarioTarefas tasks={tasks} />
+          <CalendarioTarefas tasks={tasks} transactions={transactions} />
         </div>
       </div>
 
