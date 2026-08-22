@@ -1,12 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
-import { ListTodo, Settings as SettingsIcon, ChevronRight } from 'lucide-react';
+import { ListTodo, Settings as SettingsIcon, ChevronRight, Scale } from 'lucide-react';
 
 export default function MaisPage() {
   const navigate = useNavigate();
 
   const items = [
     { to: '/tarefas', label: 'Tarefas & Agenda', desc: 'Prazos, follow-ups e checklists', icon: ListTodo },
+    { to: '/avaliacoes', label: 'Avaliações', desc: 'Laudos de aluguel para a Prefeitura/CIUB', icon: Scale },
     { to: '/configuracoes', label: 'Definições', desc: 'Backup, tema e dados da conta', icon: SettingsIcon },
   ];
 

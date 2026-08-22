@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Compass, Users, Layers, FileStack, Handshake, Landmark, BarChart3, Settings as SettingsIcon,
-  ChevronLeft, ChevronRight, Command, LogOut,
+  ChevronLeft, ChevronRight, Command, LogOut, Scale,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
@@ -29,6 +29,7 @@ const items = [
   { to: '/comercial', label: 'Comercial', icon: Handshake },
   { to: '/caixa', label: 'Fluxo de Caixa', icon: Landmark, badgeKey: 'caixaAtrasado' },
   { to: '/relatorios', label: 'Relatórios', icon: BarChart3 },
+  { to: '/avaliacoes', label: 'Avaliações', icon: Scale },
 ];
 
 export function AppSidebar({ onOpenCommand, badges = {} }: Props) {

@@ -21,6 +21,8 @@ import DocumentoGeradorPage from "./pages/producao/DocumentoGeradorPage";
 import ComercialPage from "./pages/ComercialPage";
 import PropostaImpressaoPage from "./pages/comercial/PropostaImpressaoPage";
 import RelatoriosPage from "./pages/RelatoriosPage";
+import AvaliacoesPage from "./pages/AvaliacoesPage";
+import AvaliacaoDetailPage from "./pages/AvaliacaoDetailPage";
 import CaixaLayout from "./pages/financeiro/FinanceiroLayout";
 import CaixaVisaoGeralPage from "./pages/financeiro/VisaoGeralPage";
 import CaixaMovimentacoesPage from "./pages/financeiro/MovimentacoesPage";
@@ -56,6 +58,8 @@ const App = () => (
             <Route path="/comercial" element={<ComercialPage />} />
             <Route path="/comercial/propostas/:propostaId/imprimir" element={<PropostaImpressaoPage />} />
             <Route path="/relatorios" element={<RelatoriosPage />} />
+            <Route path="/avaliacoes" element={<AvaliacoesPage />} />
+            <Route path="/avaliacoes/:avaliacaoId" element={<AvaliacaoDetailPage />} />
             <Route path="/tarefas" element={<TarefasPage />} />
             <Route path="/configuracoes" element={<ConfiguracoesPage />} />
             <Route path="/mais" element={<MaisPage />} />

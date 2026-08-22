@@ -50,6 +50,8 @@ function useRouteMeta(pathname: string, clientCount: number, trabalhosAtivos: nu
   if (pathname.startsWith('/caixa/receitas')) return { title: 'Fluxo de Caixa', meta: 'Receitas & despesas' };
   if (pathname.startsWith('/caixa/contas')) return { title: 'Fluxo de Caixa', meta: 'Contas' };
   if (pathname.startsWith('/relatorios')) return { title: 'Relatórios', meta: null };
+  if (pathname.match(/^\/avaliacoes\/[^/]+/)) return { title: 'Avaliações', meta: null };
+  if (pathname.startsWith('/avaliacoes')) return { title: 'Avaliações', meta: 'Aluguel — Prefeitura/CIUB' };
   if (pathname.startsWith('/tarefas')) return { title: 'Tarefas & agenda', meta: null };
   if (pathname.startsWith('/configuracoes')) return { title: 'Configurações', meta: 'HBS Engenharia' };
   return { title: 'HBS Engineering', meta: null };

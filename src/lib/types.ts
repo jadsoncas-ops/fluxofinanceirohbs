@@ -502,3 +502,71 @@ export const CORES_COMPROMISSO: Record<string, string> = {
   rosa: '330 65% 58%',
   ambar: '38 80% 50%',
 };
+
+// ----------------------------------------------------------------------------
+// Avaliações de aluguel (Prefeitura/CIUB) — independente de Clientes/Trabalhos
+// ----------------------------------------------------------------------------
+
+export type StatusAvaliacao = 'Rascunho' | 'Concluído';
+
+/** Um imóvel de referência usado no Anexo III (Tabela de Homogeneização). */
+export interface ComparavelAvaliacao {
+  id: string;
+  endereco?: string;
+  estadoConservacao?: string;
+  areaConstruida?: number;
+  anunciante?: string;
+  valorAluguel?: number;
+  /** Link do anúncio/fonte — importante quando o comparável veio de busca assistida por IA. */
+  fonte?: string;
+}
+
+/** Laudo técnico de avaliação de aluguel de imóvel urbano — modelo usado pelo Jádson como
+ *  avaliador técnico da CIUB para a Prefeitura de Itabuna. Não está vinculado a Cliente/Trabalho
+ *  da HBS: o "solicitante" aqui é uma Secretaria Municipal. */
+export interface AvaliacaoAluguel {
+  id: string;
+
+  entidadeSolicitante?: string;
+  secretariaSolicitante?: string;
+  secretariaDestinataria?: string;
+  tipoLaudo?: string;
+  finalidade?: string;
+
+  enderecoImovel?: string;
+  municipioUf?: string;
+  grauFundamentacao?: string;
+  proprietario?: string;
+  metodologiaAplicada?: string;
+  tipoImovel?: string;
+  areaConstruida?: number;
+  dataReferencia?: string; // ISO datetime
+  /** Ex.: "funcionamento do CREAS — Centro de Referência Especializado de Assistência Social". */
+  destinacaoUso?: string;
+
+  usoPredominante?: string;
+  tipologia?: string;
+  numeroPavimentos?: number;
+  padraoConstrutivo?: string;
+  estadoConservacao?: string;
+  /** Observações extras sobre o imóvel (ex.: itens excluídos da locação). Opcional. */
+  observacoesAdicionais?: string;
+
+  responsavelNome?: string;
+  responsavelRegistro?: string;
+  colaboradorNome?: string;
+  colaboradorRegistro?: string;
+  /** Avaliador da Comissão de Avaliação e Aluguel — quem valida e assina o laudo final. */
+  avaliadorNome?: string;
+  avaliadorRegistro?: string;
+
+  fatorRedutorPercent: number;
+  comparaveis: ComparavelAvaliacao[];
+
+  cidadeAssinatura?: string;
+  dataAssinatura?: string; // YYYY-MM-DD
+  status: StatusAvaliacao;
+
+  createdAt: number;
+  updatedAt: number;
+}

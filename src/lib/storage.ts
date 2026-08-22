@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import {
   Transaction, Client, Process, Task, Account, Partner, DocumentRecord,
-  CompanyConfig, Proposta, Contrato, PrecificacaoConfig, HistoricoEvent, Compromisso,
+  CompanyConfig, Proposta, Contrato, PrecificacaoConfig, HistoricoEvent, Compromisso, AvaliacaoAluguel,
 } from './types';
 import { CUSTOS_FIXOS_PADRAO, CUSTOS_VARIAVEIS_PADRAO, INVESTIMENTOS_PADRAO, HORAS_PRODUTIVAS_PADRAO, CUSTOS_PROTOCOLO_PADRAO } from './comercial/precificacao';
 
@@ -30,6 +30,7 @@ interface Cache {
   contratos: Contrato[];
   historico: HistoricoEvent[];
   compromissos: Compromisso[];
+  avaliacoes: AvaliacaoAluguel[];
   companyConfig: CompanyConfig;
   precificacaoConfig: PrecificacaoConfig | null;
 }
@@ -37,7 +38,7 @@ interface Cache {
 const cache: Cache = {
   transactions: [], clients: [], processes: [], tasks: [], accounts: [],
   partners: [], documents: [], propostas: [], contratos: [], historico: [],
-  compromissos: [], companyConfig: {}, precificacaoConfig: null,
+  compromissos: [], avaliacoes: [], companyConfig: {}, precificacaoConfig: null,
 };
 
 let bootstrapPromise: Promise<void> | null = null;
@@ -269,6 +270,82 @@ function compromissoToRow(c: Compromisso): Database['public']['Tables']['hbs_com
   };
 }
 
+function rowToAvaliacao(r: Row<'hbs_avaliacoes'>): AvaliacaoAluguel {
+  return {
+    id: r.id,
+    entidadeSolicitante: r.entidade_solicitante ?? undefined,
+    secretariaSolicitante: r.secretaria_solicitante ?? undefined,
+    secretariaDestinataria: r.secretaria_destinataria ?? undefined,
+    tipoLaudo: r.tipo_laudo ?? undefined,
+    finalidade: r.finalidade ?? undefined,
+    enderecoImovel: r.endereco_imovel ?? undefined,
+    municipioUf: r.municipio_uf ?? undefined,
+    grauFundamentacao: r.grau_fundamentacao ?? undefined,
+    proprietario: r.proprietario ?? undefined,
+    metodologiaAplicada: r.metodologia_aplicada ?? undefined,
+    tipoImovel: r.tipo_imovel ?? undefined,
+    areaConstruida: r.area_construida != null ? Number(r.area_construida) : undefined,
+    dataReferencia: r.data_referencia ?? undefined,
+    destinacaoUso: r.destinacao_uso ?? undefined,
+    usoPredominante: r.uso_predominante ?? undefined,
+    tipologia: r.tipologia ?? undefined,
+    numeroPavimentos: r.numero_pavimentos ?? undefined,
+    padraoConstrutivo: r.padrao_construtivo ?? undefined,
+    estadoConservacao: r.estado_conservacao ?? undefined,
+    observacoesAdicionais: r.observacoes_adicionais ?? undefined,
+    responsavelNome: r.responsavel_nome ?? undefined,
+    responsavelRegistro: r.responsavel_registro ?? undefined,
+    colaboradorNome: r.colaborador_nome ?? undefined,
+    colaboradorRegistro: r.colaborador_registro ?? undefined,
+    avaliadorNome: r.avaliador_nome ?? undefined,
+    avaliadorRegistro: r.avaliador_registro ?? undefined,
+    fatorRedutorPercent: r.fator_redutor_percent != null ? Number(r.fator_redutor_percent) : 10,
+    comparaveis: (r.comparaveis as AvaliacaoAluguel['comparaveis']) ?? [],
+    cidadeAssinatura: r.cidade_assinatura ?? undefined,
+    dataAssinatura: r.data_assinatura ?? undefined,
+    status: (r.status as AvaliacaoAluguel['status']) ?? 'Rascunho',
+    createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime(),
+  };
+}
+function avaliacaoToRow(a: AvaliacaoAluguel): Database['public']['Tables']['hbs_avaliacoes']['Insert'] {
+  return {
+    id: a.id,
+    entidade_solicitante: a.entidadeSolicitante ?? null,
+    secretaria_solicitante: a.secretariaSolicitante ?? null,
+    secretaria_destinataria: a.secretariaDestinataria ?? null,
+    tipo_laudo: a.tipoLaudo ?? null,
+    finalidade: a.finalidade ?? null,
+    endereco_imovel: a.enderecoImovel ?? null,
+    municipio_uf: a.municipioUf ?? null,
+    grau_fundamentacao: a.grauFundamentacao ?? null,
+    proprietario: a.proprietario ?? null,
+    metodologia_aplicada: a.metodologiaAplicada ?? null,
+    tipo_imovel: a.tipoImovel ?? null,
+    area_construida: a.areaConstruida ?? null,
+    data_referencia: a.dataReferencia ?? null,
+    destinacao_uso: a.destinacaoUso ?? null,
+    uso_predominante: a.usoPredominante ?? null,
+    tipologia: a.tipologia ?? null,
+    numero_pavimentos: a.numeroPavimentos ?? null,
+    padrao_construtivo: a.padraoConstrutivo ?? null,
+    estado_conservacao: a.estadoConservacao ?? null,
+    observacoes_adicionais: a.observacoesAdicionais ?? null,
+    responsavel_nome: a.responsavelNome ?? null,
+    responsavel_registro: a.responsavelRegistro ?? null,
+    colaborador_nome: a.colaboradorNome ?? null,
+    colaborador_registro: a.colaboradorRegistro ?? null,
+    avaliador_nome: a.avaliadorNome ?? null,
+    avaliador_registro: a.avaliadorRegistro ?? null,
+    fator_redutor_percent: a.fatorRedutorPercent,
+    comparaveis: (a.comparaveis ?? []) as Database['public']['Tables']['hbs_avaliacoes']['Insert']['comparaveis'],
+    cidade_assinatura: a.cidadeAssinatura ?? null,
+    data_assinatura: a.dataAssinatura ?? null,
+    status: a.status,
+    created_at: a.createdAt ? new Date(a.createdAt).toISOString() : undefined,
+    updated_at: a.updatedAt ? new Date(a.updatedAt).toISOString() : undefined,
+  };
+}
+
 function defaultPrecificacaoConfig(): PrecificacaoConfig {
   return {
     custosDiretos: [
@@ -294,7 +371,7 @@ function defaultPrecificacaoConfig(): PrecificacaoConfig {
 export function bootstrapStorage(): Promise<void> {
   if (bootstrapPromise) return bootstrapPromise;
   bootstrapPromise = (async () => {
-    const [tx, cl, pr, tk, ac, pa, doc, prop, con, hist, settings, comp] = await Promise.all([
+    const [tx, cl, pr, tk, ac, pa, doc, prop, con, hist, settings, comp, aval] = await Promise.all([
       supabase.from('hbs_transactions').select('*'),
       supabase.from('hbs_clients').select('*'),
       supabase.from('hbs_processes').select('*'),
@@ -307,6 +384,7 @@ export function bootstrapStorage(): Promise<void> {
       supabase.from('hbs_historico_events').select('*').order('created_at', { ascending: false }).limit(500),
       supabase.from('hbs_app_settings').select('*'),
       supabase.from('hbs_compromissos').select('*'),
+      supabase.from('hbs_avaliacoes').select('*'),
     ]);
     cache.transactions = (tx.data ?? []).map(rowToTransaction);
     cache.clients = (cl.data ?? []).map(rowToClient);
@@ -319,6 +397,7 @@ export function bootstrapStorage(): Promise<void> {
     cache.contratos = (con.data ?? []).map(rowToContrato);
     cache.historico = (hist.data ?? []).map(rowToHistorico);
     cache.compromissos = (comp.data ?? []).map(rowToCompromisso);
+    cache.avaliacoes = (aval.data ?? []).map(rowToAvaliacao);
 
     const settingsMap = new Map((settings.data ?? []).map(s => [s.key, s.value]));
     cache.companyConfig = (settingsMap.get('company_config') as CompanyConfig) ?? {};
@@ -400,6 +479,11 @@ function subscribeRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'hbs_compromissos' }, payload => {
       const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as Row<'hbs_compromissos'>;
       cache.compromissos = applyChange(cache.compromissos, payload.eventType, rowToCompromisso(row));
+      notify();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'hbs_avaliacoes' }, payload => {
+      const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as Row<'hbs_avaliacoes'>;
+      cache.avaliacoes = applyChange(cache.avaliacoes, payload.eventType, rowToAvaliacao(row));
       notify();
     })
     .subscribe();
@@ -1017,6 +1101,42 @@ export function deleteCompromisso(id: string): void {
   void (async () => {
     const { error } = await supabase.from('hbs_compromissos').delete().eq('id', id);
     if (error) { reportError(error, 'Não foi possível excluir. Sincronizando novamente…'); await resyncTable('hbs_compromissos', rowToCompromisso, v => cache.compromissos = v); }
+  })();
+}
+
+// ----------------------------------------------------------------------------
+// Avaliações de aluguel (Prefeitura/CIUB)
+// ----------------------------------------------------------------------------
+
+export function getAvaliacoes(): AvaliacaoAluguel[] {
+  return cache.avaliacoes;
+}
+
+export function addAvaliacao(avaliacao: AvaliacaoAluguel): void {
+  cache.avaliacoes = [...cache.avaliacoes, avaliacao];
+  notify();
+  void (async () => {
+    const { error } = await supabase.from('hbs_avaliacoes').insert(avaliacaoToRow(avaliacao));
+    if (error) { reportError(error, 'Não foi possível salvar a avaliação. Sincronizando novamente…'); await resyncTable('hbs_avaliacoes', rowToAvaliacao, v => cache.avaliacoes = v); }
+  })();
+}
+
+export function updateAvaliacao(updated: AvaliacaoAluguel): void {
+  const withTs = { ...updated, updatedAt: Date.now() };
+  cache.avaliacoes = cache.avaliacoes.map(a => a.id === updated.id ? withTs : a);
+  notify();
+  void (async () => {
+    const { error } = await supabase.from('hbs_avaliacoes').update(avaliacaoToRow(withTs)).eq('id', updated.id);
+    if (error) { reportError(error, 'Não foi possível salvar. Sincronizando novamente…'); await resyncTable('hbs_avaliacoes', rowToAvaliacao, v => cache.avaliacoes = v); }
+  })();
+}
+
+export function deleteAvaliacao(id: string): void {
+  cache.avaliacoes = cache.avaliacoes.filter(a => a.id !== id);
+  notify();
+  void (async () => {
+    const { error } = await supabase.from('hbs_avaliacoes').delete().eq('id', id);
+    if (error) { reportError(error, 'Não foi possível excluir. Sincronizando novamente…'); await resyncTable('hbs_avaliacoes', rowToAvaliacao, v => cache.avaliacoes = v); }
   })();
 }
 

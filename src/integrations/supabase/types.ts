@@ -500,6 +500,120 @@ export type Database = {
         }
         Relationships: []
       }
+      hbs_avaliacoes: {
+        Row: {
+          id: string
+          entidade_solicitante: string | null
+          secretaria_solicitante: string | null
+          secretaria_destinataria: string | null
+          tipo_laudo: string | null
+          finalidade: string | null
+          endereco_imovel: string | null
+          municipio_uf: string | null
+          grau_fundamentacao: string | null
+          proprietario: string | null
+          metodologia_aplicada: string | null
+          tipo_imovel: string | null
+          area_construida: number | null
+          data_referencia: string | null
+          destinacao_uso: string | null
+          uso_predominante: string | null
+          tipologia: string | null
+          numero_pavimentos: number | null
+          padrao_construtivo: string | null
+          estado_conservacao: string | null
+          observacoes_adicionais: string | null
+          responsavel_nome: string | null
+          responsavel_registro: string | null
+          colaborador_nome: string | null
+          colaborador_registro: string | null
+          avaliador_nome: string | null
+          avaliador_registro: string | null
+          fator_redutor_percent: number
+          comparaveis: Json
+          cidade_assinatura: string | null
+          data_assinatura: string | null
+          status: string
+          created_at: string
+          updated_at: string
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          entidade_solicitante?: string | null
+          secretaria_solicitante?: string | null
+          secretaria_destinataria?: string | null
+          tipo_laudo?: string | null
+          finalidade?: string | null
+          endereco_imovel?: string | null
+          municipio_uf?: string | null
+          grau_fundamentacao?: string | null
+          proprietario?: string | null
+          metodologia_aplicada?: string | null
+          tipo_imovel?: string | null
+          area_construida?: number | null
+          data_referencia?: string | null
+          destinacao_uso?: string | null
+          uso_predominante?: string | null
+          tipologia?: string | null
+          numero_pavimentos?: number | null
+          padrao_construtivo?: string | null
+          estado_conservacao?: string | null
+          observacoes_adicionais?: string | null
+          responsavel_nome?: string | null
+          responsavel_registro?: string | null
+          colaborador_nome?: string | null
+          colaborador_registro?: string | null
+          avaliador_nome?: string | null
+          avaliador_registro?: string | null
+          fator_redutor_percent?: number
+          comparaveis?: Json
+          cidade_assinatura?: string | null
+          data_assinatura?: string | null
+          status?: string
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+        }
+        Update: {
+          id?: string
+          entidade_solicitante?: string | null
+          secretaria_solicitante?: string | null
+          secretaria_destinataria?: string | null
+          tipo_laudo?: string | null
+          finalidade?: string | null
+          endereco_imovel?: string | null
+          municipio_uf?: string | null
+          grau_fundamentacao?: string | null
+          proprietario?: string | null
+          metodologia_aplicada?: string | null
+          tipo_imovel?: string | null
+          area_construida?: number | null
+          data_referencia?: string | null
+          destinacao_uso?: string | null
+          uso_predominante?: string | null
+          tipologia?: string | null
+          numero_pavimentos?: number | null
+          padrao_construtivo?: string | null
+          estado_conservacao?: string | null
+          observacoes_adicionais?: string | null
+          responsavel_nome?: string | null
+          responsavel_registro?: string | null
+          colaborador_nome?: string | null
+          colaborador_registro?: string | null
+          avaliador_nome?: string | null
+          avaliador_registro?: string | null
+          fator_redutor_percent?: number
+          comparaveis?: Json
+          cidade_assinatura?: string | null
+          data_assinatura?: string | null
+          status?: string
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
