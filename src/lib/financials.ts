@@ -7,6 +7,10 @@ export interface ClientFinancials {
   atrasado: number;
   pago: number;
   aPagar: number;
+  /** Repasses a parceiros (pagos + a pagar) vinculados a este cliente. */
+  repasses: number;
+  /** Lucro líquido previsto = contratado - repasses (pagos + a pagar). Mesma lógica de TrabalhoFinancials.resultadoPrevisto, agregada pra todos os trabalhos do cliente. */
+  resultadoPrevisto: number;
 }
 
 /** Agregação financeira de um cliente — usada na ficha do cliente (/clientes/:id). */
@@ -42,7 +46,12 @@ export function computeClientFinancials(
     .filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído')
     .reduce((s, t) => s + t.valor, 0);
 
-  return { totalContratado, recebido, aReceber, atrasado, pago, aPagar };
+  const repasses = clientTxs.filter(t => t.isRepasse).reduce((s, t) => s + t.valor, 0);
+
+  return {
+    totalContratado, recebido, aReceber, atrasado, pago, aPagar, repasses,
+    resultadoPrevisto: totalContratado - repasses,
+  };
 }
 
 export interface TrabalhoFinancials {

@@ -12,6 +12,10 @@ interface Props {
 type ClientFilter = 'Todos' | 'Com saldo a receber' | 'Pessoa jurídica';
 const FILTERS: ClientFilter[] = ['Todos', 'Com saldo a receber', 'Pessoa jurídica'];
 
+function fmt(v: number) {
+  return v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
 function initials(nome: string) {
   const parts = nome.trim().split(/\s+/);
   return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase();
@@ -84,10 +88,12 @@ export function ClientsList({ refreshSignal = 0 }: Props = {}) {
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="flex gap-3.5 px-[18px] py-[11px] border-b border-border bg-surface-2 text-[10.5px] tracking-[.07em] uppercase text-mute-2">
-          <span className="flex-[2.4] min-w-0">Cliente</span>
-          <span className="flex-[1.6] min-w-0">Trabalhos ativos</span>
-          <span className="flex-[1.7] min-w-0">Financeiro</span>
-          <span className="flex-1 min-w-0 text-right">Último contato</span>
+          <span className="flex-[2] min-w-0">Cliente</span>
+          <span className="flex-1 min-w-0">Trabalhos</span>
+          <span className="flex-1 min-w-0 text-right">Contrato</span>
+          <span className="flex-1 min-w-0 text-right">Falta receber</span>
+          <span className="flex-1 min-w-0 text-right">Lucro previsto</span>
+          <span className="flex-[.8] min-w-0 text-right">Último contato</span>
         </div>
 
         {filtered.length === 0 ? (
@@ -97,37 +103,28 @@ export function ClientsList({ refreshSignal = 0 }: Props = {}) {
             <button onClick={() => { setSearch(''); setFilter('Todos'); }} className="mt-4 h-[34px] px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px]">Limpar filtros</button>
           </div>
         ) : (
-          filtered.map(({ client: c, fin, andamento, lastTouch }) => {
-            const pct = fin.totalContratado > 0 ? Math.min(100, Math.round((fin.recebido / fin.totalContratado) * 100)) : (fin.recebido > 0 ? 100 : 0);
-            return (
-              <div
-                key={c.id}
-                onClick={() => navigate(`/clientes/${c.id}`)}
-                className="flex gap-3.5 items-center px-[18px] py-[13px] border-b border-3 last:border-b-0 cursor-pointer hover:bg-surface-3 transition-colors"
-              >
-                <div className="flex-[2.4] min-w-0 flex items-center gap-[11px]">
-                  <span className="w-[30px] h-[30px] flex-none rounded-full bg-accent-soft text-accent grid place-items-center text-[11px] font-semibold font-mono-hbs">{initials(c.nome)}</span>
-                  <div className="min-w-0">
-                    <div className="text-[13.5px] font-medium truncate">{c.nome}</div>
-                    <div className="text-[11.5px] text-mute-2">{c.tipo || 'Pessoa física'}{c.endereco?.cidade ? ` · ${c.endereco.cidade}` : ''}</div>
-                  </div>
+          filtered.map(({ client: c, fin, andamento, lastTouch }) => (
+            <div
+              key={c.id}
+              onClick={() => navigate(`/clientes/${c.id}`)}
+              className="flex gap-3.5 items-center px-[18px] py-[13px] border-b border-3 last:border-b-0 cursor-pointer hover:bg-surface-3 transition-colors"
+            >
+              <div className="flex-[2] min-w-0 flex items-center gap-[11px]">
+                <span className="w-[30px] h-[30px] flex-none rounded-full bg-accent-soft text-accent grid place-items-center text-[11px] font-semibold font-mono-hbs">{initials(c.nome)}</span>
+                <div className="min-w-0">
+                  <div className="text-[13.5px] font-medium truncate">{c.nome}</div>
+                  <div className="text-[11.5px] text-mute-2">{c.tipo || 'Pessoa física'}{c.endereco?.cidade ? ` · ${c.endereco.cidade}` : ''}</div>
                 </div>
-                <div className="flex-[1.6] min-w-0 text-[12.5px] text-muted-foreground">
-                  {andamento > 0 ? `${andamento} projeto${andamento > 1 ? 's' : ''}` : '—'}
-                </div>
-                <div className="flex-[1.7] min-w-0">
-                  <div className="font-mono-hbs text-[12.5px]">
-                    {fin.recebido.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                    <span className="text-mute-3"> / {fin.totalContratado.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                  </div>
-                  <div className="h-1 rounded-[2px] bg-bar-track mt-[5px] overflow-hidden">
-                    <div className={cn('h-full rounded-[2px]', pct >= 100 ? 'bg-success' : 'bg-accent')} style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0 text-right text-[11.5px] text-mute-2 font-mono-hbs">{relativeTime(lastTouch)}</div>
               </div>
-            );
-          })
+              <div className="flex-1 min-w-0 text-[12.5px] text-muted-foreground">
+                {andamento > 0 ? `${andamento} projeto${andamento > 1 ? 's' : ''}` : '—'}
+              </div>
+              <div className="flex-1 min-w-0 text-right font-mono-hbs text-[12.5px]">{fmt(fin.totalContratado)}</div>
+              <div className={cn('flex-1 min-w-0 text-right font-mono-hbs text-[12.5px]', fin.aReceber > 0 ? 'text-destructive' : 'text-mute-2')}>{fmt(fin.aReceber)}</div>
+              <div className="flex-1 min-w-0 text-right font-mono-hbs text-[12.5px] text-success">{fmt(fin.resultadoPrevisto)}</div>
+              <div className="flex-[.8] min-w-0 text-right text-[11.5px] text-mute-2 font-mono-hbs">{relativeTime(lastTouch)}</div>
+            </div>
+          ))
         )}
       </div>
     </div>
