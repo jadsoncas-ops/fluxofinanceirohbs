@@ -503,6 +503,7 @@ export type Database = {
       hbs_avaliacoes: {
         Row: {
           id: string
+          logo_url: string | null
           entidade_solicitante: string | null
           secretaria_solicitante: string | null
           secretaria_destinataria: string | null
@@ -540,6 +541,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          logo_url?: string | null
           entidade_solicitante?: string | null
           secretaria_solicitante?: string | null
           secretaria_destinataria?: string | null
@@ -577,6 +579,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          logo_url?: string | null
           entidade_solicitante?: string | null
           secretaria_solicitante?: string | null
           secretaria_destinataria?: string | null

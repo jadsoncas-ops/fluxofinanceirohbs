@@ -98,6 +98,14 @@ export default function AvaliacaoDetailPage() {
     });
   }
 
+  function handleLogoFile(file: File | undefined) {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { toast.error('Selecione um arquivo de imagem (PNG, JPG ou SVG).'); return; }
+    const reader = new FileReader();
+    reader.onload = () => set('logoUrl', reader.result as string);
+    reader.readAsDataURL(file);
+  }
+
   function salvar() {
     updateAvaliacao(data);
     setRascunho(null);
@@ -136,6 +144,22 @@ export default function AvaliacaoDetailPage() {
               </SelectContent>
             </Select>
           </div>
+
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 flex-none rounded-lg border border-dashed border-border grid place-items-center bg-surface-3 overflow-hidden">
+              {data.logoUrl ? <img src={data.logoUrl} alt="Logo timbrada" className="max-w-full max-h-full object-contain" /> : <span className="text-[9px] text-mute-3 text-center px-1">sem logo</span>}
+            </div>
+            <div className="space-y-1">
+              <label className="h-8 px-3 rounded-lg border-2 text-[12px] font-medium hover:border-hover transition-colors inline-flex items-center gap-1.5 cursor-pointer">
+                Adicionar logo timbrado
+                <input type="file" accept="image/*" className="hidden" onChange={e => handleLogoFile(e.target.files?.[0])} />
+              </label>
+              {data.logoUrl && (
+                <button onClick={() => set('logoUrl', undefined)} className="text-[11px] text-muted-foreground hover:text-destructive transition-colors block">Remover logo</button>
+              )}
+            </div>
+          </div>
+
           <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 1fr' }}>
             <Field label="Entidade solicitante"><Input value={data.entidadeSolicitante || ''} onChange={e => set('entidadeSolicitante', e.target.value)} className={inputCls} /></Field>
             <Field label="Secretaria destinatária"><Input value={data.secretariaDestinataria || ''} onChange={e => set('secretariaDestinataria', e.target.value)} className={inputCls} /></Field>

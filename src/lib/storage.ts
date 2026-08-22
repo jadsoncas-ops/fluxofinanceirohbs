@@ -273,6 +273,7 @@ function compromissoToRow(c: Compromisso): Database['public']['Tables']['hbs_com
 function rowToAvaliacao(r: Row<'hbs_avaliacoes'>): AvaliacaoAluguel {
   return {
     id: r.id,
+    logoUrl: r.logo_url ?? undefined,
     entidadeSolicitante: r.entidade_solicitante ?? undefined,
     secretariaSolicitante: r.secretaria_solicitante ?? undefined,
     secretariaDestinataria: r.secretaria_destinataria ?? undefined,
@@ -310,6 +311,7 @@ function rowToAvaliacao(r: Row<'hbs_avaliacoes'>): AvaliacaoAluguel {
 function avaliacaoToRow(a: AvaliacaoAluguel): Database['public']['Tables']['hbs_avaliacoes']['Insert'] {
   return {
     id: a.id,
+    logo_url: a.logoUrl ?? null,
     entidade_solicitante: a.entidadeSolicitante ?? null,
     secretaria_solicitante: a.secretariaSolicitante ?? null,
     secretaria_destinataria: a.secretariaDestinataria ?? null,

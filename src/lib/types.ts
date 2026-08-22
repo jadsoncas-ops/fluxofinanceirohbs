@@ -527,6 +527,10 @@ export interface ComparavelAvaliacao {
 export interface AvaliacaoAluguel {
   id: string;
 
+  /** Logo timbrada exibida no topo do documento (Prefeitura/Secretaria/CIUB) — não é a logo da HBS.
+   *  Guardada como data URI (base64), preenchida pelo usuário direto na tela da avaliação. */
+  logoUrl?: string;
+
   entidadeSolicitante?: string;
   secretariaSolicitante?: string;
   secretariaDestinataria?: string;

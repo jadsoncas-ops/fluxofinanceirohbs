@@ -21,9 +21,13 @@ export function DocumentoAvaliacao({ avaliacao }: { avaliacao: AvaliacaoAluguel 
   return (
     <div className="documento-folha">
       <div className="documento-header">
-        <div style={{ width: 40, height: 40, flexShrink: 0, border: '1px dashed var(--doc-line)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, color: 'var(--doc-muted)', textAlign: 'center', lineHeight: 1.1 }}>
-          logo Prefeitura
-        </div>
+        {a.logoUrl ? (
+          <img src={a.logoUrl} alt="Logo timbrada" className="documento-logo" style={{ maxWidth: 90 }} />
+        ) : (
+          <div style={{ width: 40, height: 40, flexShrink: 0, border: '1px dashed var(--doc-line)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, color: 'var(--doc-muted)', textAlign: 'center', lineHeight: 1.1 }}>
+            adicionar logo timbrado
+          </div>
+        )}
         <div style={{ flex: 1, textAlign: 'center' }}>
           <div className="kicker" style={{ marginBottom: 4 }}>{a.entidadeSolicitante} · {a.secretariaDestinataria}</div>
           <h1>{a.tipoLaudo}</h1>
