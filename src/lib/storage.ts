@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import {
   Transaction, Client, Process, Task, Account, Partner, DocumentRecord,
-  CompanyConfig, Proposta, Contrato, PrecificacaoConfig, HistoricoEvent,
+  CompanyConfig, Proposta, Contrato, PrecificacaoConfig, HistoricoEvent, Compromisso,
 } from './types';
 import { CUSTOS_FIXOS_PADRAO, CUSTOS_VARIAVEIS_PADRAO, INVESTIMENTOS_PADRAO, HORAS_PRODUTIVAS_PADRAO, CUSTOS_PROTOCOLO_PADRAO } from './comercial/precificacao';
 
@@ -29,6 +29,7 @@ interface Cache {
   propostas: Proposta[];
   contratos: Contrato[];
   historico: HistoricoEvent[];
+  compromissos: Compromisso[];
   companyConfig: CompanyConfig;
   precificacaoConfig: PrecificacaoConfig | null;
 }
@@ -36,7 +37,7 @@ interface Cache {
 const cache: Cache = {
   transactions: [], clients: [], processes: [], tasks: [], accounts: [],
   partners: [], documents: [], propostas: [], contratos: [], historico: [],
-  companyConfig: {}, precificacaoConfig: null,
+  compromissos: [], companyConfig: {}, precificacaoConfig: null,
 };
 
 let bootstrapPromise: Promise<void> | null = null;
@@ -115,6 +116,10 @@ function rowToProcess(r: Row<'hbs_processes'>): Process {
     driveLink: r.drive_link ?? undefined, isArchived: r.is_archived, notas: (r.notas as Process['notas']) ?? [],
     tecnico: r.tecnico as Process['tecnico'], contratoId: r.contrato_id ?? undefined,
     averbacao: r.averbacao as Process['averbacao'],
+    procuracao: r.procuracao as Process['procuracao'],
+    cartaReforma: r.carta_reforma as Process['cartaReforma'],
+    anuencia: r.anuencia as Process['anuencia'],
+    descarteEntulhos: r.descarte_entulhos as Process['descarteEntulhos'],
     createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime(),
   };
 }
@@ -128,6 +133,10 @@ function processToRow(p: Process): Database['public']['Tables']['hbs_processes']
     tecnico: (p.tecnico ?? null) as Database['public']['Tables']['hbs_processes']['Insert']['tecnico'],
     contrato_id: p.contratoId ?? null,
     averbacao: (p.averbacao ?? null) as Database['public']['Tables']['hbs_processes']['Insert']['averbacao'],
+    procuracao: (p.procuracao ?? null) as Database['public']['Tables']['hbs_processes']['Insert']['procuracao'],
+    carta_reforma: (p.cartaReforma ?? null) as Database['public']['Tables']['hbs_processes']['Insert']['carta_reforma'],
+    anuencia: (p.anuencia ?? null) as Database['public']['Tables']['hbs_processes']['Insert']['anuencia'],
+    descarte_entulhos: (p.descarteEntulhos ?? null) as Database['public']['Tables']['hbs_processes']['Insert']['descarte_entulhos'],
     created_at: p.createdAt ? new Date(p.createdAt).toISOString() : undefined,
     updated_at: p.updatedAt ? new Date(p.updatedAt).toISOString() : undefined,
   };
@@ -243,6 +252,23 @@ function historicoToRow(h: HistoricoEvent): Database['public']['Tables']['hbs_hi
   };
 }
 
+function rowToCompromisso(r: Row<'hbs_compromissos'>): Compromisso {
+  return {
+    id: r.id, titulo: r.titulo, data: r.data, horaInicio: r.hora_inicio?.slice(0, 5) ?? undefined,
+    horaFim: r.hora_fim?.slice(0, 5) ?? undefined, comQuem: r.com_quem ?? undefined,
+    clienteId: r.cliente_id, processId: r.process_id ?? undefined, cor: r.cor,
+    createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime(),
+  };
+}
+function compromissoToRow(c: Compromisso): Database['public']['Tables']['hbs_compromissos']['Insert'] {
+  return {
+    id: c.id, titulo: c.titulo, data: c.data, hora_inicio: c.horaInicio || null, hora_fim: c.horaFim || null,
+    com_quem: c.comQuem || null, cliente_id: c.clienteId ?? null, process_id: c.processId ?? null, cor: c.cor,
+    created_at: c.createdAt ? new Date(c.createdAt).toISOString() : undefined,
+    updated_at: c.updatedAt ? new Date(c.updatedAt).toISOString() : undefined,
+  };
+}
+
 function defaultPrecificacaoConfig(): PrecificacaoConfig {
   return {
     custosDiretos: [
@@ -268,7 +294,7 @@ function defaultPrecificacaoConfig(): PrecificacaoConfig {
 export function bootstrapStorage(): Promise<void> {
   if (bootstrapPromise) return bootstrapPromise;
   bootstrapPromise = (async () => {
-    const [tx, cl, pr, tk, ac, pa, doc, prop, con, hist, settings] = await Promise.all([
+    const [tx, cl, pr, tk, ac, pa, doc, prop, con, hist, settings, comp] = await Promise.all([
       supabase.from('hbs_transactions').select('*'),
       supabase.from('hbs_clients').select('*'),
       supabase.from('hbs_processes').select('*'),
@@ -280,6 +306,7 @@ export function bootstrapStorage(): Promise<void> {
       supabase.from('hbs_contratos').select('*'),
       supabase.from('hbs_historico_events').select('*').order('created_at', { ascending: false }).limit(500),
       supabase.from('hbs_app_settings').select('*'),
+      supabase.from('hbs_compromissos').select('*'),
     ]);
     cache.transactions = (tx.data ?? []).map(rowToTransaction);
     cache.clients = (cl.data ?? []).map(rowToClient);
@@ -291,6 +318,7 @@ export function bootstrapStorage(): Promise<void> {
     cache.propostas = (prop.data ?? []).map(rowToProposta);
     cache.contratos = (con.data ?? []).map(rowToContrato);
     cache.historico = (hist.data ?? []).map(rowToHistorico);
+    cache.compromissos = (comp.data ?? []).map(rowToCompromisso);
 
     const settingsMap = new Map((settings.data ?? []).map(s => [s.key, s.value]));
     cache.companyConfig = (settingsMap.get('company_config') as CompanyConfig) ?? {};
@@ -367,6 +395,11 @@ function subscribeRealtime() {
       const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as Row<'hbs_app_settings'>;
       if (row.key === 'company_config') cache.companyConfig = (row.value as CompanyConfig) ?? {};
       if (row.key === 'precificacao_config') cache.precificacaoConfig = { ...defaultPrecificacaoConfig(), ...((row.value as Partial<PrecificacaoConfig>) ?? {}) };
+      notify();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'hbs_compromissos' }, payload => {
+      const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as Row<'hbs_compromissos'>;
+      cache.compromissos = applyChange(cache.compromissos, payload.eventType, rowToCompromisso(row));
       notify();
     })
     .subscribe();
@@ -948,6 +981,42 @@ export function registrarEvento(evento: Omit<HistoricoEvent, 'id' | 'createdAt'>
   void (async () => {
     const { error } = await supabase.from('hbs_historico_events').insert(historicoToRow(novo));
     if (error) console.error(error);
+  })();
+}
+
+// ----------------------------------------------------------------------------
+// Compromissos (agenda semanal — reunião/visita com horário)
+// ----------------------------------------------------------------------------
+
+export function getCompromissos(): Compromisso[] {
+  return cache.compromissos;
+}
+
+export function addCompromisso(compromisso: Compromisso): void {
+  cache.compromissos = [...cache.compromissos, compromisso];
+  notify();
+  void (async () => {
+    const { error } = await supabase.from('hbs_compromissos').insert(compromissoToRow(compromisso));
+    if (error) { reportError(error, 'Não foi possível salvar o compromisso. Sincronizando novamente…'); await resyncTable('hbs_compromissos', rowToCompromisso, v => cache.compromissos = v); }
+  })();
+}
+
+export function updateCompromisso(updated: Compromisso): void {
+  const withTs = { ...updated, updatedAt: Date.now() };
+  cache.compromissos = cache.compromissos.map(c => c.id === updated.id ? withTs : c);
+  notify();
+  void (async () => {
+    const { error } = await supabase.from('hbs_compromissos').update(compromissoToRow(withTs)).eq('id', updated.id);
+    if (error) { reportError(error, 'Não foi possível salvar. Sincronizando novamente…'); await resyncTable('hbs_compromissos', rowToCompromisso, v => cache.compromissos = v); }
+  })();
+}
+
+export function deleteCompromisso(id: string): void {
+  cache.compromissos = cache.compromissos.filter(c => c.id !== id);
+  notify();
+  void (async () => {
+    const { error } = await supabase.from('hbs_compromissos').delete().eq('id', id);
+    if (error) { reportError(error, 'Não foi possível excluir. Sincronizando novamente…'); await resyncTable('hbs_compromissos', rowToCompromisso, v => cache.compromissos = v); }
   })();
 }
 

@@ -6,6 +6,7 @@ import { PartialPaymentModal } from '@/components/PartialPaymentModal';
 import { NovoRecebimentoDialog } from '@/components/NovoRecebimentoDialog';
 import { ClientMigrationModal } from '@/components/ClientMigrationModal';
 import { ClientForm } from '@/components/ClientForm';
+import { NovoCompromissoDialog } from '@/components/dashboard/NovoCompromissoDialog';
 import { AppSidebar } from '@/components/AppSidebar';
 import { CommandPalette } from '@/components/CommandPalette';
 import { NotificationsDropdown } from '@/components/NotificationsDropdown';
@@ -69,6 +70,7 @@ export function AppShell() {
   const [migrationOpen, setMigrationOpen] = useState(false);
   const [clientFormOpen, setClientFormOpen] = useState(false);
   const [recebimentoOpen, setRecebimentoOpen] = useState(false);
+  const [compromissoOpen, setCompromissoOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
@@ -237,6 +239,7 @@ export function AppShell() {
             onNewDocumento={() => navigate('/producao')}
             onNewReceita={() => setRecebimentoOpen(true)}
             onNewDespesa={() => openNewTransaction({ tipo: 'Saída' })}
+            onNewCompromisso={() => setCompromissoOpen(true)}
           />
         </header>
 
@@ -306,11 +309,13 @@ export function AppShell() {
         onNewTransaction={(tipo) => { if (tipo === 'Entrada') setRecebimentoOpen(true); else openNewTransaction({ tipo }); }}
         onNewClient={() => setClientFormOpen(true)}
       />
+
+      <NovoCompromissoDialog open={compromissoOpen} onClose={() => setCompromissoOpen(false)} />
     </div>
   );
 }
 
-import { Compass, Landmark, Layers, Users, FileStack, UserPlus, Handshake, ArrowUpCircle, ArrowDownCircle, ChevronDown } from 'lucide-react';
+import { Compass, Landmark, Layers, Users, FileStack, UserPlus, Handshake, ArrowUpCircle, ArrowDownCircle, ChevronDown, CalendarPlus } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
@@ -321,9 +326,10 @@ interface NovoDropdownProps {
   onNewDocumento: () => void;
   onNewReceita: () => void;
   onNewDespesa: () => void;
+  onNewCompromisso: () => void;
 }
 
-function NovoDropdown({ onNewClient, onNewTrabalho, onNewProposta, onNewDocumento, onNewReceita, onNewDespesa }: NovoDropdownProps) {
+function NovoDropdown({ onNewClient, onNewTrabalho, onNewProposta, onNewDocumento, onNewReceita, onNewDespesa, onNewCompromisso }: NovoDropdownProps) {
   const items = [
     { label: 'Novo cliente', icon: UserPlus, onClick: onNewClient },
     { label: 'Novo trabalho', icon: Layers, onClick: onNewTrabalho },
@@ -331,6 +337,7 @@ function NovoDropdown({ onNewClient, onNewTrabalho, onNewProposta, onNewDocument
     { label: 'Novo documento', icon: FileStack, onClick: onNewDocumento },
     { label: 'Nova receita', icon: ArrowUpCircle, onClick: onNewReceita },
     { label: 'Nova despesa', icon: ArrowDownCircle, onClick: onNewDespesa },
+    { label: 'Novo compromisso', icon: CalendarPlus, onClick: onNewCompromisso },
   ];
   return (
     <DropdownMenu>

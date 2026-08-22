@@ -84,6 +84,10 @@ export type Database = {
           tecnico: Json | null
           contrato_id: string | null
           averbacao: Json | null
+          procuracao: Json | null
+          carta_reforma: Json | null
+          anuencia: Json | null
+          descarte_entulhos: Json | null
           created_at: string
           updated_at: string
           created_by: string | null
@@ -106,6 +110,10 @@ export type Database = {
           tecnico?: Json | null
           contrato_id?: string | null
           averbacao?: Json | null
+          procuracao?: Json | null
+          carta_reforma?: Json | null
+          anuencia?: Json | null
+          descarte_entulhos?: Json | null
           created_at?: string
           updated_at?: string
           created_by?: string | null
@@ -128,6 +136,10 @@ export type Database = {
           tecnico?: Json | null
           contrato_id?: string | null
           averbacao?: Json | null
+          procuracao?: Json | null
+          carta_reforma?: Json | null
+          anuencia?: Json | null
+          descarte_entulhos?: Json | null
           created_at?: string
           updated_at?: string
           created_by?: string | null
@@ -439,6 +451,51 @@ export type Database = {
           proposta_id?: string | null
           contrato_id?: string | null
           created_at?: string
+          created_by?: string | null
+        }
+        Relationships: []
+      }
+      hbs_compromissos: {
+        Row: {
+          id: string
+          titulo: string
+          data: string
+          hora_inicio: string | null
+          hora_fim: string | null
+          com_quem: string | null
+          cliente_id: string | null
+          process_id: string | null
+          cor: string
+          created_at: string
+          updated_at: string
+          created_by: string | null
+        }
+        Insert: {
+          id?: string
+          titulo: string
+          data: string
+          hora_inicio?: string | null
+          hora_fim?: string | null
+          com_quem?: string | null
+          cliente_id?: string | null
+          process_id?: string | null
+          cor?: string
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+        }
+        Update: {
+          id?: string
+          titulo?: string
+          data?: string
+          hora_inicio?: string | null
+          hora_fim?: string | null
+          com_quem?: string | null
+          cliente_id?: string | null
+          process_id?: string | null
+          cor?: string
+          created_at?: string
+          updated_at?: string
           created_by?: string | null
         }
         Relationships: []

@@ -49,11 +49,12 @@ export default function ProducaoPage() {
   }
 
   const vinculoNome = (d: DocumentRecord) => {
+    const clienteId = d.clienteId || processes.find(p => p.id === d.processId)?.clienteId;
+    if (clienteId) return clients.find(c => c.id === clienteId)?.nome || 'Cliente';
     if (d.processId) {
       const p = processes.find(p => p.id === d.processId);
-      if (p) return `${p.objeto || 'Trabalho'}`;
+      if (p) return p.objeto || 'Trabalho';
     }
-    if (d.clienteId) return clients.find(c => c.id === d.clienteId)?.nome || 'Cliente';
     return 'Modelos';
   };
 

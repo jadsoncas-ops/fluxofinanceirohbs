@@ -18,8 +18,14 @@ import { DocumentoConvencao } from '@/components/documento/DocumentoConvencao';
 import { DocumentoInstituicaoSimplificada } from '@/components/documento/DocumentoInstituicaoSimplificada';
 import { DocumentoLaudo } from '@/components/documento/DocumentoLaudo';
 import { DocumentoRequerimento } from '@/components/documento/DocumentoRequerimento';
+import { DocumentoProcuracao } from '@/components/documento/DocumentoProcuracao';
+import { DocumentoCartaReforma } from '@/components/documento/DocumentoCartaReforma';
+import { DocumentoAnuencia } from '@/components/documento/DocumentoAnuencia';
+import { DocumentoDescarteEntulhos } from '@/components/documento/DocumentoDescarteEntulhos';
 import { RequerimentoAverbacaoWizard } from './RequerimentoAverbacaoWizard';
 import { toast } from 'sonner';
+
+const TIPOS_SEM_DADOS_TECNICOS: TipoDocumentoTecnico[] = ['procuracao', 'carta_reforma', 'declaracao_anuencia', 'descarte_entulhos'];
 
 export default function DocumentoGeradorPage() {
   const { trabalhoId, tipo } = useParams<{ trabalhoId: string; tipo: TipoDocumentoTecnico }>();
@@ -107,9 +113,11 @@ export default function DocumentoGeradorPage() {
         </div>
       ) : (
         <>
-          <div className="no-print">
-            <DadosTecnicosForm trabalho={trabalho} onChange={() => setKey(k => k + 1)} />
-          </div>
+          {!TIPOS_SEM_DADOS_TECNICOS.includes(tipo!) && (
+            <div className="no-print">
+              <DadosTecnicosForm trabalho={trabalho} onChange={() => setKey(k => k + 1)} />
+            </div>
+          )}
 
           {tipo === 'memorial' && (
             <DocumentoMemorial dados={montarMemorial(trabalho, cliente, config, clientes)} trabalho={trabalho} onSaved={() => setKey(k => k + 1)} />
@@ -137,6 +145,18 @@ export default function DocumentoGeradorPage() {
           )}
           {tipo === 'requerimento' && (
             <DocumentoRequerimento dados={montarRequerimento(trabalho, cliente, clientes)} />
+          )}
+          {tipo === 'procuracao' && (
+            <DocumentoProcuracao trabalho={trabalho} cliente={cliente} onSaved={() => setKey(k => k + 1)} />
+          )}
+          {tipo === 'carta_reforma' && (
+            <DocumentoCartaReforma trabalho={trabalho} config={config} onSaved={() => setKey(k => k + 1)} />
+          )}
+          {tipo === 'declaracao_anuencia' && (
+            <DocumentoAnuencia trabalho={trabalho} cliente={cliente} onSaved={() => setKey(k => k + 1)} />
+          )}
+          {tipo === 'descarte_entulhos' && (
+            <DocumentoDescarteEntulhos trabalho={trabalho} config={config} onSaved={() => setKey(k => k + 1)} />
           )}
         </>
       )}

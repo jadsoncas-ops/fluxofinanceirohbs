@@ -105,6 +105,42 @@ export const DOCUMENT_REGISTRY: DocumentTemplate[] = [
     disponivel: true,
     requisitos: () => [],
   },
+  {
+    slug: 'procuracao',
+    label: 'Procuração',
+    descricao: 'Procuração do proprietário para a HBS representá-lo junto à Prefeitura e demais órgãos',
+    icon: '🖊️',
+    grupo: 'Cartas e Declarações',
+    disponivel: true,
+    requisitos: () => [],
+  },
+  {
+    slug: 'carta_reforma',
+    label: 'Carta de Reforma Simples',
+    descricao: 'Solicitação de licença para reforma simples, com lista de serviços editável',
+    icon: '✉️',
+    grupo: 'Cartas e Declarações',
+    disponivel: true,
+    requisitos: () => [],
+  },
+  {
+    slug: 'declaracao_anuencia',
+    label: 'Declaração de Anuência',
+    descricao: 'Declaração do confrontante consentindo com a demarcação da área do imóvel',
+    icon: '🤝',
+    grupo: 'Cartas e Declarações',
+    disponivel: true,
+    requisitos: () => [],
+  },
+  {
+    slug: 'descarte_entulhos',
+    label: 'Descarte de Entulhos',
+    descricao: 'Declaração de destinação adequada dos resíduos de demolição',
+    icon: '🧱',
+    grupo: 'Cartas e Declarações',
+    disponivel: true,
+    requisitos: () => [],
+  },
 ];
 
 export function buscarTemplate(slug: TipoDocumentoTecnico): DocumentTemplate {

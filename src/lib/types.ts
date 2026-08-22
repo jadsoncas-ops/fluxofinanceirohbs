@@ -188,6 +188,14 @@ export interface Process {
   contratoId?: string;
   /** Presente apenas quando este trabalho gera um Requerimento de Averbação (Produção Técnica). */
   averbacao?: AverbacaoData;
+  /** Presente apenas quando este trabalho gera uma Procuração (Produção Técnica). */
+  procuracao?: ProcuracaoData;
+  /** Presente apenas quando este trabalho gera uma Carta de Reforma Simples (Produção Técnica). */
+  cartaReforma?: CartaReformaData;
+  /** Presente apenas quando este trabalho gera uma Declaração de Anuência (Produção Técnica). */
+  anuencia?: AnuenciaData;
+  /** Presente apenas quando este trabalho gera uma Declaração de Descarte de Entulhos (Produção Técnica). */
+  descarteEntulhos?: DescarteEntulhosData;
   createdAt: number;
   updatedAt: number;
 }
@@ -225,7 +233,11 @@ export type TipoDocumentoTecnico =
   | 'instituicao_simplificada'
   | 'laudo'
   | 'requerimento'
-  | 'requerimento_averbacao';
+  | 'requerimento_averbacao'
+  | 'procuracao'
+  | 'carta_reforma'
+  | 'declaracao_anuencia'
+  | 'descarte_entulhos';
 
 export type TipoAtoAverbacao = 'averbacao_construcao' | 'averbacao_ampliacao' | 'averbacao_reforma' | 'regularizacao_existente';
 
@@ -271,6 +283,48 @@ export interface AverbacaoData {
   temPlantasAprovadas?: boolean;
   outrosDocumentos?: string;
 
+  dataDocumento?: string; // YYYY-MM-DD
+}
+
+/** Procuração do proprietário para a HBS representá-lo junto à Prefeitura. Persistida no Trabalho. */
+export interface ProcuracaoData {
+  outorganteNome?: string;
+  outorganteNacionalidade?: string;
+  outorganteEstadoCivil?: EstadoCivil;
+  outorganteProfissao?: string;
+  outorganteRg?: string;
+  outorganteCpf?: string;
+  outorganteEndereco?: string;
+  /** Descrição do processo/imóvel objeto da procuração (endereço ou inscrição imobiliária). */
+  objetoProcesso?: string;
+  cidade?: string;
+  dataDocumento?: string; // YYYY-MM-DD
+}
+
+/** Carta de solicitação de licença para reforma simples, com lista de serviços editável. */
+export interface CartaReformaData {
+  servicos?: string[];
+  observacoes?: string;
+  cidade?: string;
+  dataDocumento?: string; // YYYY-MM-DD
+}
+
+/** Declaração de anuência do confrontante à demarcação de área do imóvel do cliente. */
+export interface AnuenciaData {
+  declaranteNome?: string;
+  declaranteCpf?: string;
+  proprietarioNome?: string;
+  imovelEndereco?: string;
+  matricula?: string;
+  cartorio?: string;
+  comarca?: string;
+  cidade?: string;
+  dataDocumento?: string; // YYYY-MM-DD
+}
+
+/** Declaração de destinação de resíduos, usada em processos de demolição. */
+export interface DescarteEntulhosData {
+  cidade?: string;
   dataDocumento?: string; // YYYY-MM-DD
 }
 
@@ -424,3 +478,27 @@ export interface Task {
   updatedAt: number;
   completedAt?: number;
 }
+
+/** Reunião/visita agendada com horário — diferente de Task (que é "o que precisa ser feito", sem hora). */
+export interface Compromisso {
+  id: string;
+  titulo: string;
+  data: string; // YYYY-MM-DD
+  horaInicio?: string; // HH:MM
+  horaFim?: string; // HH:MM
+  comQuem?: string;
+  clienteId?: string | null;
+  processId?: string | null;
+  cor: string; // uma das chaves de CORES_COMPROMISSO
+  createdAt: number;
+  updatedAt: number;
+}
+
+export const CORES_COMPROMISSO: Record<string, string> = {
+  roxo: '262 60% 56%',
+  verde: '152 45% 40%',
+  azul: '213 70% 52%',
+  laranja: '25 85% 55%',
+  rosa: '330 65% 58%',
+  ambar: '38 80% 50%',
+};

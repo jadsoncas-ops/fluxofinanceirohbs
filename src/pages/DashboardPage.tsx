@@ -2,16 +2,18 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Layers, FileStack, Handshake, Landmark, MessageCircle } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
-import { getAccounts, getProcesses, getClients, getTasks, getPropostas } from '@/lib/storage';
+import { getAccounts, getProcesses, getClients, getTasks, getPropostas, getCompromissos } from '@/lib/storage';
 import { computeAttentionItems, AttentionItem } from '@/lib/attention';
 import { linkWhatsApp } from '@/lib/mensagens';
-import { TrabalhoEtapa } from '@/lib/types';
+import { TrabalhoEtapa, Compromisso } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { CalendarioTarefas } from '@/components/CalendarioTarefas';
+import { AgendaSemanal } from '@/components/AgendaSemanal';
+import { NovoCompromissoDialog } from '@/components/dashboard/NovoCompromissoDialog';
 
 const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 const STAGE_PCT: Record<TrabalhoEtapa, number> = { 'Aguardando cliente': 10, Levantamento: 30, Tramitando: 65, Devolutiva: 80, Concluído: 100 };
@@ -41,12 +43,26 @@ export default function DashboardPage() {
   const { allTransactions: transactions } = shell;
   const [lembrete, setLembrete] = useState<{ clienteNome: string; telefone: { ddd: string; numero: string }; mensagem: string } | null>(null);
   const [mensagemEditada, setMensagemEditada] = useState('');
+  const [compromissoDialogOpen, setCompromissoDialogOpen] = useState(false);
+  const [compromissoEditando, setCompromissoEditando] = useState<Compromisso | undefined>(undefined);
+  const [novoCompromissoData, setNovoCompromissoData] = useState<string | undefined>(undefined);
 
-  const { kpis, attention, venceAmanha, cashflow, upcoming, continuando, resumo, tasks } = useMemo(() => {
+  function abrirNovoCompromisso(data?: string) {
+    setCompromissoEditando(undefined);
+    setNovoCompromissoData(data);
+    setCompromissoDialogOpen(true);
+  }
+  function abrirEditarCompromisso(c: Compromisso) {
+    setCompromissoEditando(c);
+    setCompromissoDialogOpen(true);
+  }
+
+  const { kpis, attention, cashflow, continuando, resumo, tasks, clients, compromissos } = useMemo(() => {
     const accounts = getAccounts();
     const processes = getProcesses();
     const clients = getClients();
     const tasks = getTasks();
+    const compromissos = getCompromissos();
     const today = new Date().toISOString().slice(0, 10);
     const now = new Date();
 
@@ -85,25 +101,6 @@ export default function DashboardPage() {
       return { mes: MONTHS_SHORT[d.getMonth()], receita, despesa };
     });
 
-    const em15dias = new Date();
-    em15dias.setDate(em15dias.getDate() + 15);
-    const em15diasStr = em15dias.toISOString().slice(0, 10);
-
-    const upcomingTx = transactions
-      .filter(t => t.status !== 'Concluído' && t.data >= today && t.data <= em15diasStr)
-      .map(t => {
-        const isEntrada = t.tipo === 'Entrada' || t.tipo === 'A Receber';
-        const [, m, d] = t.data.split('-');
-        return { key: t.id, data: `${d}/${m}`, sortDate: t.data, label: t.descricao, valor: `${isEntrada ? '+' : '−'} ${fmtMoney(t.valor)}`, color: isEntrada ? 'text-success' : 'text-foreground' };
-      });
-    const upcomingTasks = tasks
-      .filter(t => t.status !== 'Concluída' && t.prazo && t.prazo >= today && t.prazo <= em15diasStr)
-      .map(t => {
-        const [, m, d] = t.prazo!.split('-');
-        return { key: t.id, data: `${d}/${m}`, sortDate: t.prazo!, label: t.titulo, valor: 'prazo', color: 'text-mute-2' };
-      });
-    const upcoming = [...upcomingTx, ...upcomingTasks].sort((a, b) => a.sortDate.localeCompare(b.sortDate)).slice(0, 6);
-
     const continuando = trabalhosAtivos
       .sort((a, b) => b.updatedAt - a.updatedAt)
       .slice(0, 3)
@@ -121,7 +118,7 @@ export default function DashboardPage() {
 
     const resumo = `${trabalhosAtivos.length} trabalho${trabalhosAtivos.length !== 1 ? 's' : ''} aberto${trabalhosAtivos.length !== 1 ? 's' : ''} · ${attention.length} pendência${attention.length !== 1 ? 's' : ''}`;
 
-    return { kpis, attention, cashflow, upcoming, continuando, resumo, tasks };
+    return { kpis, attention, cashflow, continuando, resumo, tasks, clients, compromissos };
   }, [transactions]);
 
   const maxCash = Math.max(1, ...cashflow.flatMap(m => [m.receita, m.despesa]));
@@ -240,25 +237,18 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          {/* Próximos compromissos */}
-          <section className="bg-card border border-border rounded-xl overflow-hidden">
-            <div className="px-[18px] py-[15px] border-b border-3 text-[13.5px] font-semibold">Próximos compromissos</div>
-            {upcoming.length === 0 ? (
-              <div className="px-[18px] py-8 text-center text-xs text-muted-foreground">Nada previsto para os próximos 15 dias.</div>
-            ) : (
-              upcoming.map(u => (
-                <div key={u.key} className="flex items-center gap-[13px] px-[18px] py-[11px] border-b border-3 last:border-b-0">
-                  <span className="font-mono-hbs text-[11px] text-mute-2 w-[42px] flex-none">{u.data}</span>
-                  <span className="text-[12.5px] flex-1 min-w-0 truncate">{u.label}</span>
-                  <span className={cn('font-mono-hbs text-[12.5px]', u.color)}>{u.valor}</span>
-                </div>
-              ))
-            )}
-          </section>
-
           <CalendarioTarefas tasks={tasks} transactions={transactions} />
         </div>
       </div>
+
+      <AgendaSemanal
+        compromissos={compromissos}
+        tasks={tasks}
+        transactions={transactions}
+        clients={clients}
+        onNovo={abrirNovoCompromisso}
+        onEditar={abrirEditarCompromisso}
+      />
 
       {/* Continuar trabalhando */}
       <section>
@@ -317,6 +307,13 @@ export default function DashboardPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <NovoCompromissoDialog
+        open={compromissoDialogOpen}
+        onClose={() => setCompromissoDialogOpen(false)}
+        compromisso={compromissoEditando}
+        dataInicial={novoCompromissoData}
+      />
     </div>
   );
 }
