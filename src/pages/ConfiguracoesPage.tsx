@@ -3,7 +3,7 @@ import { useRef } from 'react';
 import { Moon, Download, Upload, Shield, Trash2, Building2, Smartphone, Calculator, Plus, CloudUpload } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
 import { getCompanyConfig, saveCompanyConfig, getPrecificacaoConfig, savePrecificacaoConfig, exportBackup, importBackup, clearAllTransactions } from '@/lib/storage';
-import { remoteIsEmpty, importarDadosLocaisParaSupabase } from '@/lib/localImport';
+import { importarDadosLocaisParaSupabase } from '@/lib/localImport';
 import { calcularCustoOperacionalTotal, calcularHorasProdutivas, calcularCustoHora, formatBRL } from '@/lib/comercial/precificacao';
 import { CustoItem } from '@/lib/comercial/precificacao';
 import { Input } from '@/components/ui/input';
@@ -63,23 +63,21 @@ export default function ConfiguracoesPage() {
   useEffect(() => {
     const temDadoLocal = !!localStorage.getItem('hbs_clients') || !!localStorage.getItem('hbs_transactions');
     console.log('[importação única] dado local encontrado?', temDadoLocal);
-    if (!temDadoLocal) return;
-    setShowImportacaoUnica(true); // mostra otimista — some depois se o Supabase confirmar que já tem dado
-    remoteIsEmpty()
-      .then(vazio => {
-        console.log('[importação única] Supabase está vazio?', vazio);
-        setShowImportacaoUnica(vazio);
-      })
-      .catch(err => console.error('[importação única] falha ao checar Supabase (mantendo botão visível):', err));
+    setShowImportacaoUnica(temDadoLocal);
+    // remoteIsEmpty() só decide o texto do botão (import inicial vs. reimportar) — nunca esconde a
+    // opção, porque o upsert por id é seguro de rodar de novo (completa o que faltou, não duplica).
   }, []);
 
   async function handleImportacaoUnica() {
-    if (!confirm('Importar os dados deste navegador (clientes, trabalhos, financeiro, etc.) para o Supabase? Isso só deve ser feito uma vez, no computador que tem os dados reais.')) return;
+    if (!confirm('Importar os dados deste navegador (clientes, trabalhos, financeiro, etc.) para o Supabase? Pode rodar mais de uma vez com segurança — o que já foi importado não duplica.')) return;
     setImportando(true);
     try {
       const resumo = await importarDadosLocaisParaSupabase();
-      toast.success(`Importado: ${resumo.clientes} clientes, ${resumo.lancamentos} lançamentos, ${resumo.processos} trabalhos.`);
-      setShowImportacaoUnica(false);
+      if (resumo.falhas.length > 0) {
+        toast.error(`Importado com falhas em: ${resumo.falhas.join('; ')}`);
+      } else {
+        toast.success(`Importado: ${resumo.clientes} clientes, ${resumo.lancamentos} lançamentos, ${resumo.processos} trabalhos.`);
+      }
       window.location.reload();
     } catch (err) {
       console.error('[importação única] falha ao importar:', err);

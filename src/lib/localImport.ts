@@ -39,6 +39,23 @@ export interface ImportSummary {
   clientes: number; lancamentos: number; processos: number; tarefas: number;
   contas: number; parceiros: number; documentos: number; propostas: number;
   contratos: number; historico: number;
+  falhas: string[];
+}
+
+async function upsertTable<Name extends keyof Database['public']['Tables']>(
+  table: Name,
+  rows: Database['public']['Tables'][Name]['Insert'][],
+  falhas: string[],
+  label: string,
+): Promise<number> {
+  if (rows.length === 0) return 0;
+  const { error } = await supabase.from(table).upsert(rows as never);
+  if (error) {
+    console.error(`[importação única] falha em ${label}:`, error);
+    falhas.push(`${label}: ${error.message}`);
+    return 0;
+  }
+  return rows.length;
 }
 
 export async function importarDadosLocaisParaSupabase(): Promise<ImportSummary> {
@@ -55,28 +72,33 @@ export async function importarDadosLocaisParaSupabase(): Promise<ImportSummary> 
   const companyConfig = readLocalObject<CompanyConfig>('hbs_company_config');
   const precificacaoConfig = readLocalObject<PrecificacaoConfig>('hbs_precificacao_config');
 
+  const falhas: string[] = [];
+
   // Ordem respeita as FKs: clientes/parceiros/contas primeiro, depois quem depende delas.
-  if (clients.length) await supabase.from('hbs_clients').upsert(clients.map(_mappers.clientToRow));
-  if (partners.length) await supabase.from('hbs_partners').upsert(partners.map(_mappers.partnerToRow));
-  if (accounts.length) await supabase.from('hbs_accounts').upsert(accounts.map(_mappers.accountToRow));
-  if (processes.length) await supabase.from('hbs_processes').upsert(processes.map(_mappers.processToRow));
-  if (transactions.length) await supabase.from('hbs_transactions').upsert(transactions.map(_mappers.transactionToRow));
-  if (tasks.length) await supabase.from('hbs_tasks').upsert(tasks.map(_mappers.taskToRow));
-  if (documents.length) await supabase.from('hbs_documents').upsert(documents.map(_mappers.documentToRow));
-  if (propostas.length) await supabase.from('hbs_propostas').upsert(propostas.map(_mappers.propostaToRow));
-  if (contratos.length) await supabase.from('hbs_contratos').upsert(contratos.map(_mappers.contratoToRow));
-  if (historico.length) await supabase.from('hbs_historico_events').upsert(historico.map(_mappers.historicoToRow));
+  const clientesOk = await upsertTable('hbs_clients', clients.map(_mappers.clientToRow), falhas, 'clientes');
+  const parceirosOk = await upsertTable('hbs_partners', partners.map(_mappers.partnerToRow), falhas, 'parceiros');
+  const contasOk = await upsertTable('hbs_accounts', accounts.map(_mappers.accountToRow), falhas, 'contas');
+  const processosOk = await upsertTable('hbs_processes', processes.map(_mappers.processToRow), falhas, 'trabalhos');
+  const lancamentosOk = await upsertTable('hbs_transactions', transactions.map(_mappers.transactionToRow), falhas, 'lançamentos');
+  const tarefasOk = await upsertTable('hbs_tasks', tasks.map(_mappers.taskToRow), falhas, 'tarefas');
+  const documentosOk = await upsertTable('hbs_documents', documents.map(_mappers.documentToRow), falhas, 'documentos');
+  const propostasOk = await upsertTable('hbs_propostas', propostas.map(_mappers.propostaToRow), falhas, 'propostas');
+  const contratosOk = await upsertTable('hbs_contratos', contratos.map(_mappers.contratoToRow), falhas, 'contratos');
+  const historicoOk = await upsertTable('hbs_historico_events', historico.map(_mappers.historicoToRow), falhas, 'histórico');
+
   if (companyConfig) {
-    await supabase.from('hbs_app_settings').update({ value: companyConfig as unknown as Database['public']['Tables']['hbs_app_settings']['Row']['value'] }).eq('key', 'company_config');
+    const { error } = await supabase.from('hbs_app_settings').update({ value: companyConfig as unknown as Database['public']['Tables']['hbs_app_settings']['Row']['value'] }).eq('key', 'company_config');
+    if (error) { console.error('[importação única] falha em company_config:', error); falhas.push(`configuração da empresa: ${error.message}`); }
   }
   if (precificacaoConfig) {
-    await supabase.from('hbs_app_settings').update({ value: precificacaoConfig as unknown as Database['public']['Tables']['hbs_app_settings']['Row']['value'] }).eq('key', 'precificacao_config');
+    const { error } = await supabase.from('hbs_app_settings').update({ value: precificacaoConfig as unknown as Database['public']['Tables']['hbs_app_settings']['Row']['value'] }).eq('key', 'precificacao_config');
+    if (error) { console.error('[importação única] falha em precificacao_config:', error); falhas.push(`precificação: ${error.message}`); }
   }
 
   return {
-    clientes: clients.length, lancamentos: transactions.length, processos: processes.length,
-    tarefas: tasks.length, contas: accounts.length, parceiros: partners.length,
-    documentos: documents.length, propostas: propostas.length, contratos: contratos.length,
-    historico: historico.length,
+    clientes: clientesOk, lancamentos: lancamentosOk, processos: processosOk,
+    tarefas: tarefasOk, contas: contasOk, parceiros: parceirosOk,
+    documentos: documentosOk, propostas: propostasOk, contratos: contratosOk,
+    historico: historicoOk, falhas,
   };
 }
