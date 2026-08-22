@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { CalendarioTarefas } from '@/components/CalendarioTarefas';
 
 const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -124,6 +125,7 @@ export default function DashboardPage() {
   }, [transactions]);
 
   const maxCash = Math.max(1, ...cashflow.flatMap(m => [m.receita, m.despesa]));
+  const whatsappTargets = attention.filter(a => a.whatsapp);
 
   return (
     <div className="flex flex-col gap-[34px] pb-8 animate-hbs-in">
@@ -154,12 +156,31 @@ export default function DashboardPage() {
       <div className="grid gap-[18px] items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
         {/* Precisa da sua atenção */}
         <section className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="px-[18px] py-[15px] border-b border-3 flex items-center justify-between">
+          <div className="px-[18px] py-[15px] border-b border-3 flex items-center justify-between gap-2.5">
             <div>
               <div className="text-[16px] font-semibold">Precisa da sua atenção</div>
               <div className="text-[11.5px] text-mute-2 mt-0.5 font-mono-hbs">ordenado por impacto</div>
             </div>
-            <span className="text-[11px] font-mono-hbs text-mute-2">{attention.length} {attention.length === 1 ? 'item' : 'itens'}</span>
+            <div className="flex items-center gap-2.5 flex-none">
+              {whatsappTargets.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="h-[30px] px-2.5 bg-warning text-warning-foreground rounded-lg text-[11px] font-medium flex items-center gap-1.5 hover:opacity-90 transition-opacity">
+                      <MessageCircle className="w-3 h-3" /> WhatsApp
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[250px]">
+                    {whatsappTargets.map(a => (
+                      <DropdownMenuItem key={a.id} onClick={() => { setLembrete(a.whatsapp!); setMensagemEditada(a.whatsapp!.mensagem); }} className="flex-col items-start gap-0.5 py-2">
+                        <span className="text-[12.5px] font-medium">{a.whatsapp!.clienteNome}</span>
+                        <span className="text-[10.5px] text-muted-foreground">{a.sub}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              <span className="text-[11px] font-mono-hbs text-mute-2 whitespace-nowrap">{attention.length} {attention.length === 1 ? 'item' : 'itens'}</span>
+            </div>
           </div>
           {attention.length === 0 ? (
             <div className="px-[18px] py-10 text-center text-sm text-muted-foreground">Nada pendente agora.</div>
