@@ -102,6 +102,7 @@ function clientToRow(c: Client): Database['public']['Tables']['hbs_clients']['In
     id: c.id, nome: c.nome, tipo: c.tipo ?? null, documento: c.documento ?? null,
     telefone: c.telefone ?? null, endereco: c.endereco ?? null, descricao: c.descricao ?? null,
     qualificacao: c.qualificacao ?? null,
+    created_at: c.createdAt ? new Date(c.createdAt).toISOString() : undefined,
   };
 }
 
@@ -127,6 +128,8 @@ function processToRow(p: Process): Database['public']['Tables']['hbs_processes']
     tecnico: (p.tecnico ?? null) as Database['public']['Tables']['hbs_processes']['Insert']['tecnico'],
     contrato_id: p.contratoId ?? null,
     averbacao: (p.averbacao ?? null) as Database['public']['Tables']['hbs_processes']['Insert']['averbacao'],
+    created_at: p.createdAt ? new Date(p.createdAt).toISOString() : undefined,
+    updated_at: p.updatedAt ? new Date(p.updatedAt).toISOString() : undefined,
   };
 }
 
@@ -143,6 +146,8 @@ function taskToRow(t: Task): Database['public']['Tables']['hbs_tasks']['Insert']
     id: t.id, titulo: t.titulo, descricao: t.descricao ?? null, status: t.status, prioridade: t.prioridade,
     prazo: t.prazo ?? null, process_id: t.processId ?? null, cliente_id: t.clienteId ?? null,
     completed_at: t.completedAt ? new Date(t.completedAt).toISOString() : null,
+    created_at: t.createdAt ? new Date(t.createdAt).toISOString() : undefined,
+    updated_at: t.updatedAt ? new Date(t.updatedAt).toISOString() : undefined,
   };
 }
 
@@ -150,14 +155,14 @@ function rowToAccount(r: Row<'hbs_accounts'>): Account {
   return { id: r.id, nome: r.nome, tipo: r.tipo as Account['tipo'], saldo: Number(r.saldo), ativo: r.ativo, createdAt: new Date(r.created_at).getTime() };
 }
 function accountToRow(a: Account): Database['public']['Tables']['hbs_accounts']['Insert'] {
-  return { id: a.id, nome: a.nome, tipo: a.tipo, saldo: a.saldo, ativo: a.ativo };
+  return { id: a.id, nome: a.nome, tipo: a.tipo, saldo: a.saldo, ativo: a.ativo, created_at: a.createdAt ? new Date(a.createdAt).toISOString() : undefined };
 }
 
 function rowToPartner(r: Row<'hbs_partners'>): Partner {
   return { id: r.id, nome: r.nome, documento: r.documento, contato: r.contato, observacao: r.observacao, createdAt: new Date(r.created_at).getTime() };
 }
 function partnerToRow(p: Partner): Database['public']['Tables']['hbs_partners']['Insert'] {
-  return { id: p.id, nome: p.nome, documento: p.documento ?? null, contato: p.contato ?? null, observacao: p.observacao ?? null };
+  return { id: p.id, nome: p.nome, documento: p.documento ?? null, contato: p.contato ?? null, observacao: p.observacao ?? null, created_at: p.createdAt ? new Date(p.createdAt).toISOString() : undefined };
 }
 
 function rowToDocument(r: Row<'hbs_documents'>): DocumentRecord {
@@ -172,6 +177,8 @@ function documentToRow(d: DocumentRecord): Database['public']['Tables']['hbs_doc
   return {
     id: d.id, nome: d.nome, cliente_id: d.clienteId ?? null, process_id: d.processId ?? null,
     tipo_tecnico: d.tipoTecnico ?? null, versao: d.versao ?? null, situacao: d.situacao, link: d.link ?? null,
+    created_at: d.createdAt ? new Date(d.createdAt).toISOString() : undefined,
+    updated_at: d.updatedAt ? new Date(d.updatedAt).toISOString() : undefined,
   };
 }
 
@@ -198,6 +205,8 @@ function propostaToRow(p: Proposta): Database['public']['Tables']['hbs_propostas
     prazo_dias: p.prazoDias ?? null, forma_pagamento: p.formaPagamento ?? null,
     parcelas_pagamento: (p.parcelasPagamento ?? null) as Database['public']['Tables']['hbs_propostas']['Insert']['parcelas_pagamento'],
     status: p.status, enviada_em: p.enviadaEm ? new Date(p.enviadaEm).toISOString() : null,
+    created_at: p.createdAt ? new Date(p.createdAt).toISOString() : undefined,
+    updated_at: p.updatedAt ? new Date(p.updatedAt).toISOString() : undefined,
   };
 }
 
@@ -214,6 +223,8 @@ function contratoToRow(c: Contrato): Database['public']['Tables']['hbs_contratos
     id: c.id, codigo: c.codigo, proposta_id: c.propostaId, cliente_id: c.clienteId, trabalho_id: c.trabalhoId ?? null,
     valor: c.valor, parcelas: c.parcelas as Database['public']['Tables']['hbs_contratos']['Insert']['parcelas'],
     status: c.status, assinado_em: c.assinadoEm ? new Date(c.assinadoEm).toISOString() : null,
+    created_at: c.createdAt ? new Date(c.createdAt).toISOString() : undefined,
+    updated_at: c.updatedAt ? new Date(c.updatedAt).toISOString() : undefined,
   };
 }
 
@@ -228,6 +239,7 @@ function historicoToRow(h: HistoricoEvent): Database['public']['Tables']['hbs_hi
   return {
     id: h.id, modulo: h.modulo, texto: h.texto, cliente_id: h.clienteId ?? null,
     trabalho_id: h.trabalhoId ?? null, proposta_id: h.propostaId ?? null, contrato_id: h.contratoId ?? null,
+    created_at: h.createdAt ? new Date(h.createdAt).toISOString() : undefined,
   };
 }
 
@@ -477,15 +489,27 @@ export function exportBackup(): string {
   return JSON.stringify(data, null, 2);
 }
 
-export function importBackup(json: string): void {
+/**
+ * Assíncrona e sequencial de propósito: clientes/contas antes de processos, processos antes de
+ * lançamentos/tarefas/documentos — essas tabelas têm FK pra `cliente_id`/`process_id`, então
+ * gravar tudo em paralelo arrisca uma tabela tentar referenciar uma linha que ainda não existe.
+ */
+export async function importBackup(json: string): Promise<void> {
   const data = JSON.parse(json);
 
   if (Array.isArray(data)) {
     // Formato antigo: array cru de lançamentos
-    (data as Transaction[]).forEach(addTransaction);
+    for (const tx of data as Transaction[]) addTransaction(tx);
     return;
   }
   if (!data || typeof data !== 'object') return;
+
+  if (Array.isArray(data.contas)) {
+    cache.accounts = data.contas;
+    notify();
+    const { error } = await supabase.from('hbs_accounts').upsert((data.contas as Account[]).map(accountToRow));
+    if (error) reportError(error, 'Não foi possível importar todas as contas.');
+  }
 
   if (Array.isArray(data.clientes)) {
     const existing = new Map(cache.clients.map(c => [c.id, c]));
@@ -493,10 +517,17 @@ export function importBackup(json: string): void {
     const merged = Array.from(existing.values());
     cache.clients = merged;
     notify();
-    void supabase.from('hbs_clients').upsert(merged.map(clientToRow)).then(({ error }) => {
-      if (error) reportError(error, 'Não foi possível importar todos os clientes.');
-    });
+    const { error } = await supabase.from('hbs_clients').upsert(merged.map(clientToRow));
+    if (error) reportError(error, 'Não foi possível importar todos os clientes.');
   }
+
+  if (Array.isArray(data.processos)) {
+    cache.processes = data.processos;
+    notify();
+    const { error } = await supabase.from('hbs_processes').upsert((data.processos as Process[]).map(processToRow));
+    if (error) reportError(error, 'Não foi possível importar todos os processos.');
+  }
+
   if (Array.isArray(data.lancamentos)) {
     const validClientIds = new Set(cache.clients.map(c => c.id));
     const validated: Transaction[] = (data.lancamentos as Transaction[]).map(tx =>
@@ -504,37 +535,20 @@ export function importBackup(json: string): void {
     );
     cache.transactions = validated;
     notify();
-    void supabase.from('hbs_transactions').upsert(validated.map(transactionToRow)).then(({ error }) => {
-      if (error) reportError(error, 'Não foi possível importar todos os lançamentos.');
-    });
-  }
-  if (Array.isArray(data.processos)) {
-    cache.processes = data.processos;
-    notify();
-    void supabase.from('hbs_processes').upsert((data.processos as Process[]).map(processToRow)).then(({ error }) => {
-      if (error) reportError(error, 'Não foi possível importar todos os processos.');
-    });
+    const { error } = await supabase.from('hbs_transactions').upsert(validated.map(transactionToRow));
+    if (error) reportError(error, 'Não foi possível importar todos os lançamentos.');
   }
   if (Array.isArray(data.tarefas)) {
     cache.tasks = data.tarefas;
     notify();
-    void supabase.from('hbs_tasks').upsert((data.tarefas as Task[]).map(taskToRow)).then(({ error }) => {
-      if (error) reportError(error, 'Não foi possível importar todas as tarefas.');
-    });
-  }
-  if (Array.isArray(data.contas)) {
-    cache.accounts = data.contas;
-    notify();
-    void supabase.from('hbs_accounts').upsert((data.contas as Account[]).map(accountToRow)).then(({ error }) => {
-      if (error) reportError(error, 'Não foi possível importar todas as contas.');
-    });
+    const { error } = await supabase.from('hbs_tasks').upsert((data.tarefas as Task[]).map(taskToRow));
+    if (error) reportError(error, 'Não foi possível importar todas as tarefas.');
   }
   if (Array.isArray(data.documentos)) {
     cache.documents = data.documentos;
     notify();
-    void supabase.from('hbs_documents').upsert((data.documentos as DocumentRecord[]).map(documentToRow)).then(({ error }) => {
-      if (error) reportError(error, 'Não foi possível importar todos os documentos.');
-    });
+    const { error } = await supabase.from('hbs_documents').upsert((data.documentos as DocumentRecord[]).map(documentToRow));
+    if (error) reportError(error, 'Não foi possível importar todos os documentos.');
   }
 }
 

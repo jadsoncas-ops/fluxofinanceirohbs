@@ -148,13 +148,14 @@ export default function ConfiguracoesPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
-        importBackup(reader.result as string);
+        await importBackup(reader.result as string);
         toast.success('Backup importado com sucesso.');
         shell.refresh();
         setConfig(getCompanyConfig());
-      } catch {
+      } catch (err) {
+        console.error('[importar backup] falha:', err);
         toast.error('Ficheiro inválido. Verifique o formato JSON.');
       }
     };
