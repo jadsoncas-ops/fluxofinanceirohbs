@@ -6,7 +6,7 @@ import { getAvaliacoes, updateAvaliacao } from '@/lib/storage';
 import { AvaliacaoAluguel, ComparavelAvaliacao } from '@/lib/types';
 import { calcularResumoAvaliacao, fmtMoney } from '@/lib/avaliacao/homogeneizacao';
 import { novoComparavel } from '@/lib/avaliacao/defaults';
-import { extrairDadosAnuncio } from '@/lib/avaliacao/parseAnuncio';
+import { extrairMultiplos } from '@/lib/avaliacao/parseAnuncio';
 import { DocumentoAvaliacao } from '@/components/avaliacao/DocumentoAvaliacao';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -77,21 +77,18 @@ export default function AvaliacaoDetailPage() {
   function adicionarDeColagem() {
     const texto = colagem.trim();
     if (!texto) return;
-    const extraido = extrairDadosAnuncio(texto);
-    if (!extraido.valorAluguel && !extraido.areaConstruida && !extraido.fonte) {
-      toast.error('Não encontrei valor, área ou link nesse texto. Confira se copiou o anúncio inteiro.');
+    const extraidos = extrairMultiplos(texto);
+    if (extraidos.length === 0) {
+      toast.error('Não encontrei valor, área ou link nesse texto. Confira se colou o anúncio ou a tabela completa.');
       return;
     }
     setRascunho(d => {
       const base = d || avaliacaoSalva!;
-      return { ...base, comparaveis: [...base.comparaveis, { ...novoComparavel(), ...extraido }] };
+      const novos = extraidos.map(e => ({ ...novoComparavel(), ...e }));
+      return { ...base, comparaveis: [...base.comparaveis, ...novos] };
     });
     setColagem('');
-    const partes: string[] = [];
-    if (extraido.valorAluguel) partes.push(`valor R$ ${extraido.valorAluguel.toLocaleString('pt-BR')}`);
-    if (extraido.areaConstruida) partes.push(`área ${extraido.areaConstruida}m²`);
-    if (extraido.fonte) partes.push('link');
-    toast.success(`Linha adicionada (${partes.join(', ')}). Confira endereço e anunciante.`);
+    toast.success(`${extraidos.length} linha${extraidos.length > 1 ? 's' : ''} adicionada${extraidos.length > 1 ? 's' : ''}. Confira os dados antes de salvar.`);
   }
 
   function removerComparavel(id: string) {
@@ -247,10 +244,14 @@ export default function AvaliacaoDetailPage() {
           </div>
 
           <div className="bg-surface-3 rounded-lg p-3 space-y-2">
-            <div className="text-[11.5px] font-medium flex items-center gap-1.5"><ClipboardPaste className="w-3.5 h-3.5" /> Colar anúncio (solução momentânea, sem IA)</div>
-            <p className="text-[11px] text-muted-foreground">Copie o texto do anúncio (OLX, Zap, Wimóveis…) e cole aqui — o sistema tenta achar valor, área e link sozinho; endereço e anunciante você confere na linha criada.</p>
+            <div className="text-[11.5px] font-medium flex items-center gap-1.5"><ClipboardPaste className="w-3.5 h-3.5" /> Colar anúncio ou tabela (solução momentânea, sem IA no app)</div>
+            <p className="text-[11px] text-muted-foreground">
+              Cole o texto de um único anúncio (OLX, Zap, Wimóveis…), ou uma tabela pronta gerada por um chat de IA externo
+              (peça pra ele montar em formato de tabela markdown) — o sistema separa em várias linhas sozinho. Confira sempre
+              o resultado antes de salvar.
+            </p>
             <div className="flex gap-2">
-              <Textarea value={colagem} onChange={e => setColagem(e.target.value)} placeholder="Cole aqui o texto copiado do anúncio…" className="text-[12.5px] min-h-[60px] flex-1" />
+              <Textarea value={colagem} onChange={e => setColagem(e.target.value)} placeholder="Cole aqui o texto do anúncio ou a tabela…" className="text-[12.5px] min-h-[60px] flex-1" />
               <button onClick={adicionarDeColagem} className="h-9 px-3 rounded-lg border-2 text-[12px] font-medium hover:border-hover transition-colors flex-none self-start">
                 Extrair e adicionar
               </button>
