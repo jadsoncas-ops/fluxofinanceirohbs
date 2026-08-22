@@ -60,7 +60,7 @@ export function DocumentoProcuracao({ trabalho, cliente, onSaved }: { trabalho: 
         <img src={logoJadsonCastro} alt="Jadson Castro — Engenheiro Civil" className="documento-logo" />
         <div style={{ flex: 1, textAlign: 'center' }}>
           <h1>Procuração</h1>
-          <div className="sub">Representação perante a Prefeitura Municipal e demais órgãos competentes</div>
+          <div className="sub">Representação perante a Prefeitura Municipal</div>
         </div>
         <div className="kicker">{dados.data}</div>
       </div>
@@ -73,14 +73,9 @@ export function DocumentoProcuracao({ trabalho, cliente, onSaved }: { trabalho: 
 
       <div className="documento-section-title"><div className="n">3</div><div className="t">Poderes</div></div>
       <p className="documento-p">
-        O OUTORGANTE nomeia e constitui seu bastante procurador o OUTORGADO, conferindo-lhe poderes para representá-lo junto à
-        Prefeitura Municipal e demais órgãos públicos competentes, podendo: protocolar requerimentos e documentos; acompanhar
-        processos administrativos; apresentar projetos e peças técnicas; solicitar informações; receber notificações; cumprir
-        exigências técnicas; assinar documentos necessários ao andamento do processo administrativo referente ao imóvel
-        localizado em {dados.objeto}.
-      </p>
-      <p className="documento-p">
-        Podendo, para tanto, praticar todos os atos necessários ao fiel cumprimento deste mandato, inclusive juntar e retirar documentos.
+        O OUTORGANTE nomeia e constitui seu bastante procurador o OUTORGADO, conferindo-lhe poderes para representá-lo,
+        exclusivamente, junto à Prefeitura Municipal, no âmbito do processo administrativo referente ao imóvel localizado
+        em {dados.objeto}.
       </p>
       <p className="documento-p"><strong>Validade:</strong> até a conclusão do referido processo administrativo.</p>
 
