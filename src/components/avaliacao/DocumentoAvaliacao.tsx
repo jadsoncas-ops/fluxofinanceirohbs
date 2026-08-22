@@ -14,6 +14,12 @@ function fmtDataCurta(iso: string | undefined): string {
   return new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR');
 }
 
+function agrupar<T>(itens: T[], tamanho: number): T[][] {
+  const grupos: T[][] = [];
+  for (let i = 0; i < itens.length; i += tamanho) grupos.push(itens.slice(i, i + tamanho));
+  return grupos;
+}
+
 export function DocumentoAvaliacao({ avaliacao }: { avaliacao: AvaliacaoAluguel }) {
   const resumo = calcularResumoAvaliacao(avaliacao);
   const a = avaliacao;
@@ -277,6 +283,44 @@ export function DocumentoAvaliacao({ avaliacao }: { avaliacao: AvaliacaoAluguel 
         </tbody>
       </table>
       <p className="documento-p" style={{ fontSize: '11px', color: 'var(--doc-muted)' }}>Fonte: anúncios online de imobiliárias e corretores, pesquisa de mercado na data de referência.</p>
+
+      {a.fotos.length > 0 && (
+        <>
+          <div style={{ pageBreakBefore: 'always', breakBefore: 'page' }} />
+          <div className="documento-section-title" style={{ marginTop: 0 }}><div className="n">IV</div><div className="t">Anexo IV — Registro fotográfico do imóvel</div></div>
+          <p className="documento-p">
+            O presente Anexo Fotográfico integra o Laudo Técnico de Avaliação de Bens, tendo por finalidade comprovar as
+            condições físicas, o estado de conservação e as características dos ambientes do imóvel objeto da avaliação,
+            conforme verificado durante a vistoria técnica realizada.
+          </p>
+          {agrupar(a.fotos, a.fotosPorPagina === '2' ? 2 : 4).map((grupo, gi) => (
+            <div
+              key={gi}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '14px',
+                marginTop: gi === 0 ? '0.5rem' : 0,
+                pageBreakBefore: gi > 0 ? 'always' : undefined,
+                breakBefore: gi > 0 ? 'page' : undefined,
+                pageBreakInside: 'avoid',
+                breakInside: 'avoid',
+              }}
+            >
+              {grupo.map(f => (
+                <div key={f.id} style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                  <div style={{ aspectRatio: a.fotosPorPagina === '2' ? '4 / 3' : '3 / 4', background: 'var(--doc-header-bg)', border: '1px solid var(--doc-line)', borderRadius: 4, overflow: 'hidden' }}>
+                    <img src={f.url} alt={f.legenda || 'Foto da vistoria'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                  {f.legenda && (
+                    <p style={{ fontFamily: 'system-ui, sans-serif', fontSize: 11, color: 'var(--doc-muted)', textAlign: 'center', margin: '4px 0 0' }}>{f.legenda}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }

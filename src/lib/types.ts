@@ -567,10 +567,22 @@ export interface AvaliacaoAluguel {
   fatorRedutorPercent: number;
   comparaveis: ComparavelAvaliacao[];
 
+  /** Anexo IV — Registro fotográfico. Fotos guardadas como data URI (base64), sem storage externo. */
+  fotos: FotoAvaliacao[];
+  /** Quantas fotos por página impressa: '2' = par lado a lado (fotos maiores, formato horizontal),
+   *  '4' = grade 2x2 (fotos menores, formato vertical). */
+  fotosPorPagina: '2' | '4';
+
   cidadeAssinatura?: string;
   dataAssinatura?: string; // YYYY-MM-DD
   status: StatusAvaliacao;
 
   createdAt: number;
   updatedAt: number;
+}
+
+export interface FotoAvaliacao {
+  id: string;
+  url: string;
+  legenda?: string;
 }

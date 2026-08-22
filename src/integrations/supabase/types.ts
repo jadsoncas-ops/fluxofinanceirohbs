@@ -532,6 +532,8 @@ export type Database = {
           avaliador_registro: string | null
           fator_redutor_percent: number
           comparaveis: Json
+          fotos: Json
+          fotos_por_pagina: string
           cidade_assinatura: string | null
           data_assinatura: string | null
           status: string
@@ -570,6 +572,8 @@ export type Database = {
           avaliador_registro?: string | null
           fator_redutor_percent?: number
           comparaveis?: Json
+          fotos?: Json
+          fotos_por_pagina?: string
           cidade_assinatura?: string | null
           data_assinatura?: string | null
           status?: string
@@ -608,6 +612,8 @@ export type Database = {
           avaliador_registro?: string | null
           fator_redutor_percent?: number
           comparaveis?: Json
+          fotos?: Json
+          fotos_por_pagina?: string
           cidade_assinatura?: string | null
           data_assinatura?: string | null
           status?: string

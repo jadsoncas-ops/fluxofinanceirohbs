@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Printer, Save, Plus, Trash2, ClipboardPaste } from 'lucide-react';
+import { ArrowLeft, Printer, Save, Plus, Trash2, ClipboardPaste, ImagePlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { getAvaliacoes, updateAvaliacao } from '@/lib/storage';
 import { AvaliacaoAluguel, ComparavelAvaliacao } from '@/lib/types';
 import { calcularResumoAvaliacao, fmtMoney } from '@/lib/avaliacao/homogeneizacao';
-import { novoComparavel } from '@/lib/avaliacao/defaults';
+import { novoComparavel, novaFoto } from '@/lib/avaliacao/defaults';
 import { extrairMultiplos } from '@/lib/avaliacao/parseAnuncio';
 import { DocumentoAvaliacao } from '@/components/avaliacao/DocumentoAvaliacao';
 import { Input } from '@/components/ui/input';
@@ -104,6 +104,35 @@ export default function AvaliacaoDetailPage() {
     const reader = new FileReader();
     reader.onload = () => set('logoUrl', reader.result as string);
     reader.readAsDataURL(file);
+  }
+
+  function handleFotosFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    Array.from(files).forEach(file => {
+      if (!file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        setRascunho(d => {
+          const base = d || avaliacaoSalva!;
+          return { ...base, fotos: [...base.fotos, novaFoto(reader.result as string)] };
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function setLegendaFoto(id: string, legenda: string) {
+    setRascunho(d => {
+      const base = d || avaliacaoSalva!;
+      return { ...base, fotos: base.fotos.map(f => f.id === id ? { ...f, legenda } : f) };
+    });
+  }
+
+  function removerFoto(id: string) {
+    setRascunho(d => {
+      const base = d || avaliacaoSalva!;
+      return { ...base, fotos: base.fotos.filter(f => f.id !== id) };
+    });
   }
 
   function salvar() {
@@ -324,6 +353,52 @@ export default function AvaliacaoDetailPage() {
             <div><span className="text-mute-2">Valor médio estimado:</span> <strong className="font-mono-hbs">{fmtMoney(resumo.valorMedio)}</strong></div>
             <div><span className="text-mute-2">Faixa:</span> <strong className="font-mono-hbs">{fmtMoney(resumo.valorMinimo)} – {fmtMoney(resumo.valorMaximo)}</strong></div>
           </div>
+        </div>
+
+        <div className="bg-card border border-border rounded-xl p-[18px] space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <div className="text-[13.5px] font-semibold">Anexo IV — Registro fotográfico</div>
+              <p className="text-[11.5px] text-muted-foreground mt-0.5">Adicione as fotos da vistoria. Cada foto pode ter uma legenda (ex.: "Recepção — 96,10 m²").</p>
+            </div>
+            <Field label="Fotos por página impressa" className="w-52">
+              <Select value={data.fotosPorPagina} onValueChange={v => set('fotosPorPagina', v as AvaliacaoAluguel['fotosPorPagina'])}>
+                <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2">2 por página (horizontal)</SelectItem>
+                  <SelectItem value="4">4 por página (vertical)</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+
+          <label className="h-9 px-3.5 rounded-lg border-2 text-[12.5px] font-medium hover:border-hover transition-colors inline-flex items-center gap-1.5 cursor-pointer w-fit">
+            <ImagePlus className="w-3.5 h-3.5" /> Adicionar fotos
+            <input type="file" accept="image/*" multiple className="hidden" onChange={e => { handleFotosFiles(e.target.files); e.target.value = ''; }} />
+          </label>
+
+          {data.fotos.length > 0 && (
+            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
+              {data.fotos.map(f => (
+                <div key={f.id} className="border border-border rounded-lg overflow-hidden">
+                  <div className="aspect-[4/3] bg-surface-3">
+                    <img src={f.url} alt={f.legenda || 'Foto da vistoria'} className="w-full h-full object-cover" />
+                  </div>
+                  <div className="p-1.5 space-y-1">
+                    <input
+                      value={f.legenda || ''}
+                      onChange={e => setLegendaFoto(f.id, e.target.value)}
+                      placeholder="Legenda (opcional)"
+                      className="w-full h-7 rounded-md border border-border px-1.5 text-[11px] bg-background"
+                    />
+                    <button onClick={() => removerFoto(f.id)} className="text-[10.5px] text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1">
+                      <Trash2 className="w-3 h-3" /> Remover
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

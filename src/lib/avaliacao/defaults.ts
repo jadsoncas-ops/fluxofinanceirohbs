@@ -19,6 +19,8 @@ export function criarAvaliacaoPadrao(): AvaliacaoAluguel {
     responsavelRegistro: 'Engenheiro Civil – CREA-BA nº 051598661-5',
     fatorRedutorPercent: 10,
     comparaveis: [],
+    fotos: [],
+    fotosPorPagina: '4',
     cidadeAssinatura: 'Itabuna',
     dataAssinatura: new Date().toISOString().slice(0, 10),
     status: 'Rascunho',
@@ -29,4 +31,8 @@ export function criarAvaliacaoPadrao(): AvaliacaoAluguel {
 
 export function novoComparavel() {
   return { id: crypto.randomUUID() };
+}
+
+export function novaFoto(url: string) {
+  return { id: crypto.randomUUID(), url };
 }
