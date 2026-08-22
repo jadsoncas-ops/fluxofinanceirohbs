@@ -97,7 +97,7 @@ export function DocumentoAvaliacao({ avaliacao }: { avaliacao: AvaliacaoAluguel 
       <div className="documento-section-title"><div className="n">6</div><div className="t">Pesquisa de mercado</div></div>
       <p className="documento-p">
         Foram consideradas amostras de imóveis disponíveis para locação em {a.municipioUf}, com características técnicas
-        comparáveis em termos de área, tipologia, padrão construtivo e localização próxima, conforme tabela do Anexo I. Os
+        comparáveis em termos de área, tipologia, padrão construtivo e localização próxima, conforme tabela do Anexo III. Os
         valores extraídos refletem a realidade do mercado imobiliário na data de referência.
       </p>
 
@@ -148,7 +148,87 @@ export function DocumentoAvaliacao({ avaliacao }: { avaliacao: AvaliacaoAluguel 
       </div>
 
       <div style={{ pageBreakBefore: 'always', breakBefore: 'page' }} />
-      <div className="documento-section-title" style={{ marginTop: 0 }}><div className="n">I</div><div className="t">Anexo III — Tabela de homogeneização de valores de imóveis</div></div>
+      <div className="documento-section-title" style={{ marginTop: 0 }}><div className="n">I</div><div className="t">Anexo I — Tabela de grau de fundamentação</div></div>
+      <p className="documento-p" style={{ fontSize: '12px', color: 'var(--doc-muted)' }}>Conforme ABNT NBR 14653-2 — quadro de referência no caso de utilização do tratamento por fatores.</p>
+      <table className="documento-table">
+        <thead>
+          <tr>
+            <th rowSpan={2} style={{ verticalAlign: 'middle' }}>Item</th>
+            <th rowSpan={2} style={{ verticalAlign: 'middle' }}>Descrição</th>
+            <th colSpan={3} style={{ textAlign: 'center' }}>Grau</th>
+          </tr>
+          <tr>
+            <th style={{ textAlign: 'center' }}>III</th>
+            <th style={{ textAlign: 'center' }}>II</th>
+            <th style={{ textAlign: 'center' }}>I</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>Caracterização do imóvel avaliando</td>
+            <td>Completa quanto a todos os fatores analisados</td>
+            <td>Completa quanto aos fatores utilizados no tratamento</td>
+            <td>Adoção de situação paradigma</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>Quantidade mínima de dados de mercado, efetivamente utilizados</td>
+            <td style={{ textAlign: 'center' }}>12</td>
+            <td style={{ textAlign: 'center' }}>5</td>
+            <td style={{ textAlign: 'center' }}>3</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>Identificação dos dados de mercado</td>
+            <td>Apresentação de informações relativas a todas as características dos dados analisados, com foto e características observadas pelo autor do laudo</td>
+            <td>Apresentação de informações relativas a todas as características dos dados analisados</td>
+            <td>Apresentação de informações relativas a todas as características dos dados correspondentes aos fatores utilizados</td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td>Intervalo admissível de ajuste para o conjunto de fatores</td>
+            <td style={{ textAlign: 'center' }}>0,80 a 1,25</td>
+            <td style={{ textAlign: 'center' }}>0,50 a 2,00</td>
+            <td style={{ textAlign: 'center' }}>0,40 a 2,50 (a)</td>
+          </tr>
+        </tbody>
+      </table>
+      <p className="documento-p" style={{ fontSize: '10.5px', color: 'var(--doc-muted)' }}>
+        (a) No caso de utilização de menos de cinco dados de mercado, o intervalo admissível de ajuste é de 0,80 a 1,25,
+        pois é desejável que, com um número menor de dados de mercado, a amostra seja menos heterogênea.
+      </p>
+
+      <div style={{ pageBreakBefore: 'always', breakBefore: 'page' }} />
+      <div className="documento-section-title" style={{ marginTop: 0 }}><div className="n">II</div><div className="t">Anexo II — Tabela de enquadramento do laudo</div></div>
+      <p className="documento-p" style={{ fontSize: '12px', color: 'var(--doc-muted)' }}>Conforme ABNT NBR 14653-2 — enquadramento do laudo segundo seu grau de fundamentação, no caso de utilização de tratamento por fatores.</p>
+      <table className="documento-table">
+        <thead>
+          <tr>
+            <th>Graus</th>
+            <th style={{ textAlign: 'center' }}>III</th>
+            <th style={{ textAlign: 'center' }}>II</th>
+            <th style={{ textAlign: 'center' }}>I</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Pontos mínimos</td>
+            <td style={{ textAlign: 'center' }}>10</td>
+            <td style={{ textAlign: 'center' }}>6</td>
+            <td style={{ textAlign: 'center' }}>4</td>
+          </tr>
+          <tr>
+            <td>Itens obrigatórios</td>
+            <td>Itens 2 e 4 no grau III, com os demais no mínimo no grau II</td>
+            <td>Itens 2 e 4 no mínimo no grau II e os demais no mínimo no grau I</td>
+            <td>Todos, no mínimo no grau I</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style={{ pageBreakBefore: 'always', breakBefore: 'page' }} />
+      <div className="documento-section-title" style={{ marginTop: 0 }}><div className="n">III</div><div className="t">Anexo III — Tabela de homogeneização de valores de imóveis</div></div>
       <p className="documento-p" style={{ fontSize: '12px', color: 'var(--doc-muted)' }}>Imóveis de referência</p>
       <table className="documento-table">
         <thead>
