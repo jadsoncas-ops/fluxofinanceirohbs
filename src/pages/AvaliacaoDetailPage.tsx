@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Printer, Save, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Printer, Save, Plus, Trash2, ClipboardPaste } from 'lucide-react';
 import { toast } from 'sonner';
 import { getAvaliacoes, updateAvaliacao } from '@/lib/storage';
 import { AvaliacaoAluguel, ComparavelAvaliacao } from '@/lib/types';
 import { calcularResumoAvaliacao, fmtMoney } from '@/lib/avaliacao/homogeneizacao';
 import { novoComparavel } from '@/lib/avaliacao/defaults';
+import { extrairDadosAnuncio } from '@/lib/avaliacao/parseAnuncio';
 import { DocumentoAvaliacao } from '@/components/avaliacao/DocumentoAvaliacao';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -41,6 +42,7 @@ export default function AvaliacaoDetailPage() {
   }, [avaliacaoId, key]);
 
   const [rascunho, setRascunho] = useState<AvaliacaoAluguel | null>(avaliacaoSalva);
+  const [colagem, setColagem] = useState('');
   const data = rascunho || avaliacaoSalva;
 
   if (!data) {
@@ -70,6 +72,26 @@ export default function AvaliacaoDetailPage() {
       const base = d || avaliacaoSalva!;
       return { ...base, comparaveis: [...base.comparaveis, novoComparavel()] };
     });
+  }
+
+  function adicionarDeColagem() {
+    const texto = colagem.trim();
+    if (!texto) return;
+    const extraido = extrairDadosAnuncio(texto);
+    if (!extraido.valorAluguel && !extraido.areaConstruida && !extraido.fonte) {
+      toast.error('Não encontrei valor, área ou link nesse texto. Confira se copiou o anúncio inteiro.');
+      return;
+    }
+    setRascunho(d => {
+      const base = d || avaliacaoSalva!;
+      return { ...base, comparaveis: [...base.comparaveis, { ...novoComparavel(), ...extraido }] };
+    });
+    setColagem('');
+    const partes: string[] = [];
+    if (extraido.valorAluguel) partes.push(`valor R$ ${extraido.valorAluguel.toLocaleString('pt-BR')}`);
+    if (extraido.areaConstruida) partes.push(`área ${extraido.areaConstruida}m²`);
+    if (extraido.fonte) partes.push('link');
+    toast.success(`Linha adicionada (${partes.join(', ')}). Confira endereço e anunciante.`);
   }
 
   function removerComparavel(id: string) {
@@ -222,6 +244,17 @@ export default function AvaliacaoDetailPage() {
             <Field label="Fator redutor de negociação (%)" className="w-32">
               <Input type="number" value={data.fatorRedutorPercent} onChange={e => set('fatorRedutorPercent', parseFloat(e.target.value) || 0)} className={inputCls} />
             </Field>
+          </div>
+
+          <div className="bg-surface-3 rounded-lg p-3 space-y-2">
+            <div className="text-[11.5px] font-medium flex items-center gap-1.5"><ClipboardPaste className="w-3.5 h-3.5" /> Colar anúncio (solução momentânea, sem IA)</div>
+            <p className="text-[11px] text-muted-foreground">Copie o texto do anúncio (OLX, Zap, Wimóveis…) e cole aqui — o sistema tenta achar valor, área e link sozinho; endereço e anunciante você confere na linha criada.</p>
+            <div className="flex gap-2">
+              <Textarea value={colagem} onChange={e => setColagem(e.target.value)} placeholder="Cole aqui o texto copiado do anúncio…" className="text-[12.5px] min-h-[60px] flex-1" />
+              <button onClick={adicionarDeColagem} className="h-9 px-3 rounded-lg border-2 text-[12px] font-medium hover:border-hover transition-colors flex-none self-start">
+                Extrair e adicionar
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto -mx-[18px] px-[18px]">
