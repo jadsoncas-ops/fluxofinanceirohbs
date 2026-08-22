@@ -82,27 +82,27 @@ export function CalendarioTarefas({ tasks, transactions }: { tasks: Task[]; tran
 
   return (
     <section className="bg-card border border-border rounded-xl overflow-hidden">
-      <div className="px-[18px] py-[15px] border-b border-3 flex items-center justify-between">
-        <div className="text-[13.5px] font-semibold">
+      <div className="px-[14px] py-[9px] border-b border-3 flex items-center justify-between">
+        <div className="text-[12px] font-semibold">
           {MESES[mes.getMonth()]} {mes.getFullYear()}
         </div>
-        <div className="flex items-center gap-1">
-          <button onClick={() => setMes(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))} className="h-6 w-6 grid place-items-center rounded-md hover:bg-surface-3 text-mute-2">
-            <ChevronLeft className="w-3.5 h-3.5" />
+        <div className="flex items-center gap-0.5">
+          <button onClick={() => setMes(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))} className="h-5 w-5 grid place-items-center rounded-md hover:bg-surface-3 text-mute-2">
+            <ChevronLeft className="w-3 h-3" />
           </button>
-          <button onClick={() => setMes(new Date(hoje.getFullYear(), hoje.getMonth(), 1))} className="text-[10.5px] text-accent font-medium px-1.5">
+          <button onClick={() => setMes(new Date(hoje.getFullYear(), hoje.getMonth(), 1))} className="text-[10px] text-accent font-medium px-1.5">
             hoje
           </button>
-          <button onClick={() => setMes(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))} className="h-6 w-6 grid place-items-center rounded-md hover:bg-surface-3 text-mute-2">
-            <ChevronRight className="w-3.5 h-3.5" />
+          <button onClick={() => setMes(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))} className="h-5 w-5 grid place-items-center rounded-md hover:bg-surface-3 text-mute-2">
+            <ChevronRight className="w-3 h-3" />
           </button>
         </div>
       </div>
 
-      <div className="px-[14px] pt-[12px] pb-[6px]">
-        <div className="grid grid-cols-7 gap-1 text-center">
+      <div className="px-[12px] pt-[8px] pb-[4px]">
+        <div className="grid grid-cols-7 gap-[3px] text-center">
           {DIAS_SEMANA.map((d, i) => (
-            <div key={i} className="text-[10px] text-mute-3 font-medium py-1">{d}</div>
+            <div key={i} className="text-[9px] text-mute-3 font-medium py-0.5">{d}</div>
           ))}
           {celulas.map((d, i) => {
             if (!d) return <div key={i} />;
@@ -116,13 +116,13 @@ export function CalendarioTarefas({ tasks, transactions }: { tasks: Task[]; tran
                 key={i}
                 onClick={() => setDiaSel(isSel ? null : key)}
                 className={cn(
-                  'aspect-square rounded-lg flex flex-col items-center justify-center gap-[3px] text-[11.5px] transition-colors',
+                  'h-[23px] rounded-md flex flex-col items-center justify-center gap-[2px] text-[10.5px] transition-colors',
                   isSel ? 'bg-primary text-primary-foreground' : isHoje ? 'bg-accent-soft text-accent font-semibold' : 'hover:bg-surface-3'
                 )}
               >
                 {d.getDate()}
                 {itens.length > 0 && (
-                  <span className={cn('w-1 h-1 rounded-full flex-none', isSel ? 'bg-primary-foreground' : atrasado ? 'bg-destructive' : 'bg-warning')} />
+                  <span className={cn('w-[3px] h-[3px] rounded-full flex-none', isSel ? 'bg-primary-foreground' : atrasado ? 'bg-destructive' : 'bg-warning')} />
                 )}
               </button>
             );
@@ -131,8 +131,8 @@ export function CalendarioTarefas({ tasks, transactions }: { tasks: Task[]; tran
       </div>
 
       {diaSel && (
-        <div className="border-t border-3 px-[18px] py-[13px]">
-          <div className="text-[11px] font-mono-hbs text-mute-2 mb-2 capitalize">
+        <div className="border-t border-3 px-[14px] py-[10px]">
+          <div className="text-[10.5px] font-mono-hbs text-mute-2 mb-1.5 capitalize">
             {new Date(diaSel + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
           </div>
           {eventosDoDia.length === 0 ? (
