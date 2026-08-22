@@ -1,4 +1,5 @@
 import { Transaction, Client, Task, Process, Proposta } from './types';
+import { montarMensagemLembreteVencimento } from './mensagens';
 
 export type AttentionSeverity = 'critical' | 'warning' | 'info';
 
@@ -9,6 +10,8 @@ export interface AttentionItem {
   sub: string;
   cta: string;
   to: string;
+  /** Presente só nos itens de cobrança com telefone cadastrado — permite avisar o cliente direto daqui. */
+  whatsapp?: { clienteNome: string; telefone: { ddd: string; numero: string }; mensagem: string };
 }
 
 function fmtMoney(v: number) {
@@ -37,53 +40,38 @@ export function computeAttentionItems(
   const items: AttentionItem[] = [];
   const today = new Date().toISOString().slice(0, 10);
 
-  // 1. Recebimentos atrasados, agrupados por cliente
-  const receberAtrasado = new Map<string, { valor: number; count: number }>();
-  transactions.forEach(t => {
-    if ((t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído' && t.data < today && t.clienteId) {
-      const cur = receberAtrasado.get(t.clienteId) || { valor: 0, count: 0 };
-      cur.valor += t.valor;
-      cur.count += 1;
-      receberAtrasado.set(t.clienteId, cur);
-    }
-  });
-  receberAtrasado.forEach((v, clienteId) => {
-    const client = clients.find(c => c.id === clienteId);
-    if (!client) return;
-    const dias = Math.max(...transactions.filter(t => t.clienteId === clienteId && t.status !== 'Concluído' && t.data < today).map(t => daysSince(t.data, today)));
-    items.push({
-      id: `receber-${clienteId}`,
-      severity: 'critical',
-      title: `Cobrar ${client.nome}`,
-      sub: `${v.count} parcela${v.count > 1 ? 's' : ''} vencida${v.count > 1 ? 's' : ''} há ${dias} dia${dias > 1 ? 's' : ''} · ${fmtMoney(v.valor)}`,
-      cta: 'Ver cliente',
-      to: `/clientes/${clienteId}`,
-    });
-  });
-
-  // 1.5 Vencimentos de amanhã, agrupados por cliente
+  // 1. Recebimentos vencidos + vencendo amanhã, agrupados por cliente — um único item por
+  //    cliente (evita mostrar a mesma pessoa duas vezes quando ela tem parcela vencida E
+  //    parcela vencendo amanhã), com ação de WhatsApp anexada quando há telefone.
   const amanha = new Date();
   amanha.setDate(amanha.getDate() + 1);
   const amanhaStr = amanha.toISOString().slice(0, 10);
-  const receberAmanha = new Map<string, { valor: number; count: number }>();
+  const avisosPorCliente = new Map<string, { valor: number; itens: { descricao: string; valor: number; trabalho?: string; data: string }[] }>();
   transactions.forEach(t => {
-    if ((t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído' && t.data === amanhaStr && t.clienteId) {
-      const cur = receberAmanha.get(t.clienteId) || { valor: 0, count: 0 };
+    if ((t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído' && t.data <= amanhaStr && t.clienteId) {
+      const cur = avisosPorCliente.get(t.clienteId) || { valor: 0, itens: [] };
       cur.valor += t.valor;
-      cur.count += 1;
-      receberAmanha.set(t.clienteId, cur);
+      cur.itens.push({ descricao: t.descricao, valor: t.valor, trabalho: processes.find(p => p.id === t.processId)?.objeto, data: t.data });
+      avisosPorCliente.set(t.clienteId, cur);
     }
   });
-  receberAmanha.forEach((v, clienteId) => {
+  avisosPorCliente.forEach((v, clienteId) => {
     const client = clients.find(c => c.id === clienteId);
     if (!client) return;
+    const vencidos = v.itens.filter(i => i.data < today);
+    const temVencido = vencidos.length > 0;
+    const dias = temVencido ? Math.max(...vencidos.map(i => daysSince(i.data, today))) : 0;
+    const telefone = client.telefone?.ddd && client.telefone?.numero ? { ddd: client.telefone.ddd, numero: client.telefone.numero } : undefined;
     items.push({
-      id: `vence-amanha-${clienteId}`,
-      severity: 'warning',
-      title: `Vence amanhã: ${client.nome}`,
-      sub: `${v.count} parcela${v.count > 1 ? 's' : ''} · ${fmtMoney(v.valor)} · envie o lembrete de cobrança`,
+      id: `receber-${clienteId}`,
+      severity: temVencido ? 'critical' : 'warning',
+      title: temVencido ? `Cobrar ${client.nome}` : `Vence amanhã: ${client.nome}`,
+      sub: temVencido
+        ? `${v.itens.length} parcela${v.itens.length > 1 ? 's' : ''} vencida${v.itens.length > 1 ? 's' : ''} há ${dias} dia${dias > 1 ? 's' : ''} · ${fmtMoney(v.valor)}`
+        : `${v.itens.length} parcela${v.itens.length > 1 ? 's' : ''} · ${fmtMoney(v.valor)} · envie o lembrete de cobrança`,
       cta: 'Ver cliente',
       to: `/clientes/${clienteId}`,
+      whatsapp: telefone ? { clienteNome: client.nome, telefone, mensagem: montarMensagemLembreteVencimento({ clienteNome: client.nome, itens: v.itens }) } : undefined,
     });
   });
 

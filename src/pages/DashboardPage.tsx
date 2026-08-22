@@ -4,11 +4,12 @@ import { ChevronRight, Layers, FileStack, Handshake, Landmark, MessageCircle } f
 import { useShell } from '@/hooks/use-shell';
 import { getAccounts, getProcesses, getClients, getTasks, getPropostas } from '@/lib/storage';
 import { computeAttentionItems, AttentionItem } from '@/lib/attention';
-import { montarMensagemLembreteVencimento, linkWhatsApp } from '@/lib/mensagens';
+import { linkWhatsApp } from '@/lib/mensagens';
 import { TrabalhoEtapa } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { CalendarioTarefas } from '@/components/CalendarioTarefas';
 
 const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -76,32 +77,6 @@ export default function DashboardPage() {
 
     const attention = computeAttentionItems(transactions, clients, tasks, processes, getPropostas());
 
-    const amanha = new Date();
-    amanha.setDate(amanha.getDate() + 1);
-    const amanhaStr = amanha.toISOString().slice(0, 10);
-    // Cobre vencidos + o que vence amanhã — dá tempo do financeiro avisar o cliente antes do vencimento
-    // e também ter ciência do que já passou da data.
-    const avisosMap = new Map<string, { valor: number; itens: { descricao: string; valor: number; trabalho?: string; data: string }[] }>();
-    transactions
-      .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído' && t.data <= amanhaStr && t.clienteId)
-      .forEach(t => {
-        const cur = avisosMap.get(t.clienteId!) || { valor: 0, itens: [] };
-        cur.valor += t.valor;
-        cur.itens.push({ descricao: t.descricao, valor: t.valor, trabalho: processes.find(p => p.id === t.processId)?.objeto, data: t.data });
-        avisosMap.set(t.clienteId!, cur);
-      });
-    const venceAmanha = Array.from(avisosMap.entries())
-      .map(([clienteId, v]) => {
-        const client = clients.find(c => c.id === clienteId);
-        if (!client) return null;
-        const telefone = client.telefone?.ddd && client.telefone?.numero ? { ddd: client.telefone.ddd, numero: client.telefone.numero } : null;
-        const temVencido = v.itens.some(i => i.data < today);
-        const mensagem = montarMensagemLembreteVencimento({ clienteNome: client.nome, itens: v.itens });
-        return { clienteId, clienteNome: client.nome, valor: v.valor, itens: v.itens, telefone, mensagem, temVencido };
-      })
-      .filter((v): v is NonNullable<typeof v> => v !== null)
-      .sort((a, b) => (b.temVencido ? 1 : 0) - (a.temVencido ? 1 : 0));
-
     const cashflow = Array.from({ length: 6 }).map((_, i) => {
       const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
       const receita = transactions.filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído' && new Date(t.data + 'T12:00:00').getMonth() === d.getMonth() && new Date(t.data + 'T12:00:00').getFullYear() === d.getFullYear()).reduce((s, t) => s + t.valor, 0);
@@ -145,7 +120,7 @@ export default function DashboardPage() {
 
     const resumo = `${trabalhosAtivos.length} trabalho${trabalhosAtivos.length !== 1 ? 's' : ''} aberto${trabalhosAtivos.length !== 1 ? 's' : ''} · ${attention.length} pendência${attention.length !== 1 ? 's' : ''}`;
 
-    return { kpis, attention, venceAmanha, cashflow, upcoming, continuando, resumo, tasks };
+    return { kpis, attention, cashflow, upcoming, continuando, resumo, tasks };
   }, [transactions]);
 
   const maxCash = Math.max(1, ...cashflow.flatMap(m => [m.receita, m.despesa]));
@@ -176,42 +151,6 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Vencidos + vence amanhã — avisar/cobrar cliente */}
-      {venceAmanha.length > 0 && (
-        <section className="bg-warning-soft border border-warning/30 rounded-xl overflow-hidden">
-          <div className="px-[18px] py-[15px] border-b border-warning/20 flex items-center justify-between">
-            <div>
-              <div className="text-[16px] font-semibold text-warning">Cobranças</div>
-              <div className="text-[11.5px] text-mute-2 mt-0.5 font-mono-hbs">vencidos e o que vence amanhã — envie o lembrete</div>
-            </div>
-            <span className="text-[11px] font-mono-hbs text-mute-2">{venceAmanha.length} cliente{venceAmanha.length > 1 ? 's' : ''}</span>
-          </div>
-          {venceAmanha.map(v => (
-            <div key={v.clienteId} className="flex items-center gap-[13px] px-[18px] py-[13px] border-b border-warning/20 last:border-b-0">
-              <div className="min-w-0 flex-1 cursor-pointer" onClick={() => navigate(`/clientes/${v.clienteId}`)}>
-                <div className="text-[13px] font-medium leading-[1.35] flex items-center gap-1.5">
-                  {v.clienteNome}
-                  {v.temVencido && <span className="text-[10px] px-1.5 py-px rounded-[4px] bg-destructive-soft text-destructive font-medium uppercase tracking-wide">vencido</span>}
-                </div>
-                <div className="text-[11.5px] text-muted-foreground mt-0.5">
-                  {v.itens.length > 1 ? `${v.itens.length} parcelas · ` : ''}{v.itens[0].descricao}{v.itens.length === 1 && v.itens[0].trabalho ? ` — ${v.itens[0].trabalho}` : ''} · {fmtMoney(v.valor)}
-                </div>
-              </div>
-              {v.telefone ? (
-                <button
-                  onClick={e => { e.stopPropagation(); setLembrete({ clienteNome: v.clienteNome, telefone: v.telefone!, mensagem: v.mensagem }); setMensagemEditada(v.mensagem); }}
-                  className="flex-none h-[34px] px-3.5 bg-warning text-warning-foreground rounded-lg text-[12px] font-medium flex items-center gap-1.5 hover:opacity-90 transition-opacity"
-                >
-                  <MessageCircle className="w-3.5 h-3.5" /> Avisar no WhatsApp
-                </button>
-              ) : (
-                <span className="flex-none text-[11px] text-mute-2">sem telefone cadastrado</span>
-              )}
-            </div>
-          ))}
-        </section>
-      )}
-
       <div className="grid gap-[18px] items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
         {/* Precisa da sua atenção */}
         <section className="bg-card border border-border rounded-xl overflow-hidden">
@@ -232,7 +171,16 @@ export default function DashboardPage() {
                   <div className="text-[13px] font-medium leading-[1.35]">{a.title}</div>
                   <div className="text-[11.5px] text-muted-foreground mt-0.5">{a.sub}</div>
                 </div>
-                <span className="flex-none text-[11.5px] font-medium text-accent whitespace-nowrap flex items-center gap-0.5">{a.cta} <ChevronRight className="w-3 h-3" /></span>
+                {a.whatsapp ? (
+                  <button
+                    onClick={e => { e.stopPropagation(); setLembrete(a.whatsapp!); setMensagemEditada(a.whatsapp!.mensagem); }}
+                    className="flex-none h-[30px] px-2.5 bg-warning text-warning-foreground rounded-lg text-[11px] font-medium flex items-center gap-1.5 hover:opacity-90 transition-opacity"
+                  >
+                    <MessageCircle className="w-3 h-3" /> WhatsApp
+                  </button>
+                ) : (
+                  <span className="flex-none text-[11.5px] font-medium text-accent whitespace-nowrap flex items-center gap-0.5">{a.cta} <ChevronRight className="w-3 h-3" /></span>
+                )}
               </div>
             ))
           )}
@@ -252,8 +200,18 @@ export default function DashboardPage() {
               {cashflow.map(m => (
                 <div key={m.mes} className="flex-1 flex flex-col items-center gap-2 h-full">
                   <div className="flex-1 w-full flex items-end justify-center gap-1">
-                    <div className="w-3 rounded-t-[3px] bg-accent" style={{ height: `${Math.max(2, (m.receita / maxCash) * 100)}%` }} />
-                    <div className="w-3 rounded-t-[3px] bg-bar-expense" style={{ height: `${Math.max(2, (m.despesa / maxCash) * 100)}%` }} />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="w-3 rounded-t-[3px] bg-accent cursor-default" style={{ height: `${Math.max(2, (m.receita / maxCash) * 100)}%` }} />
+                      </TooltipTrigger>
+                      <TooltipContent className="font-mono-hbs text-[11px]">Receita · {fmtMoney(m.receita)}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="w-3 rounded-t-[3px] bg-bar-expense cursor-default" style={{ height: `${Math.max(2, (m.despesa / maxCash) * 100)}%` }} />
+                      </TooltipTrigger>
+                      <TooltipContent className="font-mono-hbs text-[11px]">Despesa · {fmtMoney(m.despesa)}</TooltipContent>
+                    </Tooltip>
                   </div>
                   <span className="text-[10.5px] text-mute-2 font-mono-hbs">{m.mes}</span>
                 </div>
