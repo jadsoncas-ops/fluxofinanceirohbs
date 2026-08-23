@@ -156,7 +156,7 @@ export default function DashboardPage() {
       {/* Núcleo da dashboard — no desktop cresce pra preencher o resto da tela sem rolar; no
           celular volta ao empilhado normal com scroll (a densidade de 3 colunas não cabe lá). */}
       <div className="flex flex-col gap-2.5 lg:flex-1 lg:min-h-0">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 flex-none">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 lg:flex-1 lg:min-h-0">
           {/* Precisa da sua atenção */}
           <section className="bg-card border border-border rounded-xl overflow-hidden flex flex-col">
             <div className="px-3 py-2 border-b border-3 flex items-center justify-between gap-2">

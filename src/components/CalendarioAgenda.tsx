@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const DIAS_SEMANA_MES = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-const MAX_ITENS_DIA = 3;
+const MAX_ITENS_DIA = 6;
 
 function toKey(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -160,7 +160,16 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
                   <div className="text-[9px] uppercase tracking-[.05em] text-mute-2">{DIAS[d.getDay()]}</div>
                   <div className={cn('text-[12.5px] font-semibold', isHoje && 'text-accent')}>{d.getDate()}</div>
                 </button>
-                <div className="flex-1 p-1 space-y-1 min-h-0 overflow-hidden">
+                <div className={cn('flex-1 min-h-0 overflow-hidden', todosItens.length === 0 ? 'flex' : 'p-1 space-y-1')}>
+                  {todosItens.length === 0 && (
+                    <button
+                      onClick={() => onNovo(key)}
+                      className="flex-1 flex flex-col items-center justify-center gap-1 text-mute-3 hover:text-accent hover:bg-surface-3 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span className="text-[9.5px]">agendar</span>
+                    </button>
+                  )}
                   {visiveis.map((item, i) => {
                     if (item.tipo === 'compromisso') {
                       const hsl = CORES_COMPROMISSO[item.c.cor] || CORES_COMPROMISSO.roxo;
@@ -186,7 +195,6 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
                     return <div key={i} className="px-1 text-[9.5px] text-destructive truncate">💰 {item.c.titulo}</div>;
                   })}
                   {restante > 0 && <div className="px-1 text-[9.5px] text-mute-3">+{restante} mais</div>}
-                  {todosItens.length === 0 && <div className="text-[9.5px] text-mute-3 text-center pt-2">—</div>}
                 </div>
               </div>
             );
