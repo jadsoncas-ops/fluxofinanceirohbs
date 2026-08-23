@@ -79,7 +79,14 @@ export function TransactionList({ transactions, tipo, onEdit, onComplete, onDele
     return sorted;
   }
 
-  const { previstos, realizados } = useMemo(() => {
+  function splitPrevistoRealizado(items: Transaction[]) {
+    return {
+      previstos: sortItems(items.filter(t => t.status !== 'Concluído')),
+      realizados: sortItems(items.filter(t => t.status === 'Concluído')),
+    };
+  }
+
+  const { despesasEmpresa, repasses } = useMemo(() => {
     let items = transactions.filter(t => {
       const isIncome = t.tipo === 'Entrada' || t.tipo === 'A Receber';
       return tipo === 'Receitas' ? isIncome : !isIncome;
@@ -92,15 +99,15 @@ export function TransactionList({ transactions, tipo, onEdit, onComplete, onDele
         (getTrabalho(t.processId)?.objeto || '').toLowerCase().includes(q)
       );
     }
+    // Repasse a parceiro não é gasto da empresa — é dinheiro que já nasce reservado pra passar
+    // adiante. Misturar os dois em "Despesas" fazia parecer que a empresa ia gastar aquilo tudo.
+    if (tipo === 'Receitas') return { despesasEmpresa: splitPrevistoRealizado(items), repasses: null };
     return {
-      previstos: sortItems(items.filter(t => t.status !== 'Concluído')),
-      realizados: sortItems(items.filter(t => t.status === 'Concluído')),
+      despesasEmpresa: splitPrevistoRealizado(items.filter(t => !t.isRepasse)),
+      repasses: splitPrevistoRealizado(items.filter(t => t.isRepasse)),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transactions, tipo, search, sortBy]);
-
-  const totalPrevisto = previstos.reduce((s, t) => s + t.valor, 0);
-  const totalRealizado = realizados.reduce((s, t) => s + t.valor, 0);
 
   function handleConfirmDelete() {
     if (!deleteTarget) return;
@@ -116,10 +123,12 @@ export function TransactionList({ transactions, tipo, onEdit, onComplete, onDele
     onDelete();
   }
 
-  function Grupo({ titulo, itens, total, vazio }: { titulo: string; itens: Transaction[]; total: number; vazio: string }) {
+  function Grupo({ titulo, itens, total, vazio, cor }: { titulo: string; itens: Transaction[]; total: number; vazio: string; cor?: 'receita' | 'despesa' | 'repasse' }) {
+    const corResolvida = cor || (tipo === 'Receitas' ? 'receita' : 'despesa');
     return (
       <div className="space-y-[10px]">
-        <div className={cn('flex items-center justify-between rounded-lg px-4 py-2.5 text-[12.5px] font-medium', tipo === 'Receitas' ? 'bg-success-soft text-success' : 'bg-destructive-soft text-destructive')}>
+        <div className={cn('flex items-center justify-between rounded-lg px-4 py-2.5 text-[12.5px] font-medium',
+          corResolvida === 'receita' ? 'bg-success-soft text-success' : corResolvida === 'repasse' ? 'bg-accent-soft text-accent' : 'bg-destructive-soft text-destructive')}>
           <span>{titulo}</span>
           <span className="font-mono-hbs text-[13.5px]">R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
@@ -223,8 +232,28 @@ export function TransactionList({ transactions, tipo, onEdit, onComplete, onDele
         </Select>
       </div>
 
-      <Grupo titulo={`Previsto`} itens={previstos} total={totalPrevisto} vazio="Nada previsto." />
-      <Grupo titulo={`Realizado`} itens={realizados} total={totalRealizado} vazio="Nada realizado ainda." />
+      {tipo === 'Receitas' || !repasses ? (
+        <>
+          <Grupo titulo="Previsto" itens={despesasEmpresa.previstos} total={despesasEmpresa.previstos.reduce((s, t) => s + t.valor, 0)} vazio="Nada previsto." />
+          <Grupo titulo="Realizado" itens={despesasEmpresa.realizados} total={despesasEmpresa.realizados.reduce((s, t) => s + t.valor, 0)} vazio="Nada realizado ainda." />
+        </>
+      ) : (
+        <>
+          <div className="space-y-[10px]">
+            <div className="text-[12.5px] font-semibold">Despesas da empresa</div>
+            <p className="text-[11px] text-muted-foreground -mt-1.5">Custos reais — aluguel, ferramentas, operação. Não inclui repasse.</p>
+            <Grupo titulo="Previsto" itens={despesasEmpresa.previstos} total={despesasEmpresa.previstos.reduce((s, t) => s + t.valor, 0)} vazio="Nenhuma despesa da empresa prevista." />
+            <Grupo titulo="Realizado" itens={despesasEmpresa.realizados} total={despesasEmpresa.realizados.reduce((s, t) => s + t.valor, 0)} vazio="Nenhuma despesa da empresa paga ainda." />
+          </div>
+
+          <div className="space-y-[10px] pt-2">
+            <div className="text-[12.5px] font-semibold flex items-center gap-1.5">🤝 Repasses a parceiros</div>
+            <p className="text-[11px] text-muted-foreground -mt-1.5">Dinheiro que já nasce reservado pro parceiro — não é gasto da HBS.</p>
+            <Grupo titulo="Previsto" itens={repasses.previstos} total={repasses.previstos.reduce((s, t) => s + t.valor, 0)} vazio="Nenhum repasse previsto." cor="repasse" />
+            <Grupo titulo="Realizado" itens={repasses.realizados} total={repasses.realizados.reduce((s, t) => s + t.valor, 0)} vazio="Nenhum repasse pago ainda." cor="repasse" />
+          </div>
+        </>
+      )}
 
       <AlertDialog open={!!deleteTarget} onOpenChange={v => !v && setDeleteTarget(null)}>
         <AlertDialogContent>
