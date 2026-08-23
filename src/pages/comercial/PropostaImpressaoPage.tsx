@@ -64,14 +64,25 @@ export default function PropostaImpressaoPage() {
 
       {/* Capa */}
       <div className="proposta-capa">
-        <div className="logo-circle"><img src={hbsLogo} alt={nomeEmpresa} /></div>
-        <h1>PROPOSTA COMERCIAL</h1>
-        <div className="subtitulo">Serviços Técnicos de Engenharia</div>
+        <div className="capa-topo">
+          <img src={hbsLogo} alt={nomeEmpresa} />
+          <h1>PROPOSTA COMERCIAL</h1>
+          <div className="subtitulo">Serviços Técnicos de Engenharia</div>
+        </div>
 
-        <div className="capa-cliente">{cliente?.nome || 'A definir'}</div>
-        <div className="capa-numero">Proposta nº {proposta.codigo} · {new Date(proposta.createdAt).toLocaleDateString('pt-BR')}</div>
+        <div className="capa-corpo">
+          <div className="capa-label">Preparado para</div>
+          <div className="capa-cliente">{cliente?.nome || 'A definir'}</div>
+          <div className="capa-descricao">{proposta.titulo}</div>
+          <div className="capa-numero">Proposta nº {proposta.codigo} · {new Date(proposta.createdAt).toLocaleDateString('pt-BR')}</div>
 
-        <div className="capa-rodape">{nomeEmpresa.toUpperCase()}</div>
+          <div className="capa-investimento">
+            <div className="lbl">Investimento total</div>
+            <div className="val">{formatBRL(proposta.resultado.precoVenda)}</div>
+          </div>
+
+          <div className="capa-rodape">{nomeEmpresa.toUpperCase()}</div>
+        </div>
       </div>
 
       {/* Conteúdo */}
