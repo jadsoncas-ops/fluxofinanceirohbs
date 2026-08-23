@@ -193,13 +193,15 @@ export default function DashboardPage() {
                       <div className="text-[11.5px] font-medium leading-[1.3] truncate">{a.title}</div>
                       <div className="text-[10px] text-muted-foreground truncate">{a.sub}</div>
                     </div>
-                    {a.whatsapp && (
+                    {a.whatsapp ? (
                       <button
                         onClick={e => { e.stopPropagation(); setLembrete(a.whatsapp!); setMensagemEditada(a.whatsapp!.mensagem); }}
                         className="flex-none h-6 w-6 grid place-items-center bg-warning text-warning-foreground rounded-md hover:opacity-90 transition-opacity"
                       >
                         <MessageCircle className="w-3 h-3" />
                       </button>
+                    ) : (
+                      <span className="flex-none text-[10px] font-medium text-accent whitespace-nowrap flex items-center gap-0.5">{a.cta} <ChevronRight className="w-2.5 h-2.5" /></span>
                     )}
                   </div>
                 ))}
