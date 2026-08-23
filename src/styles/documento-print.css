@@ -248,12 +248,14 @@
   flex: none;
 }
 .proposta-capa .capa-topo img {
+  /* A logo já vem com seu próprio círculo branco de fundo — mostrar nas cores originais
+     (não inverter) é o que faz ela ler como "a logo HBS" em vez de uma mancha branca. */
   width: 118px;
   height: auto;
   margin: 0 auto 2.25rem;
   display: block;
-  filter: brightness(0) invert(1);
-  opacity: 0.96;
+  border-radius: 50%;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
 }
 .proposta-capa .capa-topo h1 {
   font-size: 31px;
