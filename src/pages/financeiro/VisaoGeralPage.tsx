@@ -76,14 +76,19 @@ export default function FinanceiroVisaoGeralPage() {
     const despesasRealizado = realizadas.filter(isExpense).sort((a, b) => b.data.localeCompare(a.data))
       .map(t => ({ ...t, atrasado: false, clienteNome: nomeCliente(t.clienteId) }));
 
+    // Lucro previsto por trabalho = a receber (só o que já está lançado) − repasse pendente daquele
+    // trabalho. Antes usava o valor total do contrato, que incluía parcelas nem lançadas ainda —
+    // isso fazia o total daqui não bater com os cards "A receber"/"A pagar" ali em cima. Agora bate
+    // sempre, porque vem exatamente dos mesmos lançamentos.
     const lucroTrabalhos = getProcesses()
-      .filter(p => !p.isArchived && (p.valorContrato || 0) > 0)
+      .filter(p => !p.isArchived)
       .map(p => {
         const fin = computeTrabalhoFinancials(p, allTransactions);
-        return { id: p.id, nome: p.objeto || 'Trabalho', clienteNome: nomeCliente(p.clienteId), previsto: fin.resultadoPrevisto, realizado: fin.resultadoRealizado };
+        return { id: p.id, nome: p.objeto || 'Trabalho', clienteNome: nomeCliente(p.clienteId), previsto: fin.aReceber - fin.repasseAPagar, realizado: fin.resultadoRealizado };
       })
+      .filter(t => t.previsto !== 0 || t.realizado !== 0)
       .sort((a, b) => b.previsto - a.previsto);
-    const lucroLiquidoPrevistoTotal = lucroTrabalhos.reduce((s, t) => s + t.previsto, 0);
+    const lucroLiquidoPrevistoTotal = aReceber - aPagar;
     const lucroLiquidoRealizadoTotal = lucroTrabalhos.reduce((s, t) => s + t.realizado, 0);
 
     return {
@@ -127,7 +132,7 @@ export default function FinanceiroVisaoGeralPage() {
           <div className="px-[18px] py-[15px] border-b border-3 flex items-center justify-between">
             <div>
               <div className="text-[13.5px] font-semibold">Lucro líquido por trabalho</div>
-              <div className="text-[11.5px] text-mute-2 mt-0.5">contratado − repasses a parceiros — o que realmente fica com a HBS</div>
+              <div className="text-[11.5px] text-mute-2 mt-0.5">a receber − repasse pendente, por trabalho — soma exatamente com os cards acima</div>
             </div>
             <div className="text-right">
               <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">até agora</div>
