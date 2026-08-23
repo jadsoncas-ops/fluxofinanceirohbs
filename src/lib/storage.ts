@@ -964,13 +964,16 @@ export function getPropostas(): Proposta[] {
 }
 
 /** Gera a partir do cache local — colisão exigiria 2 dispositivos criando propostas
- *  no mesmíssimo instante, risco baixo pra um escritório de 2 pessoas. */
+ *  no mesmíssimo instante, risco baixo pra um escritório de 2 pessoas.
+ *  Numeração reiniciada a pedido do usuário: só conta códigos já no formato novo de 3
+ *  dígitos (PRP-001, PRP-002...) — propostas antigas em formato de 4 dígitos (PRP-0089)
+ *  ficam intactas como histórico, sem interferir na contagem nova. */
 export function getNextPropostaCodigo(): string {
   const max = cache.propostas.reduce((m, p) => {
-    const n = parseInt(p.codigo.replace(/\D/g, ''), 10);
-    return Number.isFinite(n) ? Math.max(m, n) : m;
-  }, 87);
-  return `PRP-${String(max + 1).padStart(4, '0')}`;
+    const match = p.codigo.match(/^PRP-(\d{3})$/);
+    return match ? Math.max(m, parseInt(match[1], 10)) : m;
+  }, 0);
+  return `PRP-${String(max + 1).padStart(3, '0')}`;
 }
 
 export function addProposta(proposta: Proposta): void {

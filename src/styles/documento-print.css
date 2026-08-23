@@ -223,6 +223,9 @@
    com capa própria. Baseado no modelo de referência aprovado pelo usuário. */
 
 .proposta-capa {
+  /* Cor da marca HBS (extraída da logo, não do azul dos documentos técnicos) — só a proposta usa. */
+  --doc-accent: #663300;
+  --doc-accent-soft: #f5efe7;
   background: #fff;
   font-family: system-ui, -apple-system, sans-serif;
   max-width: 850px;
@@ -302,28 +305,25 @@
   font-family: "SF Mono", "Roboto Mono", monospace;
 }
 
-.proposta-capa .capa-investimento {
+/* Assinatura técnica no rodapé da capa — logo pessoal do responsável, endereço e razão social.
+   Sem valor aqui de propósito: preço na primeira página assusta antes de justificar o serviço
+   (o valor só aparece depois, na seção 04, já com o escopo todo explicado). */
+.proposta-capa .capa-assinatura {
   margin-top: auto;
-  border: 1.5px solid var(--doc-accent);
-  border-radius: 12px;
-  padding: 1.3rem 3rem;
-  background: var(--doc-accent-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
-.proposta-capa .capa-investimento .lbl {
+.proposta-capa .capa-assinatura img {
+  width: 168px;
+  height: auto;
+  opacity: 0.92;
+}
+.proposta-capa .capa-endereco {
+  margin-top: 1rem;
   font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--doc-accent);
-  font-weight: 700;
-  text-align: center;
-}
-.proposta-capa .capa-investimento .val {
-  font-size: 36px;
-  font-weight: 800;
-  color: var(--doc-accent);
-  margin-top: 0.35rem;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
+  color: var(--doc-muted);
+  line-height: 1.65;
   text-align: center;
 }
 
@@ -332,11 +332,13 @@
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.05em;
-  color: var(--doc-muted);
-  margin-top: 1.75rem;
+  color: var(--doc-ink);
+  margin-top: 0.9rem;
 }
 
 .proposta-folha {
+  --doc-accent: #663300;
+  --doc-accent-soft: #f5efe7;
   background: #fff;
   color: var(--doc-ink);
   font-family: system-ui, -apple-system, sans-serif;

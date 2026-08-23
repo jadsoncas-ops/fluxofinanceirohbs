@@ -4,6 +4,7 @@ import { ArrowLeft, Printer } from 'lucide-react';
 import { getPropostas, getClients, getCompanyConfig } from '@/lib/storage';
 import { ETAPAS_PADRAO, GRUPOS, CUSTOS_PROTOCOLO_PADRAO, formatBRL } from '@/lib/comercial/precificacao';
 import hbsLogo from '@/assets/hbs-logo.png';
+import logoJadsonCastro from '@/assets/logo-jadson-castro.png';
 
 function addDias(base: number, dias: number) {
   const d = new Date(base);
@@ -76,12 +77,16 @@ export default function PropostaImpressaoPage() {
           <div className="capa-descricao">{proposta.titulo}</div>
           <div className="capa-numero">Proposta nº {proposta.codigo} · {new Date(proposta.createdAt).toLocaleDateString('pt-BR')}</div>
 
-          <div className="capa-investimento">
-            <div className="lbl">Investimento total</div>
-            <div className="val">{formatBRL(proposta.resultado.precoVenda)}</div>
+          <div className="capa-assinatura">
+            <img src={logoJadsonCastro} alt={config.responsavelNome || 'Responsável técnico'} />
+            {(config.endereco || config.telefone) && (
+              <div className="capa-endereco">
+                {config.endereco && <div>{config.endereco}</div>}
+                {config.telefone && <div>Fone {config.telefone}</div>}
+              </div>
+            )}
+            <div className="capa-rodape">{nomeEmpresa.toUpperCase()}</div>
           </div>
-
-          <div className="capa-rodape">{nomeEmpresa.toUpperCase()}</div>
         </div>
       </div>
 
