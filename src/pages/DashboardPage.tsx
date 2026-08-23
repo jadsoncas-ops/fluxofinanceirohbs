@@ -119,7 +119,7 @@ export default function DashboardPage() {
     const resumo = `${trabalhosAtivos.length} trabalho${trabalhosAtivos.length !== 1 ? 's' : ''} aberto${trabalhosAtivos.length !== 1 ? 's' : ''} · ${attention.length} pendência${attention.length !== 1 ? 's' : ''}`;
 
     return { kpis, attention, cashflow, continuando, resumo, tasks, clients, compromissos };
-  }, [transactions]);
+  }, [transactions, shell.refreshKey]);
 
   const maxCash = Math.max(1, ...cashflow.flatMap(m => [m.receita, m.despesa]));
   const whatsappTargets = attention.filter(a => a.whatsapp);

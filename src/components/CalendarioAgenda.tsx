@@ -195,6 +195,14 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
                     return <div key={i} className="px-1 text-[9.5px] text-destructive truncate">💰 {item.c.titulo}</div>;
                   })}
                   {restante > 0 && <div className="px-1 text-[9.5px] text-mute-3">+{restante} mais</div>}
+                  {todosItens.length > 0 && restante === 0 && (
+                    <button
+                      onClick={() => onNovo(key)}
+                      className="w-full flex items-center gap-1 px-1.5 py-1 rounded-md text-[9.5px] text-mute-3 hover:text-accent hover:bg-surface-3 transition-colors"
+                    >
+                      <Plus className="w-3 h-3" /> agendar
+                    </button>
+                  )}
                 </div>
               </div>
             );
