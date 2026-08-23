@@ -178,7 +178,7 @@ export function AppShell() {
     setFormOpen(true);
   }
 
-  const showMonthFilter = location.pathname === '/' || location.pathname.startsWith('/caixa');
+  const showMonthFilter = location.pathname.startsWith('/caixa');
   const { title, meta } = useRouteMeta(location.pathname, clientCount, trabalhosAtivos);
 
   const ctx: ShellContext = {

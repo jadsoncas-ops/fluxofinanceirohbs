@@ -11,14 +11,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { CalendarioTarefas } from '@/components/CalendarioTarefas';
-import { AgendaSemanal } from '@/components/AgendaSemanal';
+import { CalendarioAgenda } from '@/components/CalendarioAgenda';
 import { NovoCompromissoDialog } from '@/components/dashboard/NovoCompromissoDialog';
 
 const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 const STAGE_PCT: Record<TrabalhoEtapa, number> = { 'Aguardando cliente': 10, Levantamento: 30, Tramitando: 65, Devolutiva: 80, Concluído: 100 };
 const STAGE_COLOR: Record<TrabalhoEtapa, string> = { 'Aguardando cliente': 'text-warning', Levantamento: 'text-mute-2', Tramitando: 'text-accent', Devolutiva: 'text-destructive', Concluído: 'text-success' };
 const PROXIMA_ACAO: Record<TrabalhoEtapa, string> = { 'Aguardando cliente': 'Cobrar retorno do cliente', Levantamento: 'Fazer levantamento do imóvel/documentação', Tramitando: 'Acompanhar trâmite no órgão', Devolutiva: 'Atender exigência/pendência', Concluído: 'Arquivar trabalho' };
+const MAX_ATENCAO_VISIVEL = 4;
 
 function fmtMoney(v: number) {
   return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -123,167 +123,162 @@ export default function DashboardPage() {
 
   const maxCash = Math.max(1, ...cashflow.flatMap(m => [m.receita, m.despesa]));
   const whatsappTargets = attention.filter(a => a.whatsapp);
+  const attentionVisivel = attention.slice(0, MAX_ATENCAO_VISIVEL);
+  const attentionRestante = attention.length - attentionVisivel.length;
 
   return (
-    <div className="flex flex-col gap-[34px] pb-8 animate-hbs-in">
-      {/* Saudação */}
-      <div>
-        <h1 className="text-[28px] font-semibold -tracking-[.028em]">{saudacao()}, Jádson.</h1>
-        <p className="text-[14.5px] text-muted-foreground mt-1">Veja o que precisa da sua atenção hoje.</p>
-        <p className="text-[12.5px] text-mute-2 font-mono-hbs mt-1.5">{resumo}</p>
-        <div className="flex flex-wrap gap-2 mt-4">
-          <button onClick={() => navigate('/trabalhos')} className="h-[34px] px-3.5 bg-card border-2 rounded-lg text-[12.5px] hover:border-hover transition-colors flex items-center gap-2"><Layers className="w-3.5 h-3.5" /> Novo trabalho</button>
-          <button onClick={() => navigate('/producao')} className="h-[34px] px-3.5 bg-card border-2 rounded-lg text-[12.5px] hover:border-hover transition-colors flex items-center gap-2"><FileStack className="w-3.5 h-3.5" /> Gerar documento</button>
-          <button onClick={() => navigate('/comercial')} className="h-[34px] px-3.5 bg-card border-2 rounded-lg text-[12.5px] hover:border-hover transition-colors flex items-center gap-2"><Handshake className="w-3.5 h-3.5" /> Nova proposta</button>
-          <button onClick={() => shell.openNovoRecebimento()} className="h-[34px] px-3.5 bg-card border-2 rounded-lg text-[12.5px] hover:border-hover transition-colors flex items-center gap-2"><Landmark className="w-3.5 h-3.5" /> Lançar recebimento</button>
+    <div className="flex flex-col gap-2.5 lg:h-full lg:min-h-0 lg:overflow-hidden animate-hbs-in">
+      {/* Saudação + ações rápidas, numa linha só */}
+      <div className="flex items-center justify-between gap-3 flex-wrap flex-none">
+        <div className="min-w-0">
+          <h1 className="text-[19px] font-semibold -tracking-[.02em] leading-tight">{saudacao()}, Jádson.</h1>
+          <p className="text-[11px] text-mute-2 font-mono-hbs mt-0.5">{resumo}</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <button onClick={() => navigate('/trabalhos')} className="h-8 px-2.5 bg-card border-2 rounded-lg text-[11.5px] hover:border-hover transition-colors flex items-center gap-1.5"><Layers className="w-3 h-3" /> Novo trabalho</button>
+          <button onClick={() => navigate('/producao')} className="h-8 px-2.5 bg-card border-2 rounded-lg text-[11.5px] hover:border-hover transition-colors flex items-center gap-1.5"><FileStack className="w-3 h-3" /> Gerar documento</button>
+          <button onClick={() => navigate('/comercial')} className="h-8 px-2.5 bg-card border-2 rounded-lg text-[11.5px] hover:border-hover transition-colors flex items-center gap-1.5"><Handshake className="w-3 h-3" /> Nova proposta</button>
+          <button onClick={() => shell.openNovoRecebimento()} className="h-8 px-2.5 bg-card border-2 rounded-lg text-[11.5px] hover:border-hover transition-colors flex items-center gap-1.5"><Landmark className="w-3 h-3" /> Lançar recebimento</button>
         </div>
       </div>
 
-      {/* KPI strip */}
-      <div className="grid gap-px bg-border border border-border rounded-xl overflow-hidden" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(186px, 1fr))' }}>
+      {/* KPI strip compacta */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-border border border-border rounded-xl overflow-hidden flex-none">
         {kpis.map(k => (
-          <button key={k.label} onClick={() => navigate(k.to)} className="bg-card px-[18px] pt-4 pb-[15px] text-left hover:bg-surface-3 transition-colors">
-            <div className="text-[11px] tracking-[.07em] uppercase text-mute-2 font-medium">{k.label}</div>
-            <div className={cn('font-mono-hbs text-[24px] font-medium -tracking-[.035em] mt-2.5', k.color)}>{k.value}</div>
-            <div className="text-[11.5px] text-muted-foreground mt-1.5 leading-[1.35]">{k.hint}</div>
+          <button key={k.label} onClick={() => navigate(k.to)} className="bg-card px-3 pt-2.5 pb-2.5 text-left hover:bg-surface-3 transition-colors">
+            <div className="text-[9.5px] tracking-[.06em] uppercase text-mute-2 font-medium">{k.label}</div>
+            <div className={cn('font-mono-hbs text-[18px] font-medium -tracking-[.03em] mt-1', k.color)}>{k.value}</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5 truncate">{k.hint}</div>
           </button>
         ))}
       </div>
 
-      <div className="grid gap-[18px] items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
-        {/* Precisa da sua atenção */}
-        <section className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="px-[18px] py-[15px] border-b border-3 flex items-center justify-between gap-2.5">
-            <div>
-              <div className="text-[16px] font-semibold">Precisa da sua atenção</div>
-              <div className="text-[11.5px] text-mute-2 mt-0.5 font-mono-hbs">ordenado por impacto</div>
-            </div>
-            <div className="flex items-center gap-2.5 flex-none">
-              {whatsappTargets.length > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="h-[30px] px-2.5 bg-warning text-warning-foreground rounded-lg text-[11px] font-medium flex items-center gap-1.5 hover:opacity-90 transition-opacity">
-                      <MessageCircle className="w-3 h-3" /> WhatsApp
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-[250px]">
-                    {whatsappTargets.map(a => (
-                      <DropdownMenuItem key={a.id} onClick={() => { setLembrete(a.whatsapp!); setMensagemEditada(a.whatsapp!.mensagem); }} className="flex-col items-start gap-0.5 py-2">
-                        <span className="text-[12.5px] font-medium">{a.whatsapp!.clienteNome}</span>
-                        <span className="text-[10.5px] text-muted-foreground">{a.sub}</span>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-              <span className="text-[11px] font-mono-hbs text-mute-2 whitespace-nowrap">{attention.length} {attention.length === 1 ? 'item' : 'itens'}</span>
-            </div>
-          </div>
-          {attention.length === 0 ? (
-            <div className="px-[18px] py-10 text-center text-sm text-muted-foreground">Nada pendente agora.</div>
-          ) : (
-            attention.map(a => (
-              <div key={a.id} onClick={() => navigate(a.to)} className="flex items-center gap-[13px] px-[18px] py-[13px] border-b border-3 last:border-b-0 cursor-pointer hover:bg-surface-3 transition-colors">
-                <span className={cn('w-[3px] self-stretch rounded-[2px]', severityBar[a.severity])} />
-                <div className="min-w-0 flex-1">
-                  <div className="text-[13px] font-medium leading-[1.35]">{a.title}</div>
-                  <div className="text-[11.5px] text-muted-foreground mt-0.5">{a.sub}</div>
-                </div>
-                {a.whatsapp ? (
-                  <button
-                    onClick={e => { e.stopPropagation(); setLembrete(a.whatsapp!); setMensagemEditada(a.whatsapp!.mensagem); }}
-                    className="flex-none h-[30px] px-2.5 bg-warning text-warning-foreground rounded-lg text-[11px] font-medium flex items-center gap-1.5 hover:opacity-90 transition-opacity"
-                  >
-                    <MessageCircle className="w-3 h-3" /> WhatsApp
-                  </button>
-                ) : (
-                  <span className="flex-none text-[11.5px] font-medium text-accent whitespace-nowrap flex items-center gap-0.5">{a.cta} <ChevronRight className="w-3 h-3" /></span>
+      {/* Núcleo da dashboard — no desktop cresce pra preencher o resto da tela sem rolar; no
+          celular volta ao empilhado normal com scroll (a densidade de 3 colunas não cabe lá). */}
+      <div className="flex flex-col gap-2.5 lg:flex-1 lg:min-h-0">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 flex-none">
+          {/* Precisa da sua atenção */}
+          <section className="bg-card border border-border rounded-xl overflow-hidden flex flex-col">
+            <div className="px-3 py-2 border-b border-3 flex items-center justify-between gap-2">
+              <div className="text-[12.5px] font-semibold">Precisa da sua atenção</div>
+              <div className="flex items-center gap-1.5 flex-none">
+                {whatsappTargets.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="h-6 w-6 grid place-items-center bg-warning text-warning-foreground rounded-md hover:opacity-90 transition-opacity">
+                        <MessageCircle className="w-3 h-3" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-[250px]">
+                      {whatsappTargets.map(a => (
+                        <DropdownMenuItem key={a.id} onClick={() => { setLembrete(a.whatsapp!); setMensagemEditada(a.whatsapp!.mensagem); }} className="flex-col items-start gap-0.5 py-2">
+                          <span className="text-[12.5px] font-medium">{a.whatsapp!.clienteNome}</span>
+                          <span className="text-[10.5px] text-muted-foreground">{a.sub}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
-              </div>
-            ))
-          )}
-        </section>
-
-        <div className="flex flex-col gap-[18px]">
-          {/* Caixa 6 meses */}
-          <section className="bg-card border border-border rounded-xl px-[18px] pt-4 pb-[18px]">
-            <div className="flex items-baseline justify-between">
-              <div className="text-[13.5px] font-semibold">Caixa · últimos 6 meses</div>
-              <div className="flex gap-3 text-[11px] text-muted-foreground">
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-[2px] bg-accent" />Receita</span>
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-[2px] bg-bar-expense" />Despesa</span>
+                <span className="text-[10.5px] font-mono-hbs text-mute-2 whitespace-nowrap">{attention.length}</span>
               </div>
             </div>
-            <div className="flex items-end gap-3.5 h-[148px] mt-[18px]">
+            {attention.length === 0 ? (
+              <div className="px-3 py-6 text-center text-[12px] text-muted-foreground">Nada pendente agora.</div>
+            ) : (
+              <>
+                {attentionVisivel.map(a => (
+                  <div key={a.id} onClick={() => navigate(a.to)} className="flex items-center gap-2 px-3 py-[7px] border-b border-3 cursor-pointer hover:bg-surface-3 transition-colors">
+                    <span className={cn('w-[3px] self-stretch rounded-[2px] min-h-[24px]', severityBar[a.severity])} />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11.5px] font-medium leading-[1.3] truncate">{a.title}</div>
+                      <div className="text-[10px] text-muted-foreground truncate">{a.sub}</div>
+                    </div>
+                    {a.whatsapp && (
+                      <button
+                        onClick={e => { e.stopPropagation(); setLembrete(a.whatsapp!); setMensagemEditada(a.whatsapp!.mensagem); }}
+                        className="flex-none h-6 w-6 grid place-items-center bg-warning text-warning-foreground rounded-md hover:opacity-90 transition-opacity"
+                      >
+                        <MessageCircle className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {attentionRestante > 0 && (
+                  <button onClick={() => navigate('/caixa/receitas')} className="px-3 py-[7px] text-[11px] font-medium text-accent hover:bg-surface-3 transition-colors text-left">
+                    +{attentionRestante} mais
+                  </button>
+                )}
+              </>
+            )}
+          </section>
+
+          {/* Caixa 6 meses */}
+          <section className="bg-card border border-border rounded-xl px-3 pt-2.5 pb-2.5 flex flex-col">
+            <div className="flex items-baseline justify-between">
+              <div className="text-[12.5px] font-semibold">Caixa · 6 meses</div>
+              <div className="flex gap-2 text-[10px] text-muted-foreground">
+                <span className="flex items-center gap-1"><span className="w-[7px] h-[7px] rounded-[2px] bg-accent" />Receita</span>
+                <span className="flex items-center gap-1"><span className="w-[7px] h-[7px] rounded-[2px] bg-bar-expense" />Despesa</span>
+              </div>
+            </div>
+            <div className="flex items-end gap-2.5 flex-1 min-h-0 mt-2">
               {cashflow.map(m => (
-                <div key={m.mes} className="flex-1 flex flex-col items-center gap-2 h-full">
+                <div key={m.mes} className="flex-1 flex flex-col items-center gap-1.5 h-full">
                   <div className="flex-1 w-full flex items-end justify-center gap-1">
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div className="w-3 rounded-t-[3px] bg-accent cursor-default" style={{ height: `${Math.max(2, (m.receita / maxCash) * 100)}%` }} />
+                        <div className="w-2.5 rounded-t-[3px] bg-accent cursor-default" style={{ height: `${Math.max(2, (m.receita / maxCash) * 100)}%` }} />
                       </TooltipTrigger>
                       <TooltipContent className="font-mono-hbs text-[11px]">Receita · {fmtMoney(m.receita)}</TooltipContent>
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div className="w-3 rounded-t-[3px] bg-bar-expense cursor-default" style={{ height: `${Math.max(2, (m.despesa / maxCash) * 100)}%` }} />
+                        <div className="w-2.5 rounded-t-[3px] bg-bar-expense cursor-default" style={{ height: `${Math.max(2, (m.despesa / maxCash) * 100)}%` }} />
                       </TooltipTrigger>
                       <TooltipContent className="font-mono-hbs text-[11px]">Despesa · {fmtMoney(m.despesa)}</TooltipContent>
                     </Tooltip>
                   </div>
-                  <span className="text-[10.5px] text-mute-2 font-mono-hbs">{m.mes}</span>
+                  <span className="text-[9.5px] text-mute-2 font-mono-hbs">{m.mes}</span>
                 </div>
               ))}
             </div>
           </section>
 
-          <CalendarioTarefas tasks={tasks} transactions={transactions} />
+          {/* Continuar trabalhando — linhas compactas */}
+          <section className="bg-card border border-border rounded-xl overflow-hidden flex flex-col">
+            <div className="px-3 py-2 border-b border-3 flex items-center justify-between gap-2">
+              <div className="text-[12.5px] font-semibold">Continuar trabalhando</div>
+              <button onClick={() => navigate('/trabalhos')} className="text-[10.5px] font-medium text-accent flex items-center gap-0.5 flex-none">Todos <ChevronRight className="w-2.5 h-2.5" /></button>
+            </div>
+            {continuando.length === 0 ? (
+              <div className="px-3 py-6 text-center text-[12px] text-muted-foreground">Nenhum trabalho em andamento.</div>
+            ) : (
+              continuando.map(t => (
+                <div key={t.id} onClick={() => navigate(`/trabalhos/${t.id}`)} className="px-3 py-[7px] border-b border-3 last:border-b-0 cursor-pointer hover:bg-surface-3 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className={cn('w-1.5 h-1.5 rounded-full flex-none', STAGE_COLOR[t.etapa].replace('text-', 'bg-'))} />
+                    <div className="text-[11.5px] font-medium truncate flex-1">{t.nome}</div>
+                    <span className="font-mono-hbs text-[10px] text-mute-2 flex-none">{t.pct}%</span>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground truncate mt-0.5 pl-3.5">{t.proximaAcao}</div>
+                </div>
+              ))
+            )}
+          </section>
+        </div>
+
+        {/* Agenda — semana ou mês, alternável */}
+        <div className="min-h-[420px] lg:flex-1 lg:min-h-0">
+          <CalendarioAgenda
+            compromissos={compromissos}
+            tasks={tasks}
+            transactions={transactions}
+            clients={clients}
+            onNovo={abrirNovoCompromisso}
+            onEditar={abrirEditarCompromisso}
+          />
         </div>
       </div>
-
-      <AgendaSemanal
-        compromissos={compromissos}
-        tasks={tasks}
-        transactions={transactions}
-        clients={clients}
-        onNovo={abrirNovoCompromisso}
-        onEditar={abrirEditarCompromisso}
-      />
-
-      {/* Continuar trabalhando */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-[16px] font-semibold">Continuar trabalhando</div>
-          <button onClick={() => navigate('/trabalhos')} className="text-[12px] font-medium text-accent flex items-center gap-1">Ver todos os trabalhos <ChevronRight className="w-3 h-3" /></button>
-        </div>
-        {continuando.length === 0 ? (
-          <div className="bg-card border border-dash border-2 rounded-xl py-12 text-center">
-            <p className="text-sm font-medium">Nenhum trabalho em andamento.</p>
-            <p className="text-xs text-muted-foreground mt-1">Crie o primeiro trabalho para começar a acompanhar aqui.</p>
-            <button onClick={() => navigate('/trabalhos')} className="mt-4 h-[34px] px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] hover:bg-primary-hover transition-colors">+ Novo trabalho</button>
-          </div>
-        ) : (
-          <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(288px, 1fr))' }}>
-            {continuando.map(t => (
-              <div key={t.id} onClick={() => navigate(`/trabalhos/${t.id}`)} className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:-translate-y-0.5 hover:shadow-card-hover transition-all">
-                <div className="text-[14px] font-semibold truncate">{t.nome}</div>
-                {t.endereco && <div className="text-[11.5px] text-muted-foreground mt-0.5 truncate">{t.endereco}</div>}
-                <div className="flex items-center gap-2 mt-2.5">
-                  <span className={cn('w-1.5 h-1.5 rounded-full', STAGE_COLOR[t.etapa].replace('text-', 'bg-'))} />
-                  <span className={cn('text-[11.5px] font-medium', STAGE_COLOR[t.etapa])}>{t.etapa}</span>
-                  <span className="ml-auto font-mono-hbs text-[11px] text-mute-2">{t.pct}%</span>
-                </div>
-                <div className="flex gap-1 mt-2">
-                  {Array.from({ length: 7 }).map((_, i) => (
-                    <span key={i} className={cn('h-1 flex-1 rounded-full', i < Math.round((t.pct / 100) * 7) ? 'bg-accent' : 'bg-border')} />
-                  ))}
-                </div>
-                <div className="text-[11.5px] text-muted-foreground mt-3 pt-3 border-t border-3">Próxima ação · <strong className="text-foreground font-medium">{t.proximaAcao}</strong></div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
 
       <Dialog open={!!lembrete} onOpenChange={v => !v && setLembrete(null)}>
         <DialogContent className="sm:max-w-lg">
