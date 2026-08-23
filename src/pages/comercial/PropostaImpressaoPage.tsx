@@ -108,7 +108,7 @@ export default function PropostaImpressaoPage() {
           <div className="titulo-mini">NÃO INCLUSO</div>
           <ul>
             <li>Taxas de prefeitura (emolumentos do município)</li>
-            {proposta.custosProtocolo.art && <li>Taxa de emissão de ART/RRT ({formatBRL(CUSTOS_PROTOCOLO_PADRAO.art)})</li>}
+            {!proposta.custosProtocolo.art && <li>Taxa de emissão de ART/RRT ({formatBRL(CUSTOS_PROTOCOLO_PADRAO.art)})</li>}
             <li>Emolumentos de cartório e impostos incidentes sobre o imóvel</li>
           </ul>
         </div>
