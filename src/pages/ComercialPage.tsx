@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, ArrowRight } from 'lucide-react';
+import { Plus, ArrowRight, Pencil } from 'lucide-react';
 import { getPropostas, getContratos, getClients } from '@/lib/storage';
 import { formatBRL } from '@/lib/comercial/precificacao';
 import { Proposta, PropostaStatus, ContratoStatus } from '@/lib/types';
 import { NovaPropostaDialog } from '@/components/comercial/NovaPropostaDialog';
 import { PropostaDetailDialog } from '@/components/comercial/PropostaDetailDialog';
+import { ValorMonetario } from '@/components/ValorMonetario';
 import { cn } from '@/lib/utils';
 
 const statusBadge: Record<PropostaStatus, string> = {
@@ -91,7 +92,7 @@ export default function ComercialPage() {
               <div className="text-[13.5px] font-medium mt-1">{s.nome}</div>
               <div className="flex items-baseline gap-2 mt-1.5">
                 <span className="font-mono-hbs text-[20px]">{s.qtd}</span>
-                <span className="text-[11.5px] text-mute-2 font-mono-hbs">{formatBRL(s.valor)}</span>
+                <span className="text-[11.5px] text-mute-2 font-mono-hbs"><ValorMonetario value={formatBRL(s.valor)} /></span>
               </div>
               <div className="h-[3px] rounded-full bg-bar-track mt-2 overflow-hidden">
                 <div className="h-full bg-accent rounded-full" style={{ width: `${(s.qtd / funil.maxQtd) * 100}%` }} />
@@ -106,7 +107,7 @@ export default function ComercialPage() {
         <section className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-[18px] py-[15px] border-b border-3 flex items-center justify-between">
             <span className="text-[13.5px] font-semibold">Propostas em aberto</span>
-            <span className="text-[11.5px] text-mute-2 font-mono-hbs">{formatBRL(totalAberto)}</span>
+            <span className="text-[11.5px] text-mute-2 font-mono-hbs"><ValorMonetario value={formatBRL(totalAberto)} /></span>
           </div>
           {propostasAbertas.length === 0 ? (
             <div className="px-[18px] py-10 text-center">
@@ -118,7 +119,7 @@ export default function ComercialPage() {
               <div key={p.id} className="flex items-center gap-3 px-[18px] py-[12px] border-b border-3 last:border-b-0 hover:bg-surface-3 transition-colors cursor-pointer" onClick={() => setPropostaAberta(p.id)}>
                 <div className="flex-1 min-w-0">
                   <div className="text-[12.5px] font-medium truncate">{p.codigo} · {p.titulo}</div>
-                  <div className="text-[11px] text-mute-2 mt-0.5">{clienteNome(p.clienteId)} · {formatBRL(p.resultado.precoVenda)}</div>
+                  <div className="text-[11px] text-mute-2 mt-0.5">{clienteNome(p.clienteId)} · <ValorMonetario value={formatBRL(p.resultado.precoVenda)} /></div>
                 </div>
                 <span className={cn('flex-none text-[11px] px-2 py-[3px] rounded-[5px] font-medium', statusBadge[p.status])}>
                   {p.status === 'Enviada' && p.enviadaEm ? `Sem resposta ${diasDesde(p.enviadaEm)}d` : p.status}
@@ -161,9 +162,12 @@ export default function ComercialPage() {
             <div key={c.id} className="flex items-center gap-3 px-[18px] py-[12px] border-b border-3 last:border-b-0">
               <div className="flex-1 min-w-0">
                 <div className="text-[12.5px] font-medium truncate">{c.codigo} · {clienteNome(c.clienteId)}</div>
-                <div className="text-[11px] text-mute-2 mt-0.5 font-mono-hbs">{formatBRL(c.valor)} · {new Date(c.createdAt).toLocaleDateString('pt-BR')}</div>
+                <div className="text-[11px] text-mute-2 mt-0.5 font-mono-hbs"><ValorMonetario value={formatBRL(c.valor)} /> · {new Date(c.createdAt).toLocaleDateString('pt-BR')}</div>
               </div>
               <span className={cn('flex-none text-[11px] px-2 py-[3px] rounded-[5px] font-medium', contratoBadge[c.status])}>{c.status}</span>
+              <button onClick={() => setPropostaAberta(c.propostaId)} className="flex-none text-[11.5px] font-medium text-muted-foreground hover:text-accent transition-colors flex items-center gap-1">
+                <Pencil className="w-3 h-3" /> Editar
+              </button>
               {c.trabalhoId ? (
                 <button onClick={() => navigate(`/trabalhos/${c.trabalhoId}`)} className="flex-none text-[11.5px] font-medium text-accent flex items-center gap-1">Ver trabalho <ArrowRight className="w-3 h-3" /></button>
               ) : (
