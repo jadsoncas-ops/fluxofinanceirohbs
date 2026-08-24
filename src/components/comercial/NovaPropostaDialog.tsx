@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getClients, addProposta, updateProposta, getNextPropostaCodigo, getPrecificacaoConfig } from '@/lib/storage';
@@ -23,6 +24,9 @@ interface Props {
   clienteIdInicial?: string;
   editItem?: Proposta | null;
 }
+
+const NOTA_PARCEIRO_SUGERIDA =
+  'O valor total desta proposta já inclui os honorários do parceiro responsável pelo despacho/trâmite junto aos órgãos competentes. Esse valor é repassado integralmente a ele, que atua de forma independente — respondemos exclusivamente pelos serviços técnicos de engenharia aqui descritos. Os pagamentos referentes a esta proposta devem ser feitos diretamente a nós.';
 
 function etapasIniciais(editItem?: Proposta | null): EtapaServico[] {
   return ETAPAS_PADRAO.map(e => {
@@ -44,6 +48,8 @@ export function NovaPropostaDialog({ open, onClose, onSaved, clienteIdInicial, e
   const [comissaoPercent, setComissaoPercent] = useState(editItem?.comissaoPercent ?? config.comissaoPercentPadrao);
   const [prazoDias, setPrazoDias] = useState(editItem?.prazoDias ?? 15);
   const [parcelas, setParcelas] = useState<PropostaParcela[]>(editItem?.parcelasPagamento || []);
+  const [temParceiro, setTemParceiro] = useState(!!editItem?.observacaoParceiro);
+  const [observacaoParceiro, setObservacaoParceiro] = useState(editItem?.observacaoParceiro || '');
 
   useEffect(() => {
     if (!open) return;
@@ -56,6 +62,8 @@ export function NovaPropostaDialog({ open, onClose, onSaved, clienteIdInicial, e
     setComissaoPercent(editItem?.comissaoPercent ?? config.comissaoPercentPadrao);
     setPrazoDias(editItem?.prazoDias ?? 15);
     setParcelas(editItem?.parcelasPagamento || []);
+    setTemParceiro(!!editItem?.observacaoParceiro);
+    setObservacaoParceiro(editItem?.observacaoParceiro || '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editItem?.id]);
 
@@ -122,6 +130,8 @@ export function NovaPropostaDialog({ open, onClose, onSaved, clienteIdInicial, e
       precoVenda: resultado.precoVenda, margem: resultado.margem,
     };
 
+    const notaParceiroFinal = temParceiro ? observacaoParceiro.trim() : undefined;
+
     if (editItem) {
       updateProposta({
         ...editItem,
@@ -129,6 +139,7 @@ export function NovaPropostaDialog({ open, onClose, onSaved, clienteIdInicial, e
         custoHoraBase: custoHora, lucroPercent, impostosPercent, comissaoPercent,
         custosProtocolo: protocolos, resultado: resultadoFinal, prazoDias,
         parcelasPagamento: parcelasFinal,
+        observacaoParceiro: notaParceiroFinal,
         updatedAt: Date.now(),
       });
       toast.success(`Proposta ${editItem.codigo} atualizada.`);
@@ -146,6 +157,7 @@ export function NovaPropostaDialog({ open, onClose, onSaved, clienteIdInicial, e
         resultado: resultadoFinal,
         prazoDias,
         parcelasPagamento: parcelasFinal,
+        observacaoParceiro: notaParceiroFinal,
         status: 'Rascunho',
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -228,6 +240,25 @@ export function NovaPropostaDialog({ open, onClose, onSaved, clienteIdInicial, e
             <div className="flex justify-between text-xs text-muted-foreground"><span>Custo técnico</span><span className="font-mono-hbs">{formatBRL(custoTecnico)}</span></div>
             <div className="flex justify-between text-xs text-muted-foreground"><span>Protocolos</span><span className="font-mono-hbs">{formatBRL(custoProtocolos)}</span></div>
             <div className="flex justify-between text-sm font-semibold pt-1.5 border-t border-3"><span>Preço sugerido</span><span className="font-mono-hbs text-success">{formatBRL(resultado.precoVenda)}</span></div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-2 text-xs cursor-pointer">
+              <Checkbox
+                checked={temParceiro}
+                onCheckedChange={v => {
+                  setTemParceiro(!!v);
+                  if (v && !observacaoParceiro) setObservacaoParceiro(NOTA_PARCEIRO_SUGERIDA);
+                }}
+              />
+              Este valor inclui honorários de um parceiro (ex.: despachante)
+            </label>
+            {temParceiro && (
+              <div className="space-y-1">
+                <Textarea value={observacaoParceiro} onChange={e => setObservacaoParceiro(e.target.value)} className="text-[12.5px] min-h-[90px]" />
+                <p className="text-[11px] text-muted-foreground">Aparece na proposta impressa, perto das condições de pagamento. Edite à vontade — isso aqui é só uma sugestão de texto.</p>
+              </div>
+            )}
           </div>
 
           <div>

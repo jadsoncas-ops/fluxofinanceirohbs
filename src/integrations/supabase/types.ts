@@ -322,6 +322,7 @@ export type Database = {
           prazo_dias: number | null
           forma_pagamento: string | null
           parcelas_pagamento: Json | null
+          observacao_parceiro: string | null
           status: string
           enviada_em: string | null
           created_at: string
@@ -344,6 +345,7 @@ export type Database = {
           prazo_dias?: number | null
           forma_pagamento?: string | null
           parcelas_pagamento?: Json | null
+          observacao_parceiro?: string | null
           status?: string
           enviada_em?: string | null
           created_at?: string
@@ -366,6 +368,7 @@ export type Database = {
           prazo_dias?: number | null
           forma_pagamento?: string | null
           parcelas_pagamento?: Json | null
+          observacao_parceiro?: string | null
           status?: string
           enviada_em?: string | null
           created_at?: string

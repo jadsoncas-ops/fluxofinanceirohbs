@@ -414,6 +414,10 @@ export interface Proposta {
   custosProtocolo: { art: boolean; assinatura: boolean };
   resultado: PropostaResultado;
   prazoDias?: number;
+  /** Nota sobre parceiro (ex.: despachante) cujo honorário está embutido no valor total, mas que
+   *  atua de forma independente — deixa explícito, sem tom agressivo, que o pagamento é só pra
+   *  HBS e que a HBS não responde pelo serviço do parceiro. Opcional, editável por proposta. */
+  observacaoParceiro?: string;
   /** @deprecated substituído por parcelasPagamento — mantido só para propostas antigas já salvas. */
   formaPagamento?: string;
   parcelasPagamento?: PropostaParcela[];

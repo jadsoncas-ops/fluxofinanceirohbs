@@ -200,6 +200,7 @@ function rowToProposta(r: Row<'hbs_propostas'>): Proposta {
     comissaoPercent: Number(r.comissao_percent), custosProtocolo: r.custos_protocolo as Proposta['custosProtocolo'],
     resultado: r.resultado as Proposta['resultado'], prazoDias: r.prazo_dias ?? undefined,
     formaPagamento: r.forma_pagamento ?? undefined, parcelasPagamento: r.parcelas_pagamento as Proposta['parcelasPagamento'],
+    observacaoParceiro: r.observacao_parceiro ?? undefined,
     status: r.status as Proposta['status'], enviadaEm: r.enviada_em ? new Date(r.enviada_em).getTime() : undefined,
     createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime(),
   };
@@ -214,6 +215,7 @@ function propostaToRow(p: Proposta): Database['public']['Tables']['hbs_propostas
     resultado: p.resultado as Database['public']['Tables']['hbs_propostas']['Insert']['resultado'],
     prazo_dias: p.prazoDias ?? null, forma_pagamento: p.formaPagamento ?? null,
     parcelas_pagamento: (p.parcelasPagamento ?? null) as Database['public']['Tables']['hbs_propostas']['Insert']['parcelas_pagamento'],
+    observacao_parceiro: p.observacaoParceiro ?? null,
     status: p.status, enviada_em: p.enviadaEm ? new Date(p.enviadaEm).toISOString() : null,
     created_at: p.createdAt ? new Date(p.createdAt).toISOString() : undefined,
     updated_at: p.updatedAt ? new Date(p.updatedAt).toISOString() : undefined,

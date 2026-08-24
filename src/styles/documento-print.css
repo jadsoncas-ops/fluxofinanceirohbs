@@ -453,6 +453,18 @@
 .proposta-pagamento-item:last-child { border-bottom: none; }
 .proposta-pagamento-item .val { font-weight: 700; }
 
+.proposta-nota-parceiro {
+  margin-top: 0.9rem;
+  border-left: 3px solid var(--doc-accent);
+  background: var(--doc-header-bg);
+  padding: 10px 14px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--doc-muted);
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
 .proposta-observacoes p { font-size: 12.5px; font-weight: 600; margin-bottom: 0.6rem; }
 .proposta-observacoes li { font-size: 11.5px; color: var(--doc-muted); line-height: 1.65; list-style: none; padding-left: 1rem; position: relative; margin-bottom: 3px; }
 .proposta-observacoes li::before { content: '–'; position: absolute; left: 0; }

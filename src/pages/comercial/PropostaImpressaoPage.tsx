@@ -166,6 +166,9 @@ export default function PropostaImpressaoPage() {
             <span className="val">{formatBRL(proposta.resultado.precoVenda)}</span>
           </div>
         )}
+        {proposta.observacaoParceiro && (
+          <div className="proposta-nota-parceiro">{proposta.observacaoParceiro}</div>
+        )}
 
         <div className="proposta-secao">
           <div className="titulo"><span className="num">06</span><span>Validade e observações</span></div>
