@@ -13,8 +13,9 @@ import { NotificationsDropdown } from '@/components/NotificationsDropdown';
 import { getTransactions, getTasks, getClients, getProcesses, getPropostas, onStorageChange } from '@/lib/storage';
 import { computeAttentionItems } from '@/lib/attention';
 import { Transaction, Task, TransactionType } from '@/lib/types';
-import { Search, X, LogOut } from 'lucide-react';
+import { Search, X, LogOut, Eye, EyeOff } from 'lucide-react';
 import { signOut } from '@/lib/auth';
+import { useValoresOcultos, toggleValoresOcultos } from '@/lib/privacidade';
 import hbsLogo from '@/assets/hbs-logo.png';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -62,6 +63,7 @@ export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const today = now.toISOString().slice(0, 10);
+  const valoresOcultos = useValoresOcultos();
 
   const [month, setMonth] = useState(now.getMonth());
   const [year, setYear] = useState(now.getFullYear());
@@ -230,6 +232,14 @@ export function AppShell() {
             <Search className="w-3.5 h-3.5" />
             <span className="text-[12.5px] flex-1 whitespace-nowrap overflow-hidden">Buscar ou executar…</span>
             <span className="text-[10px] font-mono-hbs border-2 rounded px-[5px] py-px bg-background">⌘K</span>
+          </button>
+
+          <button
+            onClick={toggleValoresOcultos}
+            className="w-8 h-8 grid place-items-center rounded-lg border-2 text-mute-2 hover:border-hover transition-colors flex-none"
+            title={valoresOcultos ? 'Mostrar valores' : 'Esconder valores'}
+          >
+            {valoresOcultos ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
           </button>
 
           <NotificationsDropdown open={notifOpen} onOpenChange={o => { setNotifOpen(o); if (o) setCommandOpen(false); }} items={attentionItems} />

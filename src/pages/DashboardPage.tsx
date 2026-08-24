@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { CalendarioAgenda } from '@/components/CalendarioAgenda';
 import { NovoCompromissoDialog } from '@/components/dashboard/NovoCompromissoDialog';
+import { ValorMonetario } from '@/components/ValorMonetario';
 
 const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 const STAGE_PCT: Record<TrabalhoEtapa, number> = { 'Aguardando cliente': 10, Levantamento: 30, Tramitando: 65, Devolutiva: 80, Concluído: 100 };
@@ -85,11 +86,11 @@ export default function DashboardPage() {
     const aguardandoCliente = trabalhosAtivos.filter(p => p.etapa === 'Aguardando cliente').length;
 
     const kpis = [
-      { label: 'Caixa disponível', value: fmtMoney(saldoDisponivel), color: undefined, hint: accounts.length > 0 ? `${accounts.filter(a => a.ativo).length} conta${accounts.filter(a => a.ativo).length !== 1 ? 's' : ''} · hoje` : 'Cadastre suas contas', to: '/caixa/contas' },
-      { label: 'A receber', value: fmtMoney(aReceber), color: aReceber > 0 ? 'text-destructive' : undefined, hint: aReceberAtrasado > 0 ? `${fmtMoney(aReceberAtrasado)} vencidos` : 'Nada vencido agora', to: '/caixa/receitas' },
-      { label: 'Receita do mês', value: fmtMoney(receitaMes), color: undefined, hint: receitaMesAnterior > 0 ? `${receitaMes >= receitaMesAnterior ? '+' : '−'}${Math.abs(Math.round(((receitaMes - receitaMesAnterior) / receitaMesAnterior) * 100))}% sobre a média` : 'Sem histórico de comparação', to: '/caixa/visao-geral' },
-      { label: 'Trabalhos ativos', value: String(trabalhosAtivos.length), color: undefined, hint: aguardandoCliente > 0 ? `${aguardandoCliente} aguardando cliente` : 'Nenhum parado', to: '/trabalhos' },
-      { label: 'Clientes ativos', value: String(clients.length), color: undefined, hint: clients.length === 0 ? 'Cadastre o primeiro cliente' : 'na base', to: '/clientes' },
+      { label: 'Caixa disponível', value: fmtMoney(saldoDisponivel), isMoney: true, color: undefined, hint: accounts.length > 0 ? `${accounts.filter(a => a.ativo).length} conta${accounts.filter(a => a.ativo).length !== 1 ? 's' : ''} · hoje` : 'Cadastre suas contas', to: '/caixa/contas' },
+      { label: 'A receber', value: fmtMoney(aReceber), isMoney: true, color: aReceber > 0 ? 'text-destructive' : undefined, hint: aReceberAtrasado > 0 ? `${fmtMoney(aReceberAtrasado)} vencidos` : 'Nada vencido agora', to: '/caixa/receitas' },
+      { label: 'Receita do mês', value: fmtMoney(receitaMes), isMoney: true, color: undefined, hint: receitaMesAnterior > 0 ? `${receitaMes >= receitaMesAnterior ? '+' : '−'}${Math.abs(Math.round(((receitaMes - receitaMesAnterior) / receitaMesAnterior) * 100))}% sobre a média` : 'Sem histórico de comparação', to: '/caixa/visao-geral' },
+      { label: 'Trabalhos ativos', value: String(trabalhosAtivos.length), isMoney: false, color: undefined, hint: aguardandoCliente > 0 ? `${aguardandoCliente} aguardando cliente` : 'Nenhum parado', to: '/trabalhos' },
+      { label: 'Clientes ativos', value: String(clients.length), isMoney: false, color: undefined, hint: clients.length === 0 ? 'Cadastre o primeiro cliente' : 'na base', to: '/clientes' },
     ];
 
     const attention = computeAttentionItems(transactions, clients, tasks, processes, getPropostas());
@@ -147,7 +148,9 @@ export default function DashboardPage() {
         {kpis.map(k => (
           <button key={k.label} onClick={() => navigate(k.to)} className="bg-card px-3 pt-2.5 pb-2.5 text-left hover:bg-surface-3 transition-colors">
             <div className="text-[9.5px] tracking-[.06em] uppercase text-mute-2 font-medium">{k.label}</div>
-            <div className={cn('font-mono-hbs text-[18px] font-medium -tracking-[.03em] mt-1', k.color)}>{k.value}</div>
+            <div className={cn('font-mono-hbs text-[18px] font-medium -tracking-[.03em] mt-1', k.color)}>
+              {k.isMoney ? <ValorMonetario value={k.value} /> : k.value}
+            </div>
             <div className="text-[10px] text-muted-foreground mt-0.5 truncate">{k.hint}</div>
           </button>
         ))}

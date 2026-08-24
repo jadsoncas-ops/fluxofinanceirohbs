@@ -5,6 +5,7 @@ import { AlertTriangle } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
 import { getClients, getAccounts, getProcesses } from '@/lib/storage';
 import { computeTrabalhoFinancials } from '@/lib/financials';
+import { ValorMonetario } from '@/components/ValorMonetario';
 import { cn } from '@/lib/utils';
 
 const HORIZONS = [
@@ -113,7 +114,7 @@ export default function FinanceiroVisaoGeralPage() {
         {kpiCards.map(k => (
           <div key={k.label} className="bg-card px-[16px] py-[14px]">
             <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">{k.label}</div>
-            <div className={cn('font-mono-hbs text-[19px] mt-1.5', k.cls)}>{fmt(k.value)}</div>
+            <div className={cn('font-mono-hbs text-[19px] mt-1.5', k.cls)}><ValorMonetario value={fmt(k.value)} /></div>
           </div>
         ))}
       </div>
@@ -136,7 +137,7 @@ export default function FinanceiroVisaoGeralPage() {
             </div>
             <div className="text-right">
               <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">até agora</div>
-              <div className="font-mono-hbs text-[15px]">{fmt(lucroLiquidoRealizadoTotal)}</div>
+              <div className="font-mono-hbs text-[15px]"><ValorMonetario value={fmt(lucroLiquidoRealizadoTotal)} /></div>
             </div>
           </div>
           {lucroTrabalhos.map(t => (
@@ -147,11 +148,11 @@ export default function FinanceiroVisaoGeralPage() {
               </div>
               <div className="text-right flex-none">
                 <div className="text-[10px] text-mute-2">previsto</div>
-                <div className="font-mono-hbs text-[13.5px]">{fmt(t.previsto)}</div>
+                <div className="font-mono-hbs text-[13.5px]"><ValorMonetario value={fmt(t.previsto)} /></div>
               </div>
               <div className="text-right flex-none">
                 <div className="text-[10px] text-mute-2">até agora</div>
-                <div className="font-mono-hbs text-[13.5px] text-success">{fmt(t.realizado)}</div>
+                <div className="font-mono-hbs text-[13.5px] text-success"><ValorMonetario value={fmt(t.realizado)} /></div>
               </div>
             </div>
           ))}
@@ -215,7 +216,7 @@ function ColunaFinanceira({ titulo, cls, previsto, realizado }: { titulo: string
 
       <div className="px-[18px] pt-[13px] pb-2 flex items-center justify-between">
         <span className="text-[11px] uppercase tracking-[.07em] text-mute-2">Previsto</span>
-        <span className={cn('font-mono-hbs text-[12px]', cls)}>{fmt(totalPrevisto)}</span>
+        <span className={cn('font-mono-hbs text-[12px]', cls)}><ValorMonetario value={fmt(totalPrevisto)} /></span>
       </div>
       {previsto.length === 0 ? (
         <div className="px-[18px] pb-3 text-xs text-muted-foreground">Nada previsto.</div>
@@ -228,7 +229,7 @@ function ColunaFinanceira({ titulo, cls, previsto, realizado }: { titulo: string
                 <div className="text-[11px] text-mute-2 truncate">{t.clienteNome}</div>
               </div>
               <div className="text-right flex-none">
-                <div className={cn('font-mono-hbs text-[12.5px]', cls)}>{fmt(t.valor)}</div>
+                <div className={cn('font-mono-hbs text-[12.5px]', cls)}><ValorMonetario value={fmt(t.valor)} /></div>
                 <div className={cn('text-[10.5px] mt-0.5', t.atrasado ? 'text-destructive font-medium' : 'text-mute-3')}>
                   {t.atrasado ? 'Atrasada' : new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR')}
                 </div>
@@ -240,7 +241,7 @@ function ColunaFinanceira({ titulo, cls, previsto, realizado }: { titulo: string
 
       <div className="px-[18px] pt-[13px] pb-2 flex items-center justify-between border-t border-3">
         <span className="text-[11px] uppercase tracking-[.07em] text-mute-2">Realizado</span>
-        <span className={cn('font-mono-hbs text-[12px]', cls)}>{fmt(totalRealizado)}</span>
+        <span className={cn('font-mono-hbs text-[12px]', cls)}><ValorMonetario value={fmt(totalRealizado)} /></span>
       </div>
       {realizado.length === 0 ? (
         <div className="px-[18px] pb-4 text-xs text-muted-foreground">Nada realizado ainda.</div>
@@ -253,7 +254,7 @@ function ColunaFinanceira({ titulo, cls, previsto, realizado }: { titulo: string
                 <div className="text-[11px] text-mute-2 truncate">{t.clienteNome}</div>
               </div>
               <div className="text-right flex-none">
-                <div className={cn('font-mono-hbs text-[12.5px]', cls)}>{fmt(t.valor)}</div>
+                <div className={cn('font-mono-hbs text-[12.5px]', cls)}><ValorMonetario value={fmt(t.valor)} /></div>
                 <div className="text-[10.5px] mt-0.5 text-mute-3">{new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR')}</div>
               </div>
             </div>
