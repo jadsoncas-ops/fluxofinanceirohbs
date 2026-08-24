@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { Compromisso, Task, Transaction, Client, CORES_COMPROMISSO } from '@/lib/types';
-import { getProcesses } from '@/lib/storage';
+import { getProcesses, updateCompromisso } from '@/lib/storage';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -32,10 +33,14 @@ interface Props {
 /** Widget único de agenda — alterna entre visão Semana (compromissos com horário, tarefas,
  *  cobranças, em colunas por dia) e Mês (calendário compacto com indicador de pendência).
  *  Cada dia mostra no máximo MAX_ITENS_DIA itens pra manter a altura previsível — sem isso,
- *  um dia lotado de compromissos empurraria o resto da dashboard e quebraria a tela única. */
+ *  um dia lotado de compromissos empurraria o resto da dashboard e quebraria a tela única.
+ *  Clicar na data abre um popup com o dia completo (sem esse limite); arrastar um compromisso
+ *  pra outra coluna do dia move ele (mesmo padrão de drag-and-drop do kanban de Trabalhos). */
 export function CalendarioAgenda({ compromissos, tasks, transactions, clients, onNovo, onEditar }: Props) {
   const navigate = useNavigate();
   const [modo, setModo] = useState<'semana' | 'mes'>('semana');
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [diaDetalhe, setDiaDetalhe] = useState<string | null>(null);
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
   const todayStr = toKey(hoje);
@@ -100,6 +105,23 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
     ...Array.from({ length: diasNoMes }, (_, i) => new Date(mes.getFullYear(), mes.getMonth(), i + 1)),
   ];
 
+  function moverCompromisso(id: string, novaData: string) {
+    const c = compromissos.find(x => x.id === id);
+    if (!c || c.data === novaData) return;
+    updateCompromisso({ ...c, data: novaData, updatedAt: Date.now() });
+  }
+
+  function itensDoDia(key: string) {
+    const comp = compromissos.filter(c => c.data === key).sort((a, b) => (a.horaInicio || '99:99').localeCompare(b.horaInicio || '99:99'));
+    const tarefasDia = tasks.filter(t => t.status !== 'Concluída' && t.prazo === key);
+    const cobrancasDia = transactions
+      .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído' && t.clienteId && t.data === key)
+      .map(t => ({ titulo: `${clients.find(c => c.id === t.clienteId)?.nome || 'Cliente'} — ${t.descricao}`, valor: t.valor }));
+    return { comp, tarefasDia, cobrancasDia };
+  }
+
+  const detalhe = diaDetalhe ? itensDoDia(diaDetalhe) : null;
+
   return (
     <section className="bg-card border border-border rounded-xl overflow-hidden flex flex-col h-full">
       <div className="px-[16px] py-[10px] border-b border-3 flex items-center justify-between gap-2 flex-wrap flex-none">
@@ -155,8 +177,13 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
             const restante = todosItens.length - visiveis.length;
             const isHoje = key === todayStr;
             return (
-              <div key={key} className={cn('flex flex-col min-h-0', isHoje && 'bg-accent-soft/40')}>
-                <button onClick={() => onNovo(key)} className="px-2 py-1.5 text-center border-b border-3 hover:bg-surface-3 transition-colors flex-none">
+              <div
+                key={key}
+                className={cn('flex flex-col min-h-0', isHoje && 'bg-accent-soft/40')}
+                onDragOver={e => e.preventDefault()}
+                onDrop={() => { if (dragId) moverCompromisso(dragId, key); setDragId(null); }}
+              >
+                <button onClick={() => setDiaDetalhe(key)} className="px-2 py-1.5 text-center border-b border-3 hover:bg-surface-3 transition-colors flex-none">
                   <div className="text-[9px] uppercase tracking-[.05em] text-mute-2">{DIAS[d.getDay()]}</div>
                   <div className={cn('text-[12.5px] font-semibold', isHoje && 'text-accent')}>{d.getDate()}</div>
                 </button>
@@ -176,8 +203,11 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
                       return (
                         <button
                           key={i}
+                          draggable
+                          onDragStart={() => setDragId(item.c.id)}
+                          onDragEnd={() => setDragId(null)}
                           onClick={() => onEditar(item.c)}
-                          className="w-full text-left rounded-md px-1.5 py-1 text-[10px] leading-[1.25] transition-opacity hover:opacity-80"
+                          className="w-full text-left rounded-md px-1.5 py-1 text-[10px] leading-[1.25] transition-opacity hover:opacity-80 cursor-grab active:cursor-grabbing"
                           style={{ backgroundColor: `hsl(${hsl} / .16)`, color: `hsl(${hsl})` }}
                         >
                           <div className="font-medium truncate">{item.c.titulo}</div>
@@ -194,7 +224,9 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
                     }
                     return <div key={i} className="px-1 text-[9.5px] text-destructive truncate">💰 {item.c.titulo}</div>;
                   })}
-                  {restante > 0 && <div className="px-1 text-[9.5px] text-mute-3">+{restante} mais</div>}
+                  {restante > 0 && (
+                    <button onClick={() => setDiaDetalhe(key)} className="px-1 text-[9.5px] text-mute-3 hover:text-accent transition-colors">+{restante} mais</button>
+                  )}
                   {todosItens.length > 0 && restante === 0 && (
                     <button
                       onClick={() => onNovo(key)}
@@ -223,7 +255,7 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
               return (
                 <button
                   key={i}
-                  onClick={() => qtd > 0 ? navigate('/tarefas') : onNovo(key)}
+                  onClick={() => setDiaDetalhe(key)}
                   className={cn(
                     'h-[26px] rounded-md flex flex-col items-center justify-center gap-[2px] text-[11px] transition-colors',
                     isHoje ? 'bg-accent-soft text-accent font-semibold' : 'hover:bg-surface-3'
@@ -237,6 +269,72 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
           </div>
         </div>
       )}
+
+      <Dialog open={!!diaDetalhe} onOpenChange={v => !v && setDiaDetalhe(null)}>
+        <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="capitalize">
+              {diaDetalhe && new Date(diaDetalhe + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+            </DialogTitle>
+          </DialogHeader>
+
+          <button
+            onClick={() => { if (diaDetalhe) onNovo(diaDetalhe); setDiaDetalhe(null); }}
+            className="h-9 px-3 rounded-lg border-2 text-[12.5px] font-medium hover:border-hover transition-colors flex items-center gap-1.5 w-fit"
+          >
+            <Plus className="w-3.5 h-3.5" /> Novo compromisso
+          </button>
+
+          {detalhe && detalhe.comp.length === 0 && detalhe.tarefasDia.length === 0 && detalhe.cobrancasDia.length === 0 && (
+            <p className="text-[12.5px] text-muted-foreground py-2">Nada agendado nesse dia.</p>
+          )}
+
+          {detalhe && detalhe.comp.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-[10.5px] uppercase tracking-[.06em] text-mute-2">Compromissos</div>
+              {detalhe.comp.map(c => {
+                const hsl = CORES_COMPROMISSO[c.cor] || CORES_COMPROMISSO.roxo;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => { onEditar(c); setDiaDetalhe(null); }}
+                    className="w-full text-left rounded-lg px-3 py-2 text-[12.5px] leading-[1.35] transition-opacity hover:opacity-80"
+                    style={{ backgroundColor: `hsl(${hsl} / .16)`, color: `hsl(${hsl})` }}
+                  >
+                    <div className="font-medium">{c.titulo}</div>
+                    {(c.horaInicio || c.comQuem) && (
+                      <div className="opacity-80 text-[11px]">
+                        {c.horaInicio}{c.horaFim ? `–${c.horaFim}` : ''}{c.comQuem ? `${c.horaInicio ? ' · ' : ''}${c.comQuem}` : ''}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {detalhe && detalhe.tarefasDia.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-[10.5px] uppercase tracking-[.06em] text-mute-2">Tarefas</div>
+              {detalhe.tarefasDia.map(t => (
+                <div key={t.id} onClick={() => navigate('/tarefas')} className="flex items-center gap-2 px-1 text-[12.5px] cursor-pointer hover:text-accent transition-colors">
+                  <span className={cn('w-1.5 h-1.5 rounded-full flex-none', diaDetalhe! < todayStr ? 'bg-destructive' : 'bg-warning')} />
+                  <span>{t.titulo}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {detalhe && detalhe.cobrancasDia.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-[10.5px] uppercase tracking-[.06em] text-mute-2">Cobranças</div>
+              {detalhe.cobrancasDia.map((c, i) => (
+                <div key={i} className="px-1 text-[12.5px] text-destructive">💰 {c.titulo}</div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
