@@ -11,6 +11,7 @@ import { aprovarPropostaEGerarContrato } from '@/lib/comercial/fluxo';
 import { formatBRL } from '@/lib/comercial/precificacao';
 import { NovoTrabalhoDialog } from './NovoTrabalhoDialog';
 import { NovaPropostaDialog } from './NovaPropostaDialog';
+import { EditarContratoDialog } from './EditarContratoDialog';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -32,6 +33,7 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
   const [key, setKey] = useState(0);
   const [novoTrabalhoOpen, setNovoTrabalhoOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [editContratoOpen, setEditContratoOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<'proposta' | 'contrato' | null>(null);
 
   const { proposta, cliente, contrato } = useMemo(() => {
@@ -148,7 +150,10 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
             {contrato ? (
               <div className="rounded-xl border border-border p-4 space-y-2.5">
                 <div className="text-[13px] font-semibold flex items-center gap-2">Contrato {contrato.codigo} <span className="text-[11px] px-2 py-[2px] rounded-[5px] bg-success-soft text-success font-medium">{contrato.status}</span></div>
-                <div className="text-[12px] text-muted-foreground">Valor: <span className="font-mono-hbs text-foreground">{formatBRL(contrato.valor)}</span></div>
+                <div className="flex items-center justify-between">
+                  <div className="text-[12px] text-muted-foreground">Valor: <span className="font-mono-hbs text-foreground">{formatBRL(contrato.valor)}</span></div>
+                  <button onClick={() => setEditContratoOpen(true)} className="text-[11.5px] font-medium text-accent flex items-center gap-1"><Pencil className="w-3 h-3" /> Editar</button>
+                </div>
                 {contrato.trabalhoId ? (
                   <Button size="sm" variant="outline" className="w-full" onClick={() => { onClose(); navigate(`/trabalhos/${contrato.trabalhoId}`); }}>Ver trabalho <ArrowRight className="w-3.5 h-3.5 ml-1.5" /></Button>
                 ) : (
@@ -180,6 +185,13 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
         onClose={() => setEditOpen(false)}
         onSaved={() => { setKey(k => k + 1); onChanged(); }}
         editItem={proposta}
+      />
+
+      <EditarContratoDialog
+        open={editContratoOpen}
+        onClose={() => setEditContratoOpen(false)}
+        onSaved={() => { setKey(k => k + 1); onChanged(); }}
+        contrato={contrato}
       />
 
       <NovoTrabalhoDialog
