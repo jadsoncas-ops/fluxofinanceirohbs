@@ -208,14 +208,14 @@ export default function DashboardPage() {
                       <div className="text-[10px] text-muted-foreground truncate">
                         {a.sub}
                         {cobradoHaDias !== null && (
-                          <span className="text-success font-medium"> · ✓ {historico.length}ª cobrança {cobradoHaDias === 0 ? 'hoje' : `há ${cobradoHaDias}d`}</span>
+                          <span className="text-success font-medium"> · ✓ {historico.length}º lembrete {cobradoHaDias === 0 ? 'hoje' : `há ${cobradoHaDias}d`}</span>
                         )}
                       </div>
                     </div>
                     {a.clienteIdParaLembrete && (
                       <button
                         onClick={e => { e.stopPropagation(); marcarCobrado(a.clienteIdParaLembrete); }}
-                        title="Marcar como já cobrado"
+                        title="Marcar lembrete como enviado"
                         className={cn('flex-none h-6 w-6 grid place-items-center rounded-md transition-opacity', cobradoHaDias !== null ? 'bg-success-soft text-success' : 'hover:bg-surface-3 text-mute-3')}
                       >
                         <Check className="w-3 h-3" />

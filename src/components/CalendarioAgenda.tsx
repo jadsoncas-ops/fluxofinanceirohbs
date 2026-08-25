@@ -235,7 +235,7 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
                     if (item.tipo === 'cobranca') {
                       return <div key={i} className="px-1 text-[9.5px] text-destructive truncate">💰 {item.c.titulo}</div>;
                     }
-                    return <div key={i} className="px-1 text-[9.5px] text-success truncate">✓ Cobrei {item.l.clienteNome}</div>;
+                    return <div key={i} className="px-1 text-[9.5px] text-success truncate">✓ Lembrete — {item.l.clienteNome}</div>;
                   })}
                   {restante > 0 && (
                     <button onClick={() => setDiaDetalhe(key)} className="px-1 text-[9.5px] text-mute-3 hover:text-accent transition-colors">+{restante} mais</button>
@@ -349,9 +349,9 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
 
           {detalhe && detalhe.lembretesDia.length > 0 && (
             <div className="space-y-1.5">
-              <div className="text-[10.5px] uppercase tracking-[.06em] text-mute-2">Cobranças enviadas</div>
+              <div className="text-[10.5px] uppercase tracking-[.06em] text-mute-2">Lembretes enviados</div>
               {detalhe.lembretesDia.map((l, i) => (
-                <div key={i} className="px-1 text-[12.5px] text-success">✓ Cobrei {l.clienteNome}</div>
+                <div key={i} className="px-1 text-[12.5px] text-success">✓ Lembrete — {l.clienteNome}</div>
               ))}
             </div>
           )}
