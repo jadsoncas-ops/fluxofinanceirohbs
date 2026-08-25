@@ -88,6 +88,9 @@ export interface Client {
   } | null;
   descricao?: string | null;
   qualificacao?: QualificacaoJuridica;
+  /** Quando você mandou o último lembrete de cobrança (WhatsApp ou marcado manualmente) — usado
+   *  só pra mostrar "já cobrado" na lista de atenção, não tem relação com uma parcela específica. */
+  ultimoLembreteEm?: number;
   createdAt?: number;
 }
 

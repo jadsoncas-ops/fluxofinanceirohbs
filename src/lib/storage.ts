@@ -96,6 +96,7 @@ function rowToClient(r: Row<'hbs_clients'>): Client {
     documento: r.documento, telefone: r.telefone as Client['telefone'],
     endereco: r.endereco as Client['endereco'], descricao: r.descricao,
     qualificacao: r.qualificacao as Client['qualificacao'],
+    ultimoLembreteEm: r.ultimo_lembrete_em ? new Date(r.ultimo_lembrete_em).getTime() : undefined,
     createdAt: new Date(r.created_at).getTime(),
   };
 }
@@ -104,6 +105,7 @@ function clientToRow(c: Client): Database['public']['Tables']['hbs_clients']['In
     id: c.id, nome: c.nome, tipo: c.tipo ?? null, documento: c.documento ?? null,
     telefone: c.telefone ?? null, endereco: c.endereco ?? null, descricao: c.descricao ?? null,
     qualificacao: c.qualificacao ?? null,
+    ultimo_lembrete_em: c.ultimoLembreteEm ? new Date(c.ultimoLembreteEm).toISOString() : null,
     created_at: c.createdAt ? new Date(c.createdAt).toISOString() : undefined,
   };
 }

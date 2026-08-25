@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Layers, FileStack, Handshake, Landmark, MessageCircle } from 'lucide-react';
+import { ChevronRight, Layers, FileStack, Handshake, Landmark, MessageCircle, Check } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
-import { getAccounts, getProcesses, getClients, getTasks, getPropostas, getCompromissos } from '@/lib/storage';
+import { getAccounts, getProcesses, getClients, getTasks, getPropostas, getCompromissos, updateClient } from '@/lib/storage';
 import { computeAttentionItems, AttentionItem } from '@/lib/attention';
 import { linkWhatsApp } from '@/lib/mensagens';
 import { TrabalhoEtapa, Compromisso } from '@/lib/types';
@@ -42,7 +42,7 @@ export default function DashboardPage() {
   const shell = useShell();
   const navigate = useNavigate();
   const { allTransactions: transactions } = shell;
-  const [lembrete, setLembrete] = useState<{ clienteNome: string; telefone: { ddd: string; numero: string }; mensagem: string } | null>(null);
+  const [lembrete, setLembrete] = useState<{ clienteId?: string; clienteNome: string; telefone: { ddd: string; numero: string }; mensagem: string } | null>(null);
   const [mensagemEditada, setMensagemEditada] = useState('');
   const [compromissoDialogOpen, setCompromissoDialogOpen] = useState(false);
   const [compromissoEditando, setCompromissoEditando] = useState<Compromisso | undefined>(undefined);
@@ -125,6 +125,13 @@ export default function DashboardPage() {
   const maxCash = Math.max(1, ...cashflow.flatMap(m => [m.receita, m.despesa]));
   const whatsappTargets = attention.filter(a => a.whatsapp);
   const attentionVisivel = attention.slice(0, MAX_ATENCAO_VISIVEL);
+
+  function marcarCobrado(clienteId: string | undefined) {
+    if (!clienteId) return;
+    const client = clients.find(c => c.id === clienteId);
+    if (!client) return;
+    updateClient({ ...client, ultimoLembreteEm: Date.now() });
+  }
   const attentionRestante = attention.length - attentionVisivel.length;
 
   return (
@@ -174,7 +181,7 @@ export default function DashboardPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-[250px]">
                       {whatsappTargets.map(a => (
-                        <DropdownMenuItem key={a.id} onClick={() => { setLembrete(a.whatsapp!); setMensagemEditada(a.whatsapp!.mensagem); }} className="flex-col items-start gap-0.5 py-2">
+                        <DropdownMenuItem key={a.id} onClick={() => { setLembrete({ ...a.whatsapp!, clienteId: a.clienteIdParaLembrete }); setMensagemEditada(a.whatsapp!.mensagem); }} className="flex-col items-start gap-0.5 py-2">
                           <span className="text-[12.5px] font-medium">{a.whatsapp!.clienteNome}</span>
                           <span className="text-[10.5px] text-muted-foreground">{a.sub}</span>
                         </DropdownMenuItem>
@@ -189,25 +196,42 @@ export default function DashboardPage() {
               <div className="px-3 py-6 text-center text-[12px] text-muted-foreground">Nada pendente agora.</div>
             ) : (
               <>
-                {attentionVisivel.map(a => (
+                {attentionVisivel.map(a => {
+                  const cobradoHaDias = a.lembreteEnviadoEm ? Math.floor((Date.now() - a.lembreteEnviadoEm) / 86400000) : null;
+                  return (
                   <div key={a.id} onClick={() => navigate(a.to)} className="flex items-center gap-2 px-3 py-[7px] border-b border-3 cursor-pointer hover:bg-surface-3 transition-colors">
                     <span className={cn('w-[3px] self-stretch rounded-[2px] min-h-[24px]', severityBar[a.severity])} />
                     <div className="min-w-0 flex-1">
                       <div className="text-[11.5px] font-medium leading-[1.3] truncate">{a.title}</div>
-                      <div className="text-[10px] text-muted-foreground truncate">{a.sub}</div>
+                      <div className="text-[10px] text-muted-foreground truncate">
+                        {a.sub}
+                        {cobradoHaDias !== null && (
+                          <span className="text-success font-medium"> · ✓ cobrado {cobradoHaDias === 0 ? 'hoje' : `há ${cobradoHaDias}d`}</span>
+                        )}
+                      </div>
                     </div>
+                    {a.clienteIdParaLembrete && (
+                      <button
+                        onClick={e => { e.stopPropagation(); marcarCobrado(a.clienteIdParaLembrete); }}
+                        title="Marcar como já cobrado"
+                        className={cn('flex-none h-6 w-6 grid place-items-center rounded-md transition-opacity', cobradoHaDias !== null ? 'bg-success-soft text-success' : 'hover:bg-surface-3 text-mute-3')}
+                      >
+                        <Check className="w-3 h-3" />
+                      </button>
+                    )}
                     {a.whatsapp ? (
                       <button
-                        onClick={e => { e.stopPropagation(); setLembrete(a.whatsapp!); setMensagemEditada(a.whatsapp!.mensagem); }}
+                        onClick={e => { e.stopPropagation(); setLembrete({ ...a.whatsapp!, clienteId: a.clienteIdParaLembrete }); setMensagemEditada(a.whatsapp!.mensagem); }}
                         className="flex-none h-6 w-6 grid place-items-center bg-warning text-warning-foreground rounded-md hover:opacity-90 transition-opacity"
                       >
                         <MessageCircle className="w-3 h-3" />
                       </button>
-                    ) : (
+                    ) : !a.clienteIdParaLembrete ? (
                       <span className="flex-none text-[10px] font-medium text-accent whitespace-nowrap flex items-center gap-0.5">{a.cta} <ChevronRight className="w-2.5 h-2.5" /></span>
-                    )}
+                    ) : null}
                   </div>
-                ))}
+                  );
+                })}
                 {attentionRestante > 0 && (
                   <button onClick={() => navigate('/caixa/receitas')} className="px-3 py-[7px] text-[11px] font-medium text-accent hover:bg-surface-3 transition-colors text-left">
                     +{attentionRestante} mais
@@ -298,6 +322,7 @@ export default function DashboardPage() {
               onClick={() => {
                 if (!lembrete) return;
                 window.open(linkWhatsApp(lembrete.telefone.ddd, lembrete.telefone.numero, mensagemEditada), '_blank', 'noreferrer');
+                marcarCobrado(lembrete.clienteId);
                 setLembrete(null);
               }}
               className="h-9 px-3.5 bg-warning text-warning-foreground rounded-lg text-[12.5px] font-medium hover:opacity-90 transition-opacity flex items-center gap-1.5"
