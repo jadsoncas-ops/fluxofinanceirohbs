@@ -12,10 +12,10 @@ export interface AttentionItem {
   to: string;
   /** Presente só nos itens de cobrança com telefone cadastrado — permite avisar o cliente direto daqui. */
   whatsapp?: { clienteNome: string; telefone: { ddd: string; numero: string }; mensagem: string };
-  /** Presente só nos itens de cobrança — quando você marcou (ou mandou o lembrete de WhatsApp)
-   *  que já cobrou esse cliente. Sem vínculo com parcela específica, é só um "já avisei". */
+  /** Presente só nos itens de cobrança — histórico de quando você marcou (ou mandou o lembrete de
+   *  WhatsApp) que já cobrou esse cliente. Sem vínculo com parcela específica, é só um "já avisei". */
   clienteIdParaLembrete?: string;
-  lembreteEnviadoEm?: number;
+  lembretesCobranca?: number[];
 }
 
 function fmtMoney(v: number) {
@@ -77,7 +77,7 @@ export function computeAttentionItems(
       to: `/clientes/${clienteId}`,
       whatsapp: telefone ? { clienteNome: client.nome, telefone, mensagem: montarMensagemLembreteVencimento({ clienteNome: client.nome, itens: v.itens }) } : undefined,
       clienteIdParaLembrete: clienteId,
-      lembreteEnviadoEm: client.ultimoLembreteEm,
+      lembretesCobranca: client.lembretesCobranca,
     });
   });
 

@@ -130,7 +130,7 @@ export default function DashboardPage() {
     if (!clienteId) return;
     const client = clients.find(c => c.id === clienteId);
     if (!client) return;
-    updateClient({ ...client, ultimoLembreteEm: Date.now() });
+    updateClient({ ...client, lembretesCobranca: [...(client.lembretesCobranca || []), Date.now()] });
   }
   const attentionRestante = attention.length - attentionVisivel.length;
 
@@ -197,7 +197,9 @@ export default function DashboardPage() {
             ) : (
               <>
                 {attentionVisivel.map(a => {
-                  const cobradoHaDias = a.lembreteEnviadoEm ? Math.floor((Date.now() - a.lembreteEnviadoEm) / 86400000) : null;
+                  const historico = a.lembretesCobranca || [];
+                  const ultimoLembrete = historico.length > 0 ? Math.max(...historico) : null;
+                  const cobradoHaDias = ultimoLembrete ? Math.floor((Date.now() - ultimoLembrete) / 86400000) : null;
                   return (
                   <div key={a.id} onClick={() => navigate(a.to)} className="flex items-center gap-2 px-3 py-[7px] border-b border-3 cursor-pointer hover:bg-surface-3 transition-colors">
                     <span className={cn('w-[3px] self-stretch rounded-[2px] min-h-[24px]', severityBar[a.severity])} />
@@ -206,7 +208,7 @@ export default function DashboardPage() {
                       <div className="text-[10px] text-muted-foreground truncate">
                         {a.sub}
                         {cobradoHaDias !== null && (
-                          <span className="text-success font-medium"> · ✓ cobrado {cobradoHaDias === 0 ? 'hoje' : `há ${cobradoHaDias}d`}</span>
+                          <span className="text-success font-medium"> · ✓ {historico.length}ª cobrança {cobradoHaDias === 0 ? 'hoje' : `há ${cobradoHaDias}d`}</span>
                         )}
                       </div>
                     </div>

@@ -19,6 +19,7 @@ interface DiaBucket {
   compromissos: Compromisso[];
   tarefas: Task[];
   cobrancas: { titulo: string; valor: number }[];
+  lembretesCobranca: { clienteNome: string }[];
 }
 
 interface Props {
@@ -67,7 +68,7 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
 
   const porDiaSemana = useMemo(() => {
     const map = new Map<string, DiaBucket>();
-    dias.forEach(d => map.set(toKey(d), { compromissos: [], tarefas: [], cobrancas: [] }));
+    dias.forEach(d => map.set(toKey(d), { compromissos: [], tarefas: [], cobrancas: [], lembretesCobranca: [] }));
 
     compromissos.forEach(c => { map.get(c.data)?.compromissos.push(c); });
 
@@ -84,6 +85,12 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
         bucket.cobrancas.push({ titulo: `${nome} — ${t.descricao}`, valor: t.valor });
       });
 
+    clients.forEach(c => {
+      (c.lembretesCobranca || []).forEach(ts => {
+        map.get(toKey(new Date(ts)))?.lembretesCobranca.push({ clienteNome: c.nome });
+      });
+    });
+
     map.forEach(b => b.compromissos.sort((a, b2) => (a.horaInicio || '99:99').localeCompare(b2.horaInicio || '99:99')));
     return map;
   }, [dias, compromissos, tasks, transactions, clients]);
@@ -95,8 +102,9 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
     transactions.filter(t => t.status !== 'Concluído').forEach(t => add(t.data));
     processes.filter(p => !p.isArchived && (p.etapa || 'Levantamento') !== 'Concluído' && p.prazo).forEach(p => add(p.prazo));
     compromissos.forEach(c => add(c.data));
+    clients.forEach(c => (c.lembretesCobranca || []).forEach(ts => add(toKey(new Date(ts)))));
     return map;
-  }, [tasks, transactions, processes, compromissos]);
+  }, [tasks, transactions, processes, compromissos, clients]);
 
   const primeiroDiaSemanaMes = (mes.getDay() + 6) % 7;
   const diasNoMes = new Date(mes.getFullYear(), mes.getMonth() + 1, 0).getDate();
@@ -117,7 +125,8 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
     const cobrancasDia = transactions
       .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído' && t.clienteId && t.data === key)
       .map(t => ({ titulo: `${clients.find(c => c.id === t.clienteId)?.nome || 'Cliente'} — ${t.descricao}`, valor: t.valor }));
-    return { comp, tarefasDia, cobrancasDia };
+    const lembretesDia = clients.filter(c => (c.lembretesCobranca || []).some(ts => toKey(new Date(ts)) === key)).map(c => ({ clienteNome: c.nome }));
+    return { comp, tarefasDia, cobrancasDia, lembretesDia };
   }
 
   const detalhe = diaDetalhe ? itensDoDia(diaDetalhe) : null;
@@ -172,6 +181,7 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
               ...bucket.compromissos.map(c => ({ tipo: 'compromisso' as const, c })),
               ...bucket.tarefas.map(t => ({ tipo: 'tarefa' as const, t })),
               ...bucket.cobrancas.map(c => ({ tipo: 'cobranca' as const, c })),
+              ...bucket.lembretesCobranca.map(l => ({ tipo: 'lembrete' as const, l })),
             ];
             const visiveis = todosItens.slice(0, MAX_ITENS_DIA);
             const restante = todosItens.length - visiveis.length;
@@ -222,7 +232,10 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
                         </div>
                       );
                     }
-                    return <div key={i} className="px-1 text-[9.5px] text-destructive truncate">💰 {item.c.titulo}</div>;
+                    if (item.tipo === 'cobranca') {
+                      return <div key={i} className="px-1 text-[9.5px] text-destructive truncate">💰 {item.c.titulo}</div>;
+                    }
+                    return <div key={i} className="px-1 text-[9.5px] text-success truncate">✓ Cobrei {item.l.clienteNome}</div>;
                   })}
                   {restante > 0 && (
                     <button onClick={() => setDiaDetalhe(key)} className="px-1 text-[9.5px] text-mute-3 hover:text-accent transition-colors">+{restante} mais</button>
@@ -285,7 +298,7 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
             <Plus className="w-3.5 h-3.5" /> Novo compromisso
           </button>
 
-          {detalhe && detalhe.comp.length === 0 && detalhe.tarefasDia.length === 0 && detalhe.cobrancasDia.length === 0 && (
+          {detalhe && detalhe.comp.length === 0 && detalhe.tarefasDia.length === 0 && detalhe.cobrancasDia.length === 0 && detalhe.lembretesDia.length === 0 && (
             <p className="text-[12.5px] text-muted-foreground py-2">Nada agendado nesse dia.</p>
           )}
 
@@ -330,6 +343,15 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
               <div className="text-[10.5px] uppercase tracking-[.06em] text-mute-2">Cobranças</div>
               {detalhe.cobrancasDia.map((c, i) => (
                 <div key={i} className="px-1 text-[12.5px] text-destructive">💰 {c.titulo}</div>
+              ))}
+            </div>
+          )}
+
+          {detalhe && detalhe.lembretesDia.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-[10.5px] uppercase tracking-[.06em] text-mute-2">Cobranças enviadas</div>
+              {detalhe.lembretesDia.map((l, i) => (
+                <div key={i} className="px-1 text-[12.5px] text-success">✓ Cobrei {l.clienteNome}</div>
               ))}
             </div>
           )}

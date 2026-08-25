@@ -36,7 +36,7 @@ export type Database = {
           endereco: Json | null
           descricao: string | null
           qualificacao: Json | null
-          ultimo_lembrete_em: string | null
+          lembretes_cobranca: Json
           created_at: string
           created_by: string | null
         }
@@ -49,7 +49,7 @@ export type Database = {
           endereco?: Json | null
           descricao?: string | null
           qualificacao?: Json | null
-          ultimo_lembrete_em?: string | null
+          lembretes_cobranca?: Json
           created_at?: string
           created_by?: string | null
         }
@@ -62,7 +62,7 @@ export type Database = {
           endereco?: Json | null
           descricao?: string | null
           qualificacao?: Json | null
-          ultimo_lembrete_em?: string | null
+          lembretes_cobranca?: Json
           created_at?: string
           created_by?: string | null
         }
