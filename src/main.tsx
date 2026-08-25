@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { registerSW } from "virtual:pwa-register";
 import App from "./App.tsx";
+import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import "./index.css";
 import "./styles/documento-print.css";
 
@@ -11,4 +12,21 @@ if (localStorage.getItem('theme') === 'dark') {
 
 registerSW({ immediate: true });
 
-createRoot(document.getElementById("root")!).render(<App />);
+// registerType "autoUpdate" troca o Service Worker por baixo dos panos sem avisar — se isso
+// acontecer com a página aberta (comum em tablet/celular, que fica com o app aberto por dias),
+// o JavaScript antigo continua rodando em cima de um cache novo e quebra de formas estranhas
+// (tela branca, botão que não faz nada). Recarregar uma vez assim que o novo SW assume evita isso.
+if ('serviceWorker' in navigator) {
+  let recarregando = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (recarregando) return;
+    recarregando = true;
+    window.location.reload();
+  });
+}
+
+createRoot(document.getElementById("root")!).render(
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>
+);
