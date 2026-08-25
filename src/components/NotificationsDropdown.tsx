@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell } from 'lucide-react';
+import { Bell, Check } from 'lucide-react';
 import { AttentionItem } from '@/lib/attention';
+import { contarNaoVistos, marcarTodosVistos } from '@/lib/notificacoesVistas';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -19,6 +20,13 @@ const dotColor: Record<AttentionItem['severity'], string> = {
 export function NotificationsDropdown({ open, onOpenChange, items }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const [naoVistosKey, setNaoVistosKey] = useState(0);
+  const naoVistos = (() => { void naoVistosKey; return contarNaoVistos(items); })();
+
+  function limparNotificacoes() {
+    marcarTodosVistos(items);
+    setNaoVistosKey(k => k + 1);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -46,18 +54,25 @@ export function NotificationsDropdown({ open, onOpenChange, items }: Props) {
         )}
       >
         <Bell className="w-[15px] h-[15px] text-mute-2" strokeWidth={1.75} />
-        {items.length > 0 && (
+        {naoVistos > 0 && (
           <span className="absolute -top-[3px] -right-[3px] min-w-[16px] h-4 rounded-full bg-destructive text-white text-[9.5px] font-mono-hbs grid place-items-center border-2 border-background px-[3px]">
-            {items.length}
+            {naoVistos}
           </span>
         )}
       </button>
 
       {open && (
         <div className="absolute right-0 top-[42px] w-[348px] max-w-[calc(100vw-32px)] bg-card border border-border rounded-xl shadow-popover overflow-hidden animate-hbs-pop z-50">
-          <div className="px-3.5 py-3 border-b border-3 flex items-center justify-between">
+          <div className="px-3.5 py-3 border-b border-3 flex items-center justify-between gap-2">
             <span className="text-[12.5px] font-semibold">Notificações</span>
-            <span className="text-[11px] text-mute-2 font-mono-hbs">{items.length === 0 ? 'tudo em dia' : `${items.length} pendente${items.length > 1 ? 's' : ''}`}</span>
+            <div className="flex items-center gap-2.5">
+              <span className="text-[11px] text-mute-2 font-mono-hbs">{items.length === 0 ? 'tudo em dia' : `${items.length} pendente${items.length > 1 ? 's' : ''}`}</span>
+              {items.length > 0 && naoVistos > 0 && (
+                <button onClick={limparNotificacoes} className="text-[11px] font-medium text-accent hover:text-accent-hover transition-colors flex items-center gap-1">
+                  <Check className="w-3 h-3" /> Limpar
+                </button>
+              )}
+            </div>
           </div>
 
           {items.length === 0 ? (

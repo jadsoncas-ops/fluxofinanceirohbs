@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Compass, Users, Layers, FileStack, Handshake, Landmark, BarChart3, Settings as SettingsIcon,
-  ChevronLeft, ChevronRight, Command, LogOut, Scale,
+  ChevronLeft, ChevronRight, Command, LogOut, Scale, ListTodo,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
@@ -25,6 +25,7 @@ const items = [
   { to: '/', label: 'Início', icon: Compass, exact: true },
   { to: '/clientes', label: 'Clientes', icon: Users },
   { to: '/trabalhos', label: 'Trabalhos', icon: Layers, badgeKey: 'trabalhosAtencao' },
+  { to: '/tarefas', label: 'Tarefas & Agenda', icon: ListTodo },
   { to: '/producao', label: 'Produção Técnica', icon: FileStack, badgeKey: 'producaoEmAndamento' },
   { to: '/comercial', label: 'Comercial', icon: Handshake },
   { to: '/caixa', label: 'Fluxo de Caixa', icon: Landmark, badgeKey: 'caixaAtrasado' },
