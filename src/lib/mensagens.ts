@@ -55,6 +55,37 @@ Att.,
 HBS Engenharia`;
 }
 
+/**
+ * Mensagem de boas-vindas — enviada quando um trabalho novo é cadastrado, pra o cliente já saber
+ * o que foi contratado e como falar com a empresa. Tom acolhedor, institucional (HBS, não pessoal).
+ */
+export function montarMensagemBoasVindas(params: {
+  clienteNome: string;
+  trabalhoObjeto: string;
+  empresa: { nome: string; telefone?: string; email?: string; endereco?: string };
+}): string {
+  const primeiroNome = params.clienteNome.trim().split(' ')[0];
+  const contatos = [
+    params.empresa.telefone ? `📞 ${params.empresa.telefone}` : null,
+    params.empresa.email ? `✉️ ${params.empresa.email}` : null,
+    params.empresa.endereco ? `📍 ${params.empresa.endereco}` : null,
+  ].filter(Boolean).join('\n');
+
+  return `Olá, ${primeiroNome}! Tudo bem?
+
+Seja bem-vindo(a) à ${params.empresa.nome}! 🎉
+
+Seu trabalho — ${params.trabalhoObjeto} — já está registrado com a gente e vamos dar início à execução.
+
+Qualquer dúvida ao longo do processo, ou se precisar reorganizar alguma data de pagamento, é só nos chamar por aqui mesmo:
+${contatos}
+
+Agradecemos a confiança e vamos manter você informado a cada etapa.
+
+Att.,
+${params.empresa.nome}`;
+}
+
 export function linkWhatsApp(ddd: string, numero: string, mensagem: string): string {
   return `https://wa.me/55${ddd}${numero}?text=${encodeURIComponent(mensagem)}`;
 }

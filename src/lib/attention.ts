@@ -44,15 +44,20 @@ export function computeAttentionItems(
   const items: AttentionItem[] = [];
   const today = new Date().toISOString().slice(0, 10);
 
-  // 1. Recebimentos vencidos + vencendo amanhã, agrupados por cliente — um único item por
-  //    cliente (evita mostrar a mesma pessoa duas vezes quando ela tem parcela vencida E
-  //    parcela vencendo amanhã), com ação de WhatsApp anexada quando há telefone.
+  // 1. Recebimentos vencidos + vencendo em breve (até 5 dias), agrupados por cliente — um único
+  //    item por cliente (evita mostrar a mesma pessoa várias vezes quando ela tem parcelas em mais
+  //    de uma faixa), com ação de WhatsApp anexada quando há telefone. A janela mais larga (não só
+  //    "vence amanhã") é o fluxo de cobrança escalonado: dá pra avisar o cliente com antecedência,
+  //    não só depois que já venceu.
   const amanha = new Date();
   amanha.setDate(amanha.getDate() + 1);
   const amanhaStr = amanha.toISOString().slice(0, 10);
+  const emCincoDias = new Date();
+  emCincoDias.setDate(emCincoDias.getDate() + 5);
+  const emCincoDiasStr = emCincoDias.toISOString().slice(0, 10);
   const avisosPorCliente = new Map<string, { valor: number; itens: { descricao: string; valor: number; trabalho?: string; data: string }[] }>();
   transactions.forEach(t => {
-    if ((t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído' && t.data <= amanhaStr && t.clienteId) {
+    if ((t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído' && t.data <= emCincoDiasStr && t.clienteId) {
       const cur = avisosPorCliente.get(t.clienteId) || { valor: 0, itens: [] };
       cur.valor += t.valor;
       cur.itens.push({ descricao: t.descricao, valor: t.valor, trabalho: processes.find(p => p.id === t.processId)?.objeto, data: t.data });
@@ -63,13 +68,17 @@ export function computeAttentionItems(
     const client = clients.find(c => c.id === clienteId);
     if (!client) return;
     const vencidos = v.itens.filter(i => i.data < today);
+    const venceAmanha = v.itens.filter(i => i.data === amanhaStr);
     const temVencido = vencidos.length > 0;
+    const temAmanha = venceAmanha.length > 0;
     const dias = temVencido ? Math.max(...vencidos.map(i => daysSince(i.data, today))) : 0;
     const telefone = client.telefone?.ddd && client.telefone?.numero ? { ddd: client.telefone.ddd, numero: client.telefone.numero } : undefined;
+    const severity: AttentionSeverity = temVencido ? 'critical' : temAmanha ? 'warning' : 'info';
+    const title = temVencido ? `Cobrar ${client.nome}` : temAmanha ? `Vence amanhã: ${client.nome}` : `Vence em breve: ${client.nome}`;
     items.push({
       id: `receber-${clienteId}`,
-      severity: temVencido ? 'critical' : 'warning',
-      title: temVencido ? `Cobrar ${client.nome}` : `Vence amanhã: ${client.nome}`,
+      severity,
+      title,
       sub: temVencido
         ? `${v.itens.length} parcela${v.itens.length > 1 ? 's' : ''} vencida${v.itens.length > 1 ? 's' : ''} há ${dias} dia${dias > 1 ? 's' : ''} · ${fmtMoney(v.valor)}`
         : `${v.itens.length} parcela${v.itens.length > 1 ? 's' : ''} · ${fmtMoney(v.valor)} · envie o lembrete de cobrança`,

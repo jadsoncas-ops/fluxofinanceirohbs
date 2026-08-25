@@ -1,19 +1,22 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, FileText, FilePlus2, Trash2, CheckCircle2, Pencil, Clock3, Check } from 'lucide-react';
+import { ArrowLeft, Plus, FileText, FilePlus2, Trash2, CheckCircle2, Pencil, Clock3, Check, MessageCircle } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
 import {
-  getProcesses, getClients, getTasks, getDocuments, getHistorico, getContratos,
+  getProcesses, getClients, getTasks, getDocuments, getHistorico, getContratos, getCompanyConfig,
   updateProcess, addTask, updateTask, deleteTask, deleteProcess, deleteDocument, deleteTransaction, addTransaction, registrarEvento,
 } from '@/lib/storage';
 import { computeTrabalhoFinancials } from '@/lib/financials';
 import { TrabalhoEtapa } from '@/lib/types';
 import { DOCUMENT_REGISTRY } from '@/lib/producao/registry';
+import { montarMensagemBoasVindas, linkWhatsApp } from '@/lib/mensagens';
 import { NovoRepasseDialog } from '@/components/trabalhos/NovoRepasseDialog';
 import { NovoTrabalhoDiretoDialog } from '@/components/trabalhos/NovoTrabalhoDiretoDialog';
 import { NovoRecebimentoDialog } from '@/components/NovoRecebimentoDialog';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
@@ -54,6 +57,8 @@ export default function TrabalhoDetailPage() {
   const [novoValor, setNovoValor] = useState('');
   const [novaData, setNovaData] = useState(() => new Date().toISOString().slice(0, 10));
   const [novoJaAconteceu, setNovoJaAconteceu] = useState(false);
+  const [boasVindasOpen, setBoasVindasOpen] = useState(false);
+  const [mensagemBoasVindas, setMensagemBoasVindas] = useState('');
 
   const { trabalho, cliente, fin, tasks, documentos, historico, contrato, lancamentos } = useMemo(() => {
     void key; void shell.refreshKey;
@@ -81,6 +86,18 @@ export default function TrabalhoDetailPage() {
   const etapaAtual = trabalho.etapa || 'Levantamento';
   const idxEtapa = ETAPAS.indexOf(etapaAtual);
   const proximaEtapa = ETAPAS[Math.min(idxEtapa + 1, ETAPAS.length - 1)];
+
+  function abrirBoasVindas() {
+    if (!cliente) return;
+    const config = getCompanyConfig();
+    const msg = montarMensagemBoasVindas({
+      clienteNome: cliente.nome,
+      trabalhoObjeto: trabalho!.objeto || 'seu trabalho',
+      empresa: { nome: config.razaoSocial || 'HBS Engenharia', telefone: config.telefone, email: config.email, endereco: config.endereco },
+    });
+    setMensagemBoasVindas(msg);
+    setBoasVindasOpen(true);
+  }
 
   function avancarEtapa() {
     updateProcess({ ...trabalho, etapa: proximaEtapa });
@@ -194,6 +211,11 @@ export default function TrabalhoDetailPage() {
           <ArrowLeft className="w-3 h-3" /> Trabalhos
         </button>
         <div className="flex items-center gap-3.5">
+          {cliente?.telefone?.ddd && cliente?.telefone?.numero && (
+            <button onClick={abrirBoasVindas} className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+              <MessageCircle className="w-3.5 h-3.5" /> Enviar boas-vindas
+            </button>
+          )}
           <button onClick={() => setEditOpen(true)} className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
             <Pencil className="w-3.5 h-3.5" /> Editar trabalho
           </button>
@@ -494,6 +516,29 @@ export default function TrabalhoDetailPage() {
           ))
         )}
       </section>
+
+      <Dialog open={boasVindasOpen} onOpenChange={setBoasVindasOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Boas-vindas para {cliente?.nome}</DialogTitle>
+          </DialogHeader>
+          <p className="text-[12px] text-muted-foreground -mt-2">Revise ou ajuste o texto antes de enviar.</p>
+          <Textarea value={mensagemBoasVindas} onChange={e => setMensagemBoasVindas(e.target.value)} className="min-h-[220px] text-[13px]" />
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={() => setBoasVindasOpen(false)} className="h-9 px-3.5 rounded-lg text-[12.5px] font-medium text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
+            <button
+              onClick={() => {
+                if (!cliente?.telefone?.ddd || !cliente?.telefone?.numero) return;
+                window.open(linkWhatsApp(cliente.telefone.ddd, cliente.telefone.numero, mensagemBoasVindas), '_blank', 'noreferrer');
+                setBoasVindasOpen(false);
+              }}
+              className="h-9 px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] font-medium hover:bg-primary-hover transition-opacity flex items-center gap-1.5"
+            >
+              <MessageCircle className="w-3.5 h-3.5" /> Abrir no WhatsApp
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <NovoRepasseDialog open={repasseOpen} onClose={() => setRepasseOpen(false)} clienteId={trabalho.clienteId} processId={trabalho.id} onCreated={() => shell.refresh()} />
       <NovoRecebimentoDialog
