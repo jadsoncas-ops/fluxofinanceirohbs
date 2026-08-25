@@ -131,9 +131,23 @@ export interface Unidade {
   proprietarioCpf?: string;
 }
 
+/** Qualificação completa opcional — pra quando o proprietário (coproprietário, herdeiro etc.) não
+ *  é um Client cadastrado no sistema, então não tem de onde puxar nacionalidade/estado civil/RG
+ *  automaticamente. Sem isso, os documentos geravam só "NOME, inscrito no CPF nº X." pra qualquer
+ *  proprietário que não fosse o cliente principal do trabalho. */
 export interface ProprietarioGeral {
   nome: string;
   cpf: string;
+  nacionalidade?: string;
+  estadoCivil?: EstadoCivil;
+  /** Nome do cônjuge, só pra compor "casado(a) com X" no texto — sem qualificação própria do
+   *  cônjuge nem assinatura separada (se o cônjuge também precisa assinar, cadastre-o como mais
+   *  um proprietário). */
+  conjugeNome?: string;
+  profissao?: string;
+  rg?: string;
+  /** Texto livre — "residente e domiciliado(a) em {endereco}" no documento. */
+  endereco?: string;
 }
 
 /** Dados técnicos do empreendimento — só preenchidos quando o Trabalho vai gerar documentação técnica (Produção Técnica). */

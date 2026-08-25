@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Plus, Trash2, ChevronDown, ChevronUp, Divide } from 'lucide-react';
-import { Process, Unidade, ProprietarioGeral } from '@/lib/types';
+import { Process, Unidade, ProprietarioGeral, EstadoCivil } from '@/lib/types';
 import { updateProcess } from '@/lib/storage';
 import { ATOS_REGISTRAIS_OPCOES } from '@/lib/producao/requerimento';
 import { compoemMedidas } from '@/lib/producao/documentoShared';
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 
 type CampoArea = 'areaPrivativa' | 'areaGaragem' | 'areaComum';
 const CAMPO_LABEL: Record<CampoArea, string> = { areaPrivativa: 'Privativa', areaGaragem: 'Garagem', areaComum: 'Comum' };
+const ESTADOS_CIVIS: EstadoCivil[] = ['Solteiro(a)', 'Casado(a)', 'Divorciado(a)', 'Viúvo(a)', 'União Estável'];
 
 function novaUnidade(): Unidade {
   return { id: crypto.randomUUID(), pavimento: '', nome: '', tipo: 'Apartamento', banheiros: 1, areaPrivativa: 0, areaGaragem: 0, areaComum: 0, autonoma: true };
@@ -157,16 +158,50 @@ export function DadosTecnicosForm({ trabalho, onChange }: { trabalho: Process; o
             {proprietariosGerais.length === 0 ? (
               <div className="text-xs text-muted-foreground py-1.5">Nenhum adicionado — os documentos usam o cliente do trabalho como único proprietário.</div>
             ) : (
-              <div className="space-y-1.5">
-                {proprietariosGerais.map((p, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <Input value={p.nome} onChange={e => updateProprietario(i, { nome: e.target.value })} placeholder="Nome completo" className="h-8 text-xs flex-[1.5]" />
-                    <Input value={p.cpf} onChange={e => updateProprietario(i, { cpf: e.target.value })} placeholder="CPF/CNPJ" className="h-8 text-xs flex-1" />
-                    <button onClick={() => removeProprietario(i)} className="h-8 w-8 flex-none grid place-items-center rounded-lg border-2 text-destructive hover:border-destructive transition-colors">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
+              <div className="space-y-2">
+                {proprietariosGerais.map((p, i) => {
+                  const precisaConjuge = p.estadoCivil === 'Casado(a)' || p.estadoCivil === 'União Estável';
+                  return (
+                    <div key={i} className="border border-3 rounded-lg p-2.5 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Input value={p.nome} onChange={e => updateProprietario(i, { nome: e.target.value })} placeholder="Nome completo" className="h-8 text-xs flex-[1.5]" />
+                        <Input value={p.cpf} onChange={e => updateProprietario(i, { cpf: e.target.value })} placeholder="CPF/CNPJ" className="h-8 text-xs flex-1" />
+                        <button onClick={() => removeProprietario(i)} className="h-8 w-8 flex-none grid place-items-center rounded-lg border-2 text-destructive hover:border-destructive transition-colors">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' }}>
+                        <MiniField label="Nacionalidade">
+                          <Input value={p.nacionalidade || ''} onChange={e => updateProprietario(i, { nacionalidade: e.target.value })} placeholder="Brasileiro(a)" className="h-8 text-xs" />
+                        </MiniField>
+                        <MiniField label="Estado civil">
+                          <select
+                            value={p.estadoCivil || ''}
+                            onChange={e => updateProprietario(i, { estadoCivil: (e.target.value || undefined) as EstadoCivil | undefined })}
+                            className="h-8 px-2 rounded-lg border-2 bg-card text-xs w-full"
+                          >
+                            <option value="">Selecione</option>
+                            {ESTADOS_CIVIS.map(ec => <option key={ec} value={ec}>{ec}</option>)}
+                          </select>
+                        </MiniField>
+                        <MiniField label="Profissão">
+                          <Input value={p.profissao || ''} onChange={e => updateProprietario(i, { profissao: e.target.value })} className="h-8 text-xs" />
+                        </MiniField>
+                        <MiniField label="RG">
+                          <Input value={p.rg || ''} onChange={e => updateProprietario(i, { rg: e.target.value })} className="h-8 text-xs" />
+                        </MiniField>
+                      </div>
+                      {precisaConjuge && (
+                        <MiniField label="Cônjuge (nome)">
+                          <Input value={p.conjugeNome || ''} onChange={e => updateProprietario(i, { conjugeNome: e.target.value })} placeholder="Nome completo do cônjuge" className="h-8 text-xs" />
+                        </MiniField>
+                      )}
+                      <MiniField label="Endereço (residente e domiciliado em...)">
+                        <Input value={p.endereco || ''} onChange={e => updateProprietario(i, { endereco: e.target.value })} placeholder="Endereço completo" className="h-8 text-xs" />
+                      </MiniField>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

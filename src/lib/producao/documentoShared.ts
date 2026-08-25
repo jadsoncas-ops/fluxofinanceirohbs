@@ -14,6 +14,37 @@ export function tituloDocumento(label: string, nomeTrabalho?: string | null): st
 export interface ProprietarioRef {
   nome: string;
   cpf?: string;
+  /** Qualificação inline (quando o proprietário não é um Client cadastrado) — ver ProprietarioGeral. */
+  nacionalidade?: string;
+  estadoCivil?: string;
+  conjugeNome?: string;
+  profissao?: string;
+  rg?: string;
+  endereco?: string;
+}
+
+/** Verdadeiro quando há qualificação preenchida diretamente no proprietário (não depende de achar
+ *  um Client cadastrado com esse CPF). */
+export function temQualificacaoInline(p: ProprietarioRef): boolean {
+  return !!(p.nacionalidade || p.estadoCivil || p.profissao || p.rg || p.endereco);
+}
+
+/** Monta a frase de qualificação a partir dos dados inline do proprietário — mesmo formato de
+ *  qualificacaoCompleta, mas sem depender de um Client cadastrado. */
+export function qualificacaoInlineTexto(p: ProprietarioRef): string {
+  const nomeCaps = (p.nome || '(a preencher)').toUpperCase();
+  const partes = [nomeCaps];
+  if (p.nacionalidade) partes.push(p.nacionalidade);
+  partes.push('maior, capaz');
+  if (p.estadoCivil) {
+    const precisaConjuge = p.estadoCivil === 'Casado(a)' || p.estadoCivil === 'União Estável';
+    partes.push(precisaConjuge && p.conjugeNome ? `${p.estadoCivil} com ${p.conjugeNome}` : p.estadoCivil);
+  }
+  if (p.profissao) partes.push(p.profissao);
+  if (p.rg) partes.push(`RG nº ${p.rg}`);
+  if (p.cpf) partes.push(`inscrito(a) no CPF/CNPJ nº ${p.cpf}`);
+  if (p.endereco) partes.push(`residente e domiciliado(a) em ${p.endereco}`);
+  return `${partes.join(', ')}.`;
 }
 
 /** Compõe a frase "Um lote de terreno, medindo X metros de frente..." a partir dos 4 lados — terreno regular. */
@@ -35,7 +66,13 @@ export function medidasTexto(tecnico: DadosTecnicosTrabalho | undefined): string
 /** Proprietários do trabalho — usa proprietariosGerais quando cadastrados; senão cai no cliente do trabalho (sempre existe). */
 export function proprietariosDoTrabalho(trabalho: Process, cliente: Client | undefined): ProprietarioRef[] {
   const gerais = trabalho.tecnico?.proprietariosGerais;
-  if (gerais && gerais.length) return gerais.map(p => ({ nome: p.nome, cpf: p.cpf }));
+  if (gerais && gerais.length) {
+    return gerais.map(p => ({
+      nome: p.nome, cpf: p.cpf,
+      nacionalidade: p.nacionalidade, estadoCivil: p.estadoCivil, conjugeNome: p.conjugeNome,
+      profissao: p.profissao, rg: p.rg, endereco: p.endereco,
+    }));
+  }
   if (cliente) return [{ nome: cliente.nome, cpf: cliente.documento || undefined }];
   return [];
 }
@@ -141,9 +178,11 @@ export function qualificacaoCasal(nomeTitular: string, cliente: Client, clausula
   return `${partes.join(', ')}.`;
 }
 
-/** Uma qualificação (com cônjuge embutido no mesmo parágrafo, quando aplicável) por proprietário. */
+/** Uma qualificação (com cônjuge embutido no mesmo parágrafo, quando aplicável) por proprietário.
+ *  Prioridade: qualificação inline no próprio proprietário > Client cadastrado com o mesmo CPF > só nome+CPF. */
 export function qualificacoesComConjuge(proprietarios: ProprietarioRef[], clientes: Client[]): string[] {
   return proprietarios.map(p => {
+    if (temQualificacaoInline(p)) return qualificacaoInlineTexto(p);
     const cliente = clienteByCpf(p.cpf, clientes);
     const combinada = cliente ? qualificacaoCasal(p.nome || '(a preencher)', cliente) : undefined;
     return combinada || qualificacaoCompleta(p.nome || '(a preencher)', p.cpf, clientes);

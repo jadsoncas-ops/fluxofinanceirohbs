@@ -1,6 +1,6 @@
 import { Process, Client, Unidade } from '@/lib/types';
 import { agruparPorPavimento, somaUnidade, areaTotalAutonomas, calcularQuadroFracao, verificacaoQuadro, LinhaFracao } from './fracaoIdeal';
-import { proprietariosDoTrabalho, qualificacaoCompleta, qualificacaoCasal, conjugeParaAssinatura, AREAS_COMUNS_BOILERPLATE, ConjugeAssinatura, medidasTexto } from './documentoShared';
+import { proprietariosDoTrabalho, qualificacaoCompleta, qualificacaoCasal, conjugeParaAssinatura, AREAS_COMUNS_BOILERPLATE, ConjugeAssinatura, medidasTexto, temQualificacaoInline, qualificacaoInlineTexto } from './documentoShared';
 
 function normalizarCpf(v: string) {
   return v.replace(/\D/g, '');
@@ -61,7 +61,7 @@ export function montarInstituicaoSimplificada(trabalho: Process, cliente: Client
     if (combinada) {
       texto = combinada;
     } else {
-      const base = qualificacaoCompleta(p.nome || '(a preencher)', p.cpf, clientes);
+      const base = temQualificacaoInline(p) ? qualificacaoInlineTexto(p) : qualificacaoCompleta(p.nome || '(a preencher)', p.cpf, clientes);
       const semPonto = base.replace(/\.\s*$/, '');
       texto = clausulas.length ? `${semPonto}, ${clausulas.join('; ')}.` : `${semPonto}.`;
     }
