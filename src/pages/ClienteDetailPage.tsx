@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useShell } from '@/hooks/use-shell';
 import { ArrowLeft, Plus, ExternalLink, ArrowRight, Trash2 } from 'lucide-react';
 import { getClients, getProcesses, getDocuments, getPropostas, getContratos, getHistorico, deleteClient } from '@/lib/storage';
-import { computeClientFinancials } from '@/lib/financials';
+import { computeClientFinancials, computeTrabalhoFinancials } from '@/lib/financials';
 import { formatBRL } from '@/lib/comercial/precificacao';
 import { ClientForm } from '@/components/ClientForm';
 import { PropostaDetailDialog } from '@/components/comercial/PropostaDetailDialog';
@@ -46,7 +46,7 @@ export default function ClienteDetailPage() {
 
   const [propostaAberta, setPropostaAberta] = useState<string | null>(null);
 
-  const { client, processes, financials, txs, documents, propostas, contratos, eventos } = useMemo(() => {
+  const { client, processes, financials, txs, documents, propostas, contratos, eventos, trabalhoPendente } = useMemo(() => {
     void shell.refreshKey;
     void localKey;
     const clients = getClients();
@@ -60,7 +60,15 @@ export default function ClienteDetailPage() {
     const propostas = clienteId ? getPropostas().filter(p => p.clienteId === clienteId) : [];
     const contratos = clienteId ? getContratos().filter(c => c.clienteId === clienteId) : [];
     const eventos = clienteId ? getHistorico({ clienteId }) : [];
-    return { client, processes, financials, txs, documents, propostas, contratos, eventos };
+
+    // Trabalho com a pendência mais urgente deste cliente — pra ir direto lá da caixa de
+    // Financeiro em vez de precisar achar na lista de Trabalhos (é lá que se edita o valor).
+    const trabalhoPendente = processes
+      .map(p => ({ p, fin: computeTrabalhoFinancials(p, shell.allTransactions) }))
+      .filter(x => x.fin.atrasado > 0 || x.fin.aReceber > 0)
+      .sort((a, b) => (b.fin.atrasado - a.fin.atrasado) || (b.fin.aReceber - a.fin.aReceber))[0] || null;
+
+    return { client, processes, financials, txs, documents, propostas, contratos, eventos, trabalhoPendente };
   }, [clienteId, shell.allTransactions, shell.refreshKey, localKey]);
 
   if (!client) {
@@ -169,8 +177,16 @@ export default function ClienteDetailPage() {
               ? (pctFin >= 100 ? 'Contrato integralmente quitado.' : `${pctFin}% recebido.${financials.atrasado > 0 ? ` ${fmt(financials.atrasado)} em atraso.` : ''}`)
               : 'Sem contrato de valor definido ainda.'}
           </div>
-          <div className="text-[11px] text-mute-2 mt-3 pt-3 border-t border-3">
-            Este resumo é a soma dos Trabalhos deste cliente. Para lançar ou editar valores, entre no Trabalho correspondente.
+          <div className="text-[11px] text-mute-2 mt-3 pt-3 border-t border-3 flex items-center justify-between gap-2 flex-wrap">
+            <span>Este resumo é a soma dos Trabalhos deste cliente. Para lançar ou editar valores, entre no Trabalho correspondente.</span>
+            {trabalhoPendente && (
+              <button
+                onClick={() => navigate(`/trabalhos/${trabalhoPendente.p.id}`)}
+                className="flex-none h-7 px-2.5 rounded-lg border-2 text-[11px] font-medium hover:border-hover transition-colors flex items-center gap-1"
+              >
+                Ir para {trabalhoPendente.p.objeto || 'o trabalho'} <ArrowRight className="w-3 h-3" />
+              </button>
+            )}
           </div>
           {txsAvulsos.length > 0 && (
             <div className="text-[11px] text-warning bg-warning-soft rounded-lg px-2.5 py-2 mt-2.5">
