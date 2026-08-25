@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useShell } from '@/hooks/use-shell';
-import { ArrowLeft, Plus, ExternalLink, ArrowRight, Trash2 } from 'lucide-react';
-import { getClients, getProcesses, getDocuments, getPropostas, getContratos, getHistorico, deleteClient } from '@/lib/storage';
+import { ArrowLeft, Plus, ExternalLink, ArrowRight, Trash2, MessageCircle } from 'lucide-react';
+import { getClients, getProcesses, getDocuments, getPropostas, getContratos, getHistorico, deleteClient, getCompanyConfig } from '@/lib/storage';
 import { computeClientFinancials, computeTrabalhoFinancials } from '@/lib/financials';
 import { formatBRL } from '@/lib/comercial/precificacao';
+import { montarMensagemBoasVindas, linkWhatsApp } from '@/lib/mensagens';
 import { ClientForm } from '@/components/ClientForm';
 import { PropostaDetailDialog } from '@/components/comercial/PropostaDetailDialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -45,6 +48,8 @@ export default function ClienteDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const [propostaAberta, setPropostaAberta] = useState<string | null>(null);
+  const [boasVindasOpen, setBoasVindasOpen] = useState(false);
+  const [mensagemBoasVindas, setMensagemBoasVindas] = useState('');
 
   const { client, processes, financials, txs, documents, propostas, contratos, eventos, trabalhoPendente } = useMemo(() => {
     void shell.refreshKey;
@@ -91,6 +96,18 @@ export default function ClienteDetailPage() {
   const docsPendentes = documents.filter(d => d.situacao === 'Pendente' || d.situacao === 'Em produção').length;
   const podeExcluir = processes.length === 0 && txs.length === 0 && propostas.length === 0;
 
+  function abrirBoasVindas() {
+    const trabalhoRef = processes.find(p => !p.isArchived) || processes[0];
+    const config = getCompanyConfig();
+    const msg = montarMensagemBoasVindas({
+      clienteNome: client!.nome,
+      trabalhoObjeto: trabalhoRef?.objeto || 'o trabalho contratado',
+      empresa: { nome: config.razaoSocial || 'HBS Engenharia', telefone: config.telefone, email: config.email, endereco: config.endereco },
+    });
+    setMensagemBoasVindas(msg);
+    setBoasVindasOpen(true);
+  }
+
   function handleDeleteCliente() {
     deleteClient(client!.id);
     toast.success('Cliente excluído.');
@@ -127,9 +144,14 @@ export default function ClienteDetailPage() {
         </div>
         <div className="ml-auto flex gap-2">
           {hasWhatsApp && (
-            <a href={linkWa!} target="_blank" rel="noreferrer" className="h-[34px] px-3.5 bg-card border-2 rounded-lg text-[12.5px] flex items-center hover:border-hover transition-colors">
-              Registrar contato
-            </a>
+            <>
+              <button onClick={abrirBoasVindas} className="h-[34px] px-3.5 bg-card border-2 rounded-lg text-[12.5px] flex items-center gap-1.5 hover:border-hover transition-colors">
+                <MessageCircle className="w-3.5 h-3.5" /> Enviar boas-vindas
+              </button>
+              <a href={linkWa!} target="_blank" rel="noreferrer" className="h-[34px] px-3.5 bg-card border-2 rounded-lg text-[12.5px] flex items-center hover:border-hover transition-colors">
+                Registrar contato
+              </a>
+            </>
           )}
           <button onClick={() => setEditOpen(true)} className="h-[34px] px-3.5 bg-card border-2 rounded-lg text-[12.5px] hover:border-hover transition-colors">Editar</button>
           <button
@@ -289,6 +311,29 @@ export default function ClienteDetailPage() {
           )}
         </section>
       </div>
+
+      <Dialog open={boasVindasOpen} onOpenChange={setBoasVindasOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Boas-vindas para {client.nome}</DialogTitle>
+          </DialogHeader>
+          <p className="text-[12px] text-muted-foreground -mt-2">Revise ou ajuste o texto antes de enviar.</p>
+          <Textarea value={mensagemBoasVindas} onChange={e => setMensagemBoasVindas(e.target.value)} className="min-h-[220px] text-[13px]" />
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={() => setBoasVindasOpen(false)} className="h-9 px-3.5 rounded-lg text-[12.5px] font-medium text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
+            <button
+              onClick={() => {
+                if (!client.telefone?.ddd || !client.telefone?.numero) return;
+                window.open(linkWhatsApp(client.telefone.ddd, client.telefone.numero, mensagemBoasVindas), '_blank', 'noreferrer');
+                setBoasVindasOpen(false);
+              }}
+              className="h-9 px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] font-medium hover:bg-primary-hover transition-opacity flex items-center gap-1.5"
+            >
+              <MessageCircle className="w-3.5 h-3.5" /> Abrir no WhatsApp
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <ClientForm open={editOpen} onClose={() => setEditOpen(false)} onSave={() => { setEditOpen(false); setLocalKey(k => k + 1); }} editItem={client} />
       <PropostaDetailDialog propostaId={propostaAberta} onClose={() => setPropostaAberta(null)} onChanged={() => setLocalKey(k => k + 1)} />
