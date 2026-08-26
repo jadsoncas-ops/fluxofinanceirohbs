@@ -64,7 +64,7 @@ export function DocumentoInstituicao({ dados }: { dados: InstituicaoData }) {
         <div className="documento-section-title"><div className="n">✓</div><div className="t">Assinaturas</div></div>
         <div className="documento-sign-grid">
           {dados.proprietariosAssinatura.map((p, i) => (
-            <AssinaturaTitular key={i} nome={p.nome || '(a preencher)'} conjuge={p.conjuge} secundaria={p.cpf ? `CPF: ${p.cpf}` : ''} />
+            <AssinaturaTitular key={i} nome={p.nome || '(a preencher)'} conjuge={p.conjuge} secundaria={<>{p.cpf ? `CPF: ${p.cpf}` : ''}{p.unidadesRef ? ` — ${p.unidadesRef}` : ''}</>} />
           ))}
         </div>
       </div>

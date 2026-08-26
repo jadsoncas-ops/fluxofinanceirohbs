@@ -70,7 +70,7 @@ export function DocumentoInstituicaoSimplificada({ dados, trabalho, onSaved }: {
         <div className="documento-sign-grid">
           {dados.qualificacoes.length ? (
             dados.qualificacoes.map((q, i) => (
-              <AssinaturaTitular key={i} nome={q.nome || '(a preencher)'} conjuge={q.conjuge} secundaria={q.cpf ? `CPF: ${q.cpf}` : ''} />
+              <AssinaturaTitular key={i} nome={q.nome || '(a preencher)'} conjuge={q.conjuge} secundaria={<>{q.cpf ? `CPF: ${q.cpf}` : ''}{q.unidadesRef ? ` — ${q.unidadesRef}` : ''}</>} />
             ))
           ) : (
             <div><div className="linha">(a preencher)</div><div className="papel"></div></div>

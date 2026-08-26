@@ -42,7 +42,7 @@ export function DocumentoAbnt({
   units: Unidade[];
   responsavel: CompanyConfig;
   art: string;
-  proprietarios: { nome: string; cpf?: string; conjuge?: ConjugeAssinatura }[];
+  proprietarios: { nome: string; cpf?: string; conjuge?: ConjugeAssinatura; unidadesRef?: string }[];
 }) {
   const [tipoReferencia, setTipoReferencia] = useState<TipoReferencia>('cub');
   const [valor, setValor] = useState('');
@@ -224,7 +224,7 @@ export function DocumentoAbnt({
             </div>
           </div>
           {proprietarios.map((p, i) => (
-            <AssinaturaTitular key={i} nome={p.nome || '(preencha o proprietário)'} conjuge={p.conjuge} secundaria={p.cpf ? `CPF/CNPJ: ${p.cpf}` : '(CPF/CNPJ não informado)'} />
+            <AssinaturaTitular key={i} nome={p.nome || '(preencha o proprietário)'} conjuge={p.conjuge} secundaria={<>{p.cpf ? `CPF/CNPJ: ${p.cpf}` : '(CPF/CNPJ não informado)'}{p.unidadesRef ? ` — ${p.unidadesRef}` : ''}</>} />
           ))}
         </div>
       </div>

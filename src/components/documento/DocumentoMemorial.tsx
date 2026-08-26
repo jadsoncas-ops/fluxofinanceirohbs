@@ -121,7 +121,7 @@ export function DocumentoMemorial({ dados, trabalho, onSaved }: { dados: Memoria
         <div className="documento-sign-grid">
           {dados.proprietarios.length ? (
             dados.proprietarios.map((p, i) => (
-              <AssinaturaTitular key={i} nome={p.nome || '(preencha o proprietário)'} conjuge={p.conjuge} secundaria={p.cpf ? `CPF/CNPJ: ${p.cpf}` : '(CPF/CNPJ não informado)'} />
+              <AssinaturaTitular key={i} nome={p.nome || '(preencha o proprietário)'} conjuge={p.conjuge} secundaria={<>{p.cpf ? `CPF/CNPJ: ${p.cpf}` : '(CPF/CNPJ não informado)'}{p.unidadesRef ? ` — ${p.unidadesRef}` : ''}</>} />
             ))
           ) : (
             <div>

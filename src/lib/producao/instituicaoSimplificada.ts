@@ -18,6 +18,7 @@ export interface QualificacaoTitular {
   cpf?: string;
   texto: string;
   conjuge?: ConjugeAssinatura;
+  unidadesRef?: string;
 }
 
 export interface InstituicaoSimplificadaData {
@@ -66,7 +67,7 @@ export function montarInstituicaoSimplificada(trabalho: Process, cliente: Client
       texto = clausulas.length ? `${semPonto}, ${clausulas.join('; ')}.` : `${semPonto}.`;
     }
 
-    return { nome: p.nome, cpf: p.cpf, texto, conjuge: conjugeParaAssinatura(p.cpf, clientes) };
+    return { nome: p.nome, cpf: p.cpf, texto, conjuge: conjugeParaAssinatura(p.cpf, clientes), unidadesRef: p.unidadesRef };
   });
 
   const grupos = agruparPorPavimento(units);

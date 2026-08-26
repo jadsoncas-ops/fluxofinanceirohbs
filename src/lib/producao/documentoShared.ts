@@ -28,6 +28,9 @@ export interface ProprietarioRef {
   profissao?: string;
   rg?: string;
   endereco?: string;
+  /** "Térreo (Apto 101), 1º Pavimento (Apto 201)" — unidades deste proprietário, mostrado na
+   *  assinatura pra indicar por qual unidade/pavimento cada um está assinando. */
+  unidadesRef?: string;
 }
 
 /** Verdadeiro quando há qualificação preenchida diretamente no proprietário (não depende de achar
@@ -71,17 +74,35 @@ export function medidasTexto(tecnico: DadosTecnicosTrabalho | undefined): string
   return tecnico.medidas || '';
 }
 
+/** "Térreo (Apto 101), 1º Pavimento (Apto 201)" — unidades cujo proprietarioCpf aponta pra este
+ *  CPF. Quando NENHUMA unidade do trabalho tem titular definido, cai para todas as unidades (mesmo
+ *  comportamento de antes de existir esse vínculo — ninguém fica sem referência nenhuma). */
+function refUnidadesDoProprietario(
+  cpf: string | undefined,
+  units: { nome: string; pavimento: string; proprietarioCpf?: string }[],
+  algumaUnidadeTemTitular: boolean
+): string | undefined {
+  if (units.length === 0) return undefined;
+  const doProprietario = cpf ? units.filter(u => u.proprietarioCpf && normalizarCpf(u.proprietarioCpf) === normalizarCpf(cpf)) : [];
+  const relevantes = algumaUnidadeTemTitular ? doProprietario : units;
+  if (relevantes.length === 0) return undefined;
+  return relevantes.map(u => `${u.pavimento} (${u.nome})`).join(', ');
+}
+
 /** Proprietários do trabalho — usa proprietariosGerais quando cadastrados; senão cai no cliente do trabalho (sempre existe). */
 export function proprietariosDoTrabalho(trabalho: Process, cliente: Client | undefined): ProprietarioRef[] {
   const gerais = trabalho.tecnico?.proprietariosGerais;
+  const units = trabalho.tecnico?.units || [];
+  const algumaUnidadeTemTitular = units.some(u => !!u.proprietarioCpf);
   if (gerais && gerais.length) {
     return gerais.map(p => ({
       nome: p.nome, cpf: p.cpf,
       nacionalidade: p.nacionalidade, estadoCivil: p.estadoCivil, conjugeNome: p.conjugeNome,
       profissao: p.profissao, rg: p.rg, endereco: p.endereco,
+      unidadesRef: refUnidadesDoProprietario(p.cpf, units, algumaUnidadeTemTitular),
     }));
   }
-  if (cliente) return [{ nome: cliente.nome, cpf: cliente.documento || undefined }];
+  if (cliente) return [{ nome: cliente.nome, cpf: cliente.documento || undefined, unidadesRef: refUnidadesDoProprietario(cliente.documento || undefined, units, algumaUnidadeTemTitular) }];
   return [];
 }
 

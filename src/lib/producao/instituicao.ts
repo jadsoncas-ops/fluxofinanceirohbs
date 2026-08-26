@@ -21,7 +21,7 @@ export interface InstituicaoData {
   somaTotal: number;
   semFracao: boolean;
   areasComunsTexto: string;
-  proprietariosAssinatura: { nome: string; cpf?: string; conjuge?: ConjugeAssinatura }[];
+  proprietariosAssinatura: { nome: string; cpf?: string; conjuge?: ConjugeAssinatura; unidadesRef?: string }[];
 }
 
 /** Instituição de Condomínio — portado de cota_saas (lib/documentos/instituicao.ts). */
@@ -55,6 +55,6 @@ export function montarInstituicao(trabalho: Process, cliente: Client | undefined
     somaTotal,
     semFracao,
     areasComunsTexto: tecnico?.areasComuns || '',
-    proprietariosAssinatura: proprietarios.map(p => ({ nome: p.nome, cpf: p.cpf, conjuge: conjugeParaAssinatura(p.cpf, clientes) })),
+    proprietariosAssinatura: proprietarios.map(p => ({ nome: p.nome, cpf: p.cpf, conjuge: conjugeParaAssinatura(p.cpf, clientes), unidadesRef: p.unidadesRef })),
   };
 }
