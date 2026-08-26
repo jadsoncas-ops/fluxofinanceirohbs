@@ -70,6 +70,14 @@ export function DadosTecnicosForm({ trabalho, onChange }: { trabalho: Process; o
     salvar({ proprietariosGerais: proprietariosGerais.filter((_, i) => i !== idx) });
   }
 
+  function moverProprietario(idx: number, direcao: -1 | 1) {
+    const alvo = idx + direcao;
+    if (alvo < 0 || alvo >= proprietariosGerais.length) return;
+    const nova = [...proprietariosGerais];
+    [nova[idx], nova[alvo]] = [nova[alvo], nova[idx]];
+    salvar({ proprietariosGerais: nova });
+  }
+
   function toggleAto(key: string) {
     const has = atos.includes(key as never);
     salvar({ atosRegistraisRequerimento: has ? atos.filter(a => a !== key) : [...atos, key as typeof atos[number]] });
@@ -164,6 +172,25 @@ export function DadosTecnicosForm({ trabalho, onChange }: { trabalho: Process; o
                   return (
                     <div key={i} className="border border-3 rounded-lg p-2.5 space-y-2">
                       <div className="flex items-center gap-2">
+                        <span className="text-[10.5px] font-mono-hbs text-mute-2 w-4 flex-none text-center">{i + 1}º</span>
+                        <div className="flex flex-col gap-0.5 flex-none">
+                          <button
+                            onClick={() => moverProprietario(i, -1)}
+                            disabled={i === 0}
+                            title="Mover pra cima (ordem na assinatura)"
+                            className="h-4 w-6 grid place-items-center rounded border border-3 text-mute-2 hover:border-hover disabled:opacity-30 disabled:pointer-events-none"
+                          >
+                            <ChevronUp className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => moverProprietario(i, 1)}
+                            disabled={i === proprietariosGerais.length - 1}
+                            title="Mover pra baixo (ordem na assinatura)"
+                            className="h-4 w-6 grid place-items-center rounded border border-3 text-mute-2 hover:border-hover disabled:opacity-30 disabled:pointer-events-none"
+                          >
+                            <ChevronDown className="w-3 h-3" />
+                          </button>
+                        </div>
                         <Input value={p.nome} onChange={e => updateProprietario(i, { nome: e.target.value })} placeholder="Nome completo" className="h-8 text-xs flex-[1.5]" />
                         <Input value={p.cpf} onChange={e => updateProprietario(i, { cpf: e.target.value })} placeholder="CPF/CNPJ" className="h-8 text-xs flex-1" />
                         <button onClick={() => removeProprietario(i)} className="h-8 w-8 flex-none grid place-items-center rounded-lg border-2 text-destructive hover:border-destructive transition-colors">
