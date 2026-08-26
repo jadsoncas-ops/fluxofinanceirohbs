@@ -7,6 +7,13 @@ export function precisaQualificarConjuge(estadoCivil: string | null | undefined)
   return estadoCivil === 'Casado(a)' || estadoCivil === 'União Estável';
 }
 
+/** Estado civil em minúsculo pra entrar no meio da frase de qualificação — "Casado(a)"/"União
+ *  Estável" são rótulos de formulário (maiúsculos por convenção de UI), mas em prosa corrida
+ *  ("brasileiro, casado(a), engenheiro...") maiúsculo no meio do texto lê errado. */
+export function estadoCivilProsa(estadoCivil: string): string {
+  return estadoCivil.toLowerCase();
+}
+
 export function tituloDocumento(label: string, nomeTrabalho?: string | null): string {
   return nomeTrabalho ? `${label} — ${nomeTrabalho}` : label;
 }
@@ -38,7 +45,8 @@ export function qualificacaoInlineTexto(p: ProprietarioRef): string {
   partes.push('maior, capaz');
   if (p.estadoCivil) {
     const precisaConjuge = p.estadoCivil === 'Casado(a)' || p.estadoCivil === 'União Estável';
-    partes.push(precisaConjuge && p.conjugeNome ? `${p.estadoCivil} com ${p.conjugeNome}` : p.estadoCivil);
+    const ecProsa = estadoCivilProsa(p.estadoCivil);
+    partes.push(precisaConjuge && p.conjugeNome ? `${ecProsa} com ${p.conjugeNome}` : ecProsa);
   }
   if (p.profissao) partes.push(p.profissao);
   if (p.rg) partes.push(`RG nº ${p.rg}`);
@@ -119,9 +127,10 @@ function clienteByCpf(cpf: string | undefined, clientes: Client[]): Client | und
 
 function fraseEstadoCivil(q: QualificacaoJuridica): string | undefined {
   if (!q.estadoCivil) return undefined;
-  if (!precisaQualificarConjuge(q.estadoCivil) || !q.conjuge?.nome) return q.estadoCivil;
+  const ecProsa = estadoCivilProsa(q.estadoCivil);
+  if (!precisaQualificarConjuge(q.estadoCivil) || !q.conjuge?.nome) return ecProsa;
   const regime = q.regimeBens ? `, sob o regime de ${q.regimeBens}` : '';
-  return `${q.estadoCivil} com ${q.conjuge.nome}${regime}`;
+  return `${ecProsa} com ${q.conjuge.nome}${regime}`;
 }
 
 /** Qualificação jurídica completa de um proprietário — usa os dados cadastrados em Clientes quando disponíveis. */
@@ -169,7 +178,7 @@ export function qualificacaoCasal(nomeTitular: string, cliente: Client, clausula
   if (q.rg) dadosTitular.push(`RG nº ${q.rg}`);
   if (cliente.documento) dadosTitular.push(`inscrito(a) no CPF/CNPJ nº ${cliente.documento}`);
   dadosTitular.push(...clausulasTitular);
-  partes.push(`${q.estadoCivil} com ${dadosTitular.join(', ')}`);
+  partes.push(`${estadoCivilProsa(q.estadoCivil)} com ${dadosTitular.join(', ')}`);
 
   if (q.regimeBens) partes.push(`sob o regime de ${q.regimeBens}`);
   const endereco = cliente.endereco ? [cliente.endereco.rua, cliente.endereco.numero, cliente.endereco.bairro, cliente.endereco.cidade, cliente.endereco.estado].filter(Boolean).join(', ') : '';

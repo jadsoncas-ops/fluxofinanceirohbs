@@ -40,8 +40,9 @@ export function dadosIniciaisProcuracao(trabalho: Process, cliente: Client | und
   return data;
 }
 
+/** toLowerCase() inteiro, não só a primeira letra — "União Estável" tem duas palavras capitalizadas. */
 function lowerFirst(v: string): string {
-  return v.charAt(0).toLowerCase() + v.slice(1);
+  return v.toLowerCase();
 }
 
 function qualificacaoOutorgante(data: ProcuracaoData): string {

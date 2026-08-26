@@ -75,10 +75,11 @@ function fmtMoney(v: number | undefined): string {
   return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-/** Primeira letra minúscula — usado para estado civil no meio da frase (o enum é exibido com
- *  inicial maiúscula no formulário, mas em prosa corrida só o nome do requerente fica em caixa alta). */
+/** Estado civil em minúsculo pra prosa corrida (o enum é exibido com inicial maiúscula no
+ *  formulário, mas em prosa só o nome do requerente fica em caixa alta) — toLowerCase() inteiro,
+ *  não só a primeira letra, porque "União Estável" tem duas palavras capitalizadas. */
 function lowerFirst(v: string): string {
-  return v.charAt(0).toLowerCase() + v.slice(1);
+  return v.toLowerCase();
 }
 
 function enderecoImovelCompleto(data: AverbacaoData): string {
