@@ -279,6 +279,7 @@ export function DadosTecnicosForm({ trabalho, onChange }: { trabalho: Process; o
                     <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))' }}>
                       <MiniField label="Pavimento"><Input value={u.pavimento} onChange={e => updateUnidade(u.id, { pavimento: e.target.value })} placeholder="Térreo" className="h-8 text-xs" /></MiniField>
                       <MiniField label="Nome/Unid."><Input value={u.nome} onChange={e => updateUnidade(u.id, { nome: e.target.value })} placeholder="Apto 101" className="h-8 text-xs" /></MiniField>
+                      <MiniField label="Tipo/Destinação"><Input value={u.tipo} onChange={e => updateUnidade(u.id, { tipo: e.target.value })} placeholder="Apartamento, Loja, Sala..." className="h-8 text-xs" /></MiniField>
                       <MiniField label="Banheiros"><Input type="number" value={u.banheiros} onChange={e => updateUnidade(u.id, { banheiros: parseInt(e.target.value) || 0 })} className="h-8 text-xs" /></MiniField>
                       <MiniField label="Privativa m²"><Input type="number" value={u.areaPrivativa} onChange={e => updateUnidade(u.id, { areaPrivativa: parseFloat(e.target.value) || 0 })} className="h-8 text-xs" /></MiniField>
                       <MiniField label="Garagem m²"><Input type="number" value={u.areaGaragem} onChange={e => updateUnidade(u.id, { areaGaragem: parseFloat(e.target.value) || 0 })} className="h-8 text-xs" /></MiniField>
