@@ -86,9 +86,10 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
       });
 
     clients.forEach(c => {
-      (c.lembretesCobranca || []).forEach(ts => {
-        map.get(toKey(new Date(ts)))?.lembretesCobranca.push({ clienteNome: c.nome });
-      });
+      // Um lembrete por dia por cliente — mesmo que existam vários timestamps no mesmo dia
+      // (ex.: cliques duplicados antigos), mostra só uma linha.
+      const diasUnicos = new Set((c.lembretesCobranca || []).map(ts => toKey(new Date(ts))));
+      diasUnicos.forEach(key => { map.get(key)?.lembretesCobranca.push({ clienteNome: c.nome }); });
     });
 
     map.forEach(b => b.compromissos.sort((a, b2) => (a.horaInicio || '99:99').localeCompare(b2.horaInicio || '99:99')));

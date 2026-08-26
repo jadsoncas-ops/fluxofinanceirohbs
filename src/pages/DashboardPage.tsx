@@ -130,7 +130,15 @@ export default function DashboardPage() {
     if (!clienteId) return;
     const client = clients.find(c => c.id === clienteId);
     if (!client) return;
-    updateClient({ ...client, lembretesCobranca: [...(client.lembretesCobranca || []), Date.now()] });
+    const hojeStr = new Date().toISOString().slice(0, 10);
+    const historico = client.lembretesCobranca || [];
+    const jaTemHoje = historico.some(ts => new Date(ts).toISOString().slice(0, 10) === hojeStr);
+    // Liga/desliga por dia — clicar de novo no mesmo dia desmarca (remove os lembretes de hoje),
+    // em vez de empilhar um novo a cada clique. Também limpa cliques duplicados sem querer.
+    const novoHistorico = jaTemHoje
+      ? historico.filter(ts => new Date(ts).toISOString().slice(0, 10) !== hojeStr)
+      : [...historico, Date.now()];
+    updateClient({ ...client, lembretesCobranca: novoHistorico });
   }
   const attentionRestante = attention.length - attentionVisivel.length;
 
