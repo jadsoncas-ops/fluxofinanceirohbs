@@ -5,7 +5,8 @@ import logoJadsonCastro from '@/assets/logo-jadson-castro.png';
 
 export function DocumentoLaudo({ trabalho, cliente, config }: { trabalho: Process; cliente: Client | undefined; config: CompanyConfig }) {
   const [inadequacoes, setInadequacoes] = useState('');
-  const dados = montarLaudo(trabalho, cliente, config, inadequacoes);
+  const [construidoAntes2015, setConstruidoAntes2015] = useState(false);
+  const dados = montarLaudo(trabalho, cliente, config, inadequacoes, construidoAntes2015);
   const hoje = new Date().toLocaleDateString('pt-BR');
 
   return (
@@ -22,6 +23,11 @@ export function DocumentoLaudo({ trabalho, cliente, config }: { trabalho: Proces
           style={{ borderRadius: '8px', border: '1px solid var(--doc-line)', padding: '8px 10px', fontSize: '13px', fontFamily: 'system-ui, sans-serif', outline: 'none' }}
         />
         <p style={{ fontSize: '11px', color: 'var(--doc-muted)', fontFamily: 'system-ui, sans-serif', margin: 0 }}>Preenche aqui antes de imprimir — não fica salvo separadamente.</p>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontFamily: 'system-ui, sans-serif', color: 'var(--doc-ink)', marginTop: '4px', cursor: 'pointer' }}>
+          <input type="checkbox" checked={construidoAntes2015} onChange={e => setConstruidoAntes2015(e.target.checked)} />
+          Construção executada antes de 2015 (anterior ao atual Código de Obras)
+        </label>
       </div>
 
       <div className="documento-header">
@@ -50,7 +56,7 @@ export function DocumentoLaudo({ trabalho, cliente, config }: { trabalho: Proces
 
       <div className="documento-section-title"><div className="n">1</div><div className="t">Procedimentos adotados</div></div>
       <p className="documento-p">A inspeção foi conduzida através da verificação da conformidade do imóvel em relação aos requisitos exigidos e das recomendações da legislação vigente: Código de Obras e Plano Diretor Municipal.</p>
-      <p className="documento-p">Trata-se de imóvel residencial com {dados.descricaoAmbientes}. {dados.fraseInadequacoes}</p>
+      <p className="documento-p">Trata-se de imóvel residencial com {dados.descricaoAmbientes}. {dados.fraseInadequacoes}{dados.fraseEpocaConstrucao ? ` ${dados.fraseEpocaConstrucao}` : ''}</p>
 
       <div className="documento-section-title"><div className="n">2</div><div className="t">Declaração de conformidade</div></div>
       <p className="documento-p">Declaro, portanto, que o imóvel descrito está em conformidade com o relatório acima, atende as condições abaixo:</p>
