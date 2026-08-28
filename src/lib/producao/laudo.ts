@@ -7,6 +7,8 @@ export interface LaudoData {
   responsavel: CompanyConfig;
   art: string;
   nomesProprietarios: string;
+  /** Vazio quando omitirDescricaoUnidades está marcado — a frase no documento se reorganiza pra
+   *  não deixar um "com" solto no meio do texto. */
   descricaoAmbientes: string;
   fraseInadequacoes: string;
   /** Só preenchida quando a construção é anterior a 2015 (anterior ao atual Código de Obras) —
@@ -20,7 +22,8 @@ export function montarLaudo(
   cliente: Client | undefined,
   config: CompanyConfig,
   inadequacoesConstatadas: string,
-  construidoAntes2015 = false
+  construidoAntes2015 = false,
+  omitirDescricaoUnidades = false
 ): LaudoData {
   const tecnico = trabalho.tecnico;
   const units = tecnico?.units || [];
@@ -28,7 +31,7 @@ export function montarLaudo(
   const nomesProprietarios = proprietarios.map(p => p.nome).filter(Boolean).join(', ') || '(preencha o proprietário)';
 
   const partes = units.map(u => `${u.pavimento}: ${u.comodos || '(descreva os cômodos ao editar a unidade)'}`);
-  const descricaoAmbientes = partes.length ? partes.join('; ') : '(nenhuma unidade cadastrada ainda)';
+  const descricaoAmbientes = omitirDescricaoUnidades ? '' : (partes.length ? partes.join('; ') : '(nenhuma unidade cadastrada ainda)');
 
   const fraseInadequacoes = inadequacoesConstatadas.trim()
     ? `Foi verificado, que o imóvel possui ${inadequacoesConstatadas.trim()}, exigidos pelo presente Código de Obras em vigor.`
