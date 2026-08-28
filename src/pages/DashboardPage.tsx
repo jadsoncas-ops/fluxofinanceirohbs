@@ -73,6 +73,10 @@ export default function DashboardPage() {
     const aReceber = aReceberTx.reduce((s, t) => s + t.valor, 0);
     const aReceberAtrasado = aReceberTx.filter(t => t.data < today).reduce((s, t) => s + t.valor, 0);
 
+    const aRepassarTx = transactions.filter(t => t.isRepasse && t.status !== 'Concluído');
+    const aRepassar = aRepassarTx.reduce((s, t) => s + t.valor, 0);
+    const aRepassarAtrasado = aRepassarTx.filter(t => t.data < today).reduce((s, t) => s + t.valor, 0);
+
     const receitaMes = transactions
       .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
       .filter(t => { const d = new Date(t.data + 'T12:00:00'); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); })
@@ -88,6 +92,7 @@ export default function DashboardPage() {
     const kpis = [
       { label: 'Caixa disponível', value: fmtMoney(saldoDisponivel), isMoney: true, color: undefined, hint: accounts.length > 0 ? `${accounts.filter(a => a.ativo).length} conta${accounts.filter(a => a.ativo).length !== 1 ? 's' : ''} · hoje` : 'Cadastre suas contas', to: '/caixa/contas' },
       { label: 'A receber', value: fmtMoney(aReceber), isMoney: true, color: aReceber > 0 ? 'text-destructive' : undefined, hint: aReceberAtrasado > 0 ? `${fmtMoney(aReceberAtrasado)} vencidos` : 'Nada vencido agora', to: '/caixa/receitas' },
+      { label: 'A repassar', value: fmtMoney(aRepassar), isMoney: true, color: aRepassar > 0 ? 'text-accent' : undefined, hint: aRepassarAtrasado > 0 ? `${fmtMoney(aRepassarAtrasado)} vencidos` : (aRepassar > 0 ? 'já tem dono' : 'Nenhum repasse pendente'), to: '/caixa/despesas' },
       { label: 'Receita do mês', value: fmtMoney(receitaMes), isMoney: true, color: undefined, hint: receitaMesAnterior > 0 ? `${receitaMes >= receitaMesAnterior ? '+' : '−'}${Math.abs(Math.round(((receitaMes - receitaMesAnterior) / receitaMesAnterior) * 100))}% sobre a média` : 'Sem histórico de comparação', to: '/caixa/visao-geral' },
       { label: 'Trabalhos ativos', value: String(trabalhosAtivos.length), isMoney: false, color: undefined, hint: aguardandoCliente > 0 ? `${aguardandoCliente} aguardando cliente` : 'Nenhum parado', to: '/trabalhos' },
       { label: 'Clientes ativos', value: String(clients.length), isMoney: false, color: undefined, hint: clients.length === 0 ? 'Cadastre o primeiro cliente' : 'na base', to: '/clientes' },
@@ -159,7 +164,7 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI strip compacta */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-border border border-border rounded-xl overflow-hidden flex-none">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px bg-border border border-border rounded-xl overflow-hidden flex-none">
         {kpis.map(k => (
           <button key={k.label} onClick={() => navigate(k.to)} className="bg-card px-3 pt-2.5 pb-2.5 text-left hover:bg-surface-3 transition-colors">
             <div className="text-[9.5px] tracking-[.06em] uppercase text-mute-2 font-medium">{k.label}</div>
