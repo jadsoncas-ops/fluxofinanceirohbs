@@ -1,4 +1,4 @@
-import { Transaction, Client, Task, Process, Proposta } from './types';
+import { Transaction, Client, Task, Process, Proposta, Exigencia } from './types';
 import { montarMensagemLembreteVencimento } from './mensagens';
 
 export type AttentionSeverity = 'critical' | 'warning' | 'info';
@@ -160,6 +160,72 @@ export function computeAttentionItems(
       sub: `${client?.nome || 'Cliente'} · ${fmtMoney(p.resultado.precoVenda)} · ${p.titulo}`,
       cta: 'Fazer follow-up',
       to: `/comercial`,
+    });
+  });
+
+  // 7. Exigências de cartório com prazo vencido ou vencendo em até 5 dias.
+  //    É o item mais caro de perder: exigência não cumprida derruba a prenotação
+  //    e o trabalho volta para a fila do registrador do zero.
+  processes.filter(p => !p.isArchived && p.registro?.exigencias?.length).forEach(p => {
+    (p.registro!.exigencias || [])
+      .filter(e => e.status === 'Aberta' && e.prazo && e.prazo <= emCincoDiasStr)
+      .forEach(e => {
+        const dias = daysSince(e.prazo!, today);
+        const vencida = dias > 0;
+        const faltam = e.documentosFaltantes?.length || 0;
+        items.push({
+          id: `exigencia-${p.id}-${e.id}`,
+          severity: vencida || e.prazo === today ? 'critical' : 'warning',
+          title: `Exigência ${vencida ? 'vencida' : e.prazo === today ? 'vence hoje' : `vence em ${-dias}d`} — ${p.objeto || 'Trabalho'}`,
+          sub: [
+            p.registro!.oficio,
+            p.registro!.protocolo ? `protocolo ${p.registro!.protocolo}` : null,
+            faltam > 0 ? `${faltam} documento${faltam > 1 ? 's' : ''} faltando` : e.descricao,
+          ].filter(Boolean).join(' · '),
+          cta: 'Cumprir exigência',
+          to: `/trabalhos/${p.id}`,
+        });
+      });
+  });
+
+  // 8. Prenotação expirando. Prazo legal de 30 dias contados do protocolo;
+  //    avisa a partir de 7 dias restantes, crítico com 3 ou menos.
+  processes.filter(p => !p.isArchived && p.registro?.dataPrenotacao && !p.registro?.matricula).forEach(p => {
+    const r = p.registro!;
+    const totalDias = r.prazoPrenotacaoDias ?? 30;
+    const decorridos = daysSince(r.dataPrenotacao!, today);
+    const restam = totalDias - decorridos;
+    if (restam > 7) return;
+    items.push({
+      id: `prenotacao-${p.id}`,
+      severity: restam <= 3 ? 'critical' : 'warning',
+      title: restam < 0
+        ? `Prenotação expirada — ${p.objeto || 'Trabalho'}`
+        : `Prenotação expira em ${restam}d — ${p.objeto || 'Trabalho'}`,
+      sub: [r.oficio, r.protocolo ? `protocolo ${r.protocolo}` : null, `prenotado em ${r.dataPrenotacao!.split('-').reverse().join('/')}`]
+        .filter(Boolean).join(' · '),
+      cta: 'Abrir trabalho',
+      to: `/trabalhos/${p.id}`,
+    });
+  });
+
+  // 9. Protocolo sem movimento há mais de 30 dias — nem exigência, nem matrícula.
+  //    Sinal de que alguém precisa ligar no ofício e cobrar andamento.
+  const trintaDiasMs = 30 * 86400000;
+  processes.filter(p => !p.isArchived && p.registro?.dataProtocolo && !p.registro?.matricula).forEach(p => {
+    const r = p.registro!;
+    const temExigenciaAberta = (r.exigencias || []).some(e => e.status === 'Aberta');
+    if (temExigenciaAberta) return;
+    if (Date.now() - p.updatedAt < trintaDiasMs) return;
+    const dias = Math.round((Date.now() - p.updatedAt) / 86400000);
+    items.push({
+      id: `protocolo-parado-${p.id}`,
+      severity: 'warning',
+      title: `Protocolo sem movimento há ${dias}d — ${p.objeto || 'Trabalho'}`,
+      sub: [r.oficio, r.protocolo ? `protocolo ${r.protocolo}` : null, 'cobrar andamento no ofício']
+        .filter(Boolean).join(' · '),
+      cta: 'Abrir trabalho',
+      to: `/trabalhos/${p.id}`,
     });
   });
 

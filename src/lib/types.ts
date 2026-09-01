@@ -214,6 +214,8 @@ export interface Process {
   anuencia?: AnuenciaData;
   /** Presente apenas quando este trabalho gera uma Declaração de Descarte de Entulhos (Produção Técnica). */
   descarteEntulhos?: DescarteEntulhosData;
+  /** Trâmite em cartório — presente só nos trabalhos que vão a registro. */
+  registro?: RegistroImobiliario;
   createdAt: number;
   updatedAt: number;
 }
@@ -607,4 +609,43 @@ export interface FotoAvaliacao {
   id: string;
   url: string;
   legenda?: string;
+}
+
+// ----------------------------------------------------------------------------
+// Trâmite em cartório de registro de imóveis (Trabalhos que geram registro)
+// ----------------------------------------------------------------------------
+
+/** Um ofício de registro de imóveis. */
+export type Oficio = '1º Ofício' | '2º Ofício' | '3º Ofício' | 'Outro';
+
+export type ExigenciaStatus = 'Aberta' | 'Cumprida' | 'Dispensada';
+
+export interface Exigencia {
+  id: string;
+  /** Texto da exigência como veio do registrador. */
+  descricao: string;
+  /** ISO yyyy-mm-dd — prazo dado pelo ofício para cumprimento. */
+  prazo?: string;
+  status: ExigenciaStatus;
+  /** Documentos que faltam para cumprir (texto livre, um por item). */
+  documentosFaltantes?: string[];
+  criadaEm: number;
+  cumpridaEm?: number;
+}
+
+/** Trâmite em cartório de registro de imóveis. Opcional: só trabalhos que registram têm isso. */
+export interface RegistroImobiliario {
+  oficio?: Oficio;
+  /** Nº do protocolo/prenotação, como aparece na guia. */
+  protocolo?: string;
+  /** ISO yyyy-mm-dd — data do protocolo. */
+  dataProtocolo?: string;
+  /** ISO yyyy-mm-dd — início da prenotação. O prazo legal é de 30 dias (Lei 6.015/73, art. 205). */
+  dataPrenotacao?: string;
+  /** Sobrescreve os 30 dias quando o ofício deu prazo diferente. */
+  prazoPrenotacaoDias?: number;
+  exigencias?: Exigencia[];
+  /** Nº da matrícula emitida — preenchido quando o registro sai. */
+  matricula?: string;
+  matriculaEmitidaEm?: string;
 }
