@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, FileText, FilePlus2, Trash2, CheckCircle2, Pencil, Clock3, Check, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Plus, FileText, FilePlus2, Trash2, CheckCircle2, Pencil, Clock3, Check, MessageCircle, Link2, ExternalLink, ScrollText, ShieldAlert, ChevronDown } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
 import {
   getProcesses, getClients, getTasks, getDocuments, getHistorico, getContratos, getCompanyConfig,
-  updateProcess, addTask, updateTask, deleteTask, deleteProcess, deleteDocument, deleteTransaction, addTransaction, registrarEvento,
+  updateProcess, addTask, updateTask, deleteTask, deleteProcess, deleteDocument, deleteTransaction, addTransaction, registrarEvento, addDocument,
 } from '@/lib/storage';
 import { computeTrabalhoFinancials } from '@/lib/financials';
-import { TrabalhoEtapa } from '@/lib/types';
+import { TrabalhoEtapa, DocumentSituacao, Oficio, Exigencia, ExigenciaStatus } from '@/lib/types';
+import { Stepper } from '@/components/ui/Stepper';
+import { computeCartorioProgress } from '@/lib/cartorio';
 import { DOCUMENT_REGISTRY } from '@/lib/producao/registry';
 import { montarMensagemBoasVindas, linkWhatsApp } from '@/lib/mensagens';
 import { NovoRepasseDialog } from '@/components/trabalhos/NovoRepasseDialog';
@@ -18,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 
@@ -59,6 +62,21 @@ export default function TrabalhoDetailPage() {
   const [novoJaAconteceu, setNovoJaAconteceu] = useState(false);
   const [boasVindasOpen, setBoasVindasOpen] = useState(false);
   const [mensagemBoasVindas, setMensagemBoasVindas] = useState('');
+  const [anexarOpen, setAnexarOpen] = useState(false);
+  const [anexarNome, setAnexarNome] = useState('');
+  const [anexarLink, setAnexarLink] = useState('');
+  const [anexarSituacao, setAnexarSituacao] = useState<DocumentSituacao>('Vigente');
+  const [protocoloOpen, setProtocoloOpen] = useState(false);
+  const [protocoloOficio, setProtocoloOficio] = useState<Oficio>('1º Ofício');
+  const [protocoloNumero, setProtocoloNumero] = useState('');
+  const [protocoloData, setProtocoloData] = useState(() => new Date().toISOString().slice(0, 10));
+  const [protocoloPrazoDias, setProtocoloPrazoDias] = useState('30');
+  const [exigenciaOpen, setExigenciaOpen] = useState(false);
+  const [exigenciaDescricao, setExigenciaDescricao] = useState('');
+  const [exigenciaPrazo, setExigenciaPrazo] = useState('');
+  const [matriculaOpen, setMatriculaOpen] = useState(false);
+  const [matriculaNumero, setMatriculaNumero] = useState('');
+  const [matriculaData, setMatriculaData] = useState(() => new Date().toISOString().slice(0, 10));
 
   const { trabalho, cliente, fin, tasks, documentos, historico, contrato, lancamentos } = useMemo(() => {
     void key; void shell.refreshKey;
@@ -68,7 +86,18 @@ export default function TrabalhoDetailPage() {
     const fin = computeTrabalhoFinancials(trabalho, shell.allTransactions);
     const tasks = getTasks().filter(t => t.processId === trabalho.id).sort((a, b) => (a.prazo || '9999').localeCompare(b.prazo || '9999'));
     const documentos = getDocuments().filter(d => d.processId === trabalho.id);
-    const historico = getHistorico({ trabalhoId: trabalho.id });
+    // Histórico junta dois registros que já existiam separados: os eventos de
+    // getHistorico() e as notas automáticas de pagamento em Process.notas
+    // (escritas por PartialPaymentModal a cada pagamento parcial/integral) —
+    // essas notas nunca tinham uma tela que as exibisse. Não mexe em como são
+    // gravadas, só passa a mostrá-las junto do resto da linha do tempo.
+    const notasComoEventos = (trabalho.notas || []).map(n => ({
+      id: n.id,
+      texto: n.texto,
+      createdAt: n.data,
+      modulo: 'Financeiro' as const,
+    }));
+    const historico = [...getHistorico({ trabalhoId: trabalho.id }), ...notasComoEventos].sort((a, b) => b.createdAt - a.createdAt);
     const contrato = trabalho.contratoId ? getContratos().find(c => c.id === trabalho.contratoId) || null : null;
     const lancamentos = shell.allTransactions.filter(t => t.processId === trabalho.id).sort((a, b) => a.data.localeCompare(b.data));
     return { trabalho, cliente, fin, tasks, documentos, historico, contrato, lancamentos };
@@ -84,8 +113,96 @@ export default function TrabalhoDetailPage() {
   }
 
   const etapaAtual = trabalho.etapa || 'Levantamento';
-  const idxEtapa = ETAPAS.indexOf(etapaAtual);
-  const proximaEtapa = ETAPAS[Math.min(idxEtapa + 1, ETAPAS.length - 1)];
+
+  const registro = trabalho.registro;
+  const hoje = new Date().toISOString().slice(0, 10);
+  const { stages: cartorioStages, exigenciasAbertas, temRegistro, currentIdx: cartorioIdx, prenotacaoDiasRestantes } = computeCartorioProgress(registro);
+
+  function registrarProtocolo() {
+    if (!protocoloNumero.trim()) { toast.error('Informe o número do protocolo.'); return; }
+    const prazoDias = parseInt(protocoloPrazoDias, 10) || 30;
+    updateProcess({
+      ...trabalho,
+      registro: {
+        ...trabalho.registro,
+        oficio: protocoloOficio,
+        protocolo: protocoloNumero.trim(),
+        dataProtocolo: protocoloData,
+        dataPrenotacao: protocoloData,
+        prazoPrenotacaoDias: prazoDias,
+      },
+    });
+    registrarEvento({
+      modulo: 'Cartório',
+      texto: `Protocolo registrado no ${protocoloOficio} — nº ${protocoloNumero.trim()}`,
+      clienteId: trabalho.clienteId,
+      trabalhoId: trabalho.id,
+    });
+    toast.success('Protocolo registrado.');
+    setProtocoloNumero('');
+    setProtocoloOpen(false);
+    setKey(k => k + 1);
+  }
+
+  function adicionarExigencia() {
+    if (!exigenciaDescricao.trim()) { toast.error('Descreva a exigência.'); return; }
+    const nova: Exigencia = {
+      id: crypto.randomUUID(),
+      descricao: exigenciaDescricao.trim(),
+      prazo: exigenciaPrazo || undefined,
+      status: 'Aberta',
+      criadaEm: Date.now(),
+    };
+    updateProcess({
+      ...trabalho,
+      registro: { ...trabalho.registro, exigencias: [...(trabalho.registro?.exigencias || []), nova] },
+    });
+    registrarEvento({
+      modulo: 'Cartório',
+      texto: `Exigência registrada — ${nova.descricao}`,
+      clienteId: trabalho.clienteId,
+      trabalhoId: trabalho.id,
+    });
+    toast.success('Exigência registrada.');
+    setExigenciaDescricao('');
+    setExigenciaPrazo('');
+    setExigenciaOpen(false);
+    setKey(k => k + 1);
+  }
+
+  function resolverExigencia(id: string, status: ExigenciaStatus) {
+    const atual = trabalho.registro?.exigencias || [];
+    const exigencia = atual.find(e => e.id === id);
+    if (!exigencia) return;
+    const atualizadas = atual.map(e => (e.id === id ? { ...e, status, cumpridaEm: status !== 'Aberta' ? Date.now() : undefined } : e));
+    updateProcess({ ...trabalho, registro: { ...trabalho.registro, exigencias: atualizadas } });
+    registrarEvento({
+      modulo: 'Cartório',
+      texto: `Exigência ${status === 'Cumprida' ? 'cumprida' : 'dispensada'} — ${exigencia.descricao}`,
+      clienteId: trabalho.clienteId,
+      trabalhoId: trabalho.id,
+    });
+    toast.success(status === 'Cumprida' ? 'Exigência marcada como cumprida.' : 'Exigência dispensada.');
+    setKey(k => k + 1);
+  }
+
+  function registrarMatricula() {
+    if (!matriculaNumero.trim()) { toast.error('Informe o número da matrícula.'); return; }
+    updateProcess({
+      ...trabalho,
+      registro: { ...trabalho.registro, matricula: matriculaNumero.trim(), matriculaEmitidaEm: matriculaData },
+    });
+    registrarEvento({
+      modulo: 'Cartório',
+      texto: `Matrícula emitida — nº ${matriculaNumero.trim()}`,
+      clienteId: trabalho.clienteId,
+      trabalhoId: trabalho.id,
+    });
+    toast.success('Matrícula registrada.');
+    setMatriculaNumero('');
+    setMatriculaOpen(false);
+    setKey(k => k + 1);
+  }
 
   function abrirBoasVindas() {
     if (!cliente) return;
@@ -99,9 +216,13 @@ export default function TrabalhoDetailPage() {
     setBoasVindasOpen(true);
   }
 
-  function avancarEtapa() {
-    updateProcess({ ...trabalho, etapa: proximaEtapa });
-    toast.success(`Trabalho movido para "${proximaEtapa}".`);
+  // Antes só dava pra avançar uma etapa por vez (1 botão sequencial); o Kanban
+  // já permitia pular pra qualquer coluna livremente. Esse seletor traz a
+  // mesma liberdade pra cá, sem forçar volta ao Kanban pra corrigir uma etapa.
+  function definirEtapa(novaEtapa: TrabalhoEtapa) {
+    if (novaEtapa === etapaAtual) return;
+    updateProcess({ ...trabalho, etapa: novaEtapa });
+    toast.success(`Trabalho movido para "${novaEtapa}".`);
     setKey(k => k + 1);
   }
 
@@ -175,6 +296,28 @@ export default function TrabalhoDetailPage() {
     }
   }
 
+  // Vincula um documento externo (link do Drive etc.) sem passar pelo gerador
+  // técnico. DocumentRecord.link já existia pra isso, só faltava uma tela.
+  function anexarDocumentoExterno() {
+    if (!anexarNome.trim()) { toast.error('Dê um nome pro documento.'); return; }
+    if (!anexarLink.trim()) { toast.error('Cole o link do documento.'); return; }
+    const agora = Date.now();
+    addDocument({
+      id: crypto.randomUUID(),
+      nome: anexarNome.trim(),
+      clienteId: trabalho.clienteId,
+      processId: trabalho.id,
+      situacao: anexarSituacao,
+      link: anexarLink.trim(),
+      createdAt: agora,
+      updatedAt: agora,
+    });
+    toast.success('Documento anexado.');
+    setAnexarNome(''); setAnexarLink(''); setAnexarSituacao('Vigente');
+    setAnexarOpen(false);
+    setKey(k => k + 1);
+  }
+
   function removerDocumento(id: string, nome: string) {
     if (confirm(`Remover "${nome}"? Isso não afeta o Trabalho, só o registro do documento.`)) {
       deleteDocument(id);
@@ -243,10 +386,21 @@ export default function TrabalhoDetailPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-none">
-            <span className={cn('text-[11.5px] px-2.5 py-[5px] rounded-md font-medium', ETAPA_BADGE[etapaAtual])}>{etapaAtual}</span>
-            {etapaAtual !== 'Concluído' && (
-              <button onClick={avancarEtapa} className="h-[34px] px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] hover:bg-primary-hover transition-colors">Avançar etapa</button>
-            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className={cn('text-[11.5px] px-2.5 py-[5px] rounded-md font-medium flex items-center gap-1 hover:opacity-80 transition-opacity', ETAPA_BADGE[etapaAtual])}>
+                  {etapaAtual} <ChevronDown className="w-3 h-3" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {ETAPAS.map(e => (
+                  <DropdownMenuItem key={e} onClick={() => definirEtapa(e)} className="flex items-center justify-between gap-2">
+                    <span>{e}</span>
+                    {e === etapaAtual && <Check className="w-3.5 h-3.5 text-accent" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
@@ -276,6 +430,81 @@ export default function TrabalhoDetailPage() {
           <div className="text-[11.5px] text-muted-foreground mt-1 truncate">{tasks.find(t => t.status !== 'Concluída')?.titulo || 'Tudo em dia'}</div>
         </div>
       </div>
+
+      {/* Cartório */}
+      <section className="bg-card border border-border rounded-xl p-[17px_18px]">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-2">
+            <ScrollText className="w-4 h-4 text-mute-2" />
+            <span className="text-[13.5px] font-semibold">Cartório & Registro</span>
+          </div>
+          {temRegistro ? (
+            <Stepper stages={cartorioStages} />
+          ) : (
+            <button onClick={() => setProtocoloOpen(true)} className="h-8 px-3 bg-primary text-primary-foreground rounded-lg text-[12px] font-medium">
+              Iniciar registro em cartório
+            </button>
+          )}
+        </div>
+
+        {temRegistro && (
+          <div className="mt-4 pt-4 border-t border-3 flex flex-col gap-3.5">
+            <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-[11.5px] text-muted-foreground">
+              {registro?.oficio && <span>{registro.oficio}</span>}
+              {registro?.protocolo && <span>Protocolo <strong className="text-foreground font-medium font-mono-hbs">{registro.protocolo}</strong></span>}
+              {registro?.dataPrenotacao && (
+                <span className={cn(
+                  prenotacaoDiasRestantes !== null && !registro.matricula && prenotacaoDiasRestantes < 0 && 'text-destructive',
+                  prenotacaoDiasRestantes !== null && !registro.matricula && prenotacaoDiasRestantes >= 0 && prenotacaoDiasRestantes <= 5 && 'text-warning'
+                )}>
+                  Prenotação {new Date(registro.dataPrenotacao + 'T12:00:00').toLocaleDateString('pt-BR')}
+                  {prenotacaoDiasRestantes !== null && !registro.matricula && (
+                    prenotacaoDiasRestantes < 0 ? ` · vencida há ${Math.abs(prenotacaoDiasRestantes)}d` : ` · vence em ${prenotacaoDiasRestantes}d`
+                  )}
+                </span>
+              )}
+              {registro?.matricula && (
+                <span>Matrícula <strong className="text-foreground font-medium font-mono-hbs">{registro.matricula}</strong>{registro.matriculaEmitidaEm && ` · emitida ${new Date(registro.matriculaEmitidaEm + 'T12:00:00').toLocaleDateString('pt-BR')}`}</span>
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-[11px] uppercase tracking-[.07em] text-mute-2">Exigências</div>
+                <button onClick={() => setExigenciaOpen(true)} className="text-[11.5px] font-medium text-accent flex items-center gap-1">
+                  <Plus className="w-3.5 h-3.5" /> Registrar exigência
+                </button>
+              </div>
+              {exigenciasAbertas.length === 0 ? (
+                <div className="text-[11.5px] text-muted-foreground">Nenhuma exigência em aberto.</div>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {exigenciasAbertas.map(e => {
+                    const vencida = e.prazo && e.prazo < hoje;
+                    return (
+                      <div key={e.id} className="flex items-center gap-2.5 bg-warning-soft rounded-lg px-3 py-2">
+                        <ShieldAlert className={cn('w-3.5 h-3.5 flex-none', vencida ? 'text-destructive' : 'text-warning')} />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[12px] leading-tight">{e.descricao}</div>
+                          {e.prazo && <div className={cn('text-[10.5px] font-mono-hbs mt-0.5', vencida ? 'text-destructive' : 'text-mute-2')}>prazo {new Date(e.prazo + 'T12:00:00').toLocaleDateString('pt-BR')}</div>}
+                        </div>
+                        <button onClick={() => resolverExigencia(e.id, 'Cumprida')} className="h-7 px-2.5 rounded-lg bg-success text-white text-[11px] font-medium flex-none whitespace-nowrap">Cumprida</button>
+                        <button onClick={() => resolverExigencia(e.id, 'Dispensada')} className="h-7 px-2.5 rounded-lg border-2 text-[11px] font-medium flex-none whitespace-nowrap">Dispensar</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {cartorioIdx === 3 && !registro?.matricula && (
+              <button onClick={() => setMatriculaOpen(true)} className="self-start h-8 px-3 bg-primary text-primary-foreground rounded-lg text-[12px] font-medium">
+                Registrar matrícula
+              </button>
+            )}
+          </div>
+        )}
+      </section>
 
       <div className="grid gap-[18px] items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
         {/* Etapas / Tarefas */}
@@ -318,7 +547,11 @@ export default function TrabalhoDetailPage() {
           <section className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="px-[18px] py-[15px] border-b border-3 flex items-center justify-between">
               <span className="text-[13.5px] font-semibold">Documentação técnica</span>
-              <DropdownMenu>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setAnexarOpen(true)} className="text-[11.5px] font-medium text-accent flex items-center gap-1">
+                  <Link2 className="w-3.5 h-3.5" /> Anexar link
+                </button>
+                <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="text-[11.5px] font-medium text-accent flex items-center gap-1">
                     <FilePlus2 className="w-3.5 h-3.5" /> Gerar documento
@@ -332,16 +565,29 @@ export default function TrabalhoDetailPage() {
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
-              </DropdownMenu>
+                </DropdownMenu>
+              </div>
             </div>
             {documentos.length === 0 ? (
               <div className="px-[18px] py-6 text-xs text-muted-foreground">Nenhum documento vinculado ainda.</div>
             ) : (
               documentos.map(d => (
                 <div key={d.id} className={cn('group flex items-center gap-[11px] px-[18px] py-[10px] border-t border-3 hover:bg-surface-3 transition-colors')}>
-                  <FileText className="w-3.5 h-3.5 text-mute-2 flex-none" />
+                  {d.tipoTecnico ? (
+                    <FileText className="w-3.5 h-3.5 text-mute-2 flex-none" />
+                  ) : (
+                    <ExternalLink className="w-3.5 h-3.5 text-mute-2 flex-none" />
+                  )}
                   <div className="flex-1 min-w-0">
-                    <button onClick={() => d.tipoTecnico && navigate(`/producao/${trabalho.id}/${d.tipoTecnico}`)} className={cn('text-[12.5px] block truncate text-left', d.tipoTecnico && 'hover:underline')}>{d.nome}</button>
+                    <button
+                      onClick={() => {
+                        if (d.tipoTecnico) navigate(`/producao/${trabalho.id}/${d.tipoTecnico}`);
+                        else if (d.link) window.open(d.link, '_blank', 'noreferrer');
+                      }}
+                      className={cn('text-[12.5px] block truncate text-left', (d.tipoTecnico || d.link) && 'hover:underline')}
+                    >
+                      {d.nome}
+                    </button>
                     <div className="text-[10.5px] text-mute-3 font-mono-hbs">{d.versao ? `v${d.versao} · ` : ''}atualizado {new Date(d.updatedAt).toLocaleDateString('pt-BR')}</div>
                   </div>
                   <span className="text-[11px] text-mute-2">{d.situacao}</span>
@@ -536,6 +782,127 @@ export default function TrabalhoDetailPage() {
             >
               <MessageCircle className="w-3.5 h-3.5" /> Abrir no WhatsApp
             </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={anexarOpen} onOpenChange={setAnexarOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Anexar documento externo</DialogTitle>
+          </DialogHeader>
+          <p className="text-[12px] text-muted-foreground -mt-2">Vincula um link (Drive, etc.) a este trabalho — sem passar pelo gerador técnico.</p>
+          <div className="space-y-2.5">
+            <div>
+              <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Nome do documento</label>
+              <Input value={anexarNome} onChange={e => setAnexarNome(e.target.value)} placeholder="Ex: Contrato assinado" className="h-9 text-[12.5px] mt-1" autoFocus />
+            </div>
+            <div>
+              <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Link</label>
+              <Input value={anexarLink} onChange={e => setAnexarLink(e.target.value)} placeholder="https://drive.google.com/…" className="h-9 text-[12.5px] mt-1" />
+            </div>
+            <div>
+              <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Situação</label>
+              <Select value={anexarSituacao} onValueChange={v => setAnexarSituacao(v as DocumentSituacao)}>
+                <SelectTrigger className="h-9 text-[12.5px] mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Vigente">Vigente</SelectItem>
+                  <SelectItem value="Pendente">Pendente</SelectItem>
+                  <SelectItem value="Entregue">Entregue</SelectItem>
+                  <SelectItem value="Modelo">Modelo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={() => setAnexarOpen(false)} className="h-9 px-3.5 rounded-lg text-[12.5px] font-medium text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
+            <button onClick={anexarDocumentoExterno} className="h-9 px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] font-medium hover:bg-primary-hover transition-colors flex items-center gap-1.5">
+              <Link2 className="w-3.5 h-3.5" /> Anexar
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={protocoloOpen} onOpenChange={setProtocoloOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Registrar protocolo em cartório</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2.5">
+            <div>
+              <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Ofício</label>
+              <Select value={protocoloOficio} onValueChange={v => setProtocoloOficio(v as Oficio)}>
+                <SelectTrigger className="h-9 text-[12.5px] mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1º Ofício">1º Ofício</SelectItem>
+                  <SelectItem value="2º Ofício">2º Ofício</SelectItem>
+                  <SelectItem value="3º Ofício">3º Ofício</SelectItem>
+                  <SelectItem value="Outro">Outro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Número do protocolo</label>
+              <Input value={protocoloNumero} onChange={e => setProtocoloNumero(e.target.value)} placeholder="Ex: 123456" className="h-9 text-[12.5px] mt-1" autoFocus />
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Data do protocolo</label>
+                <Input type="date" value={protocoloData} onChange={e => setProtocoloData(e.target.value)} className="h-9 text-[12.5px] mt-1 font-mono-hbs" />
+              </div>
+              <div>
+                <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Prazo da prenotação (dias)</label>
+                <Input type="number" value={protocoloPrazoDias} onChange={e => setProtocoloPrazoDias(e.target.value)} className="h-9 text-[12.5px] mt-1 font-mono-hbs" />
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={() => setProtocoloOpen(false)} className="h-9 px-3.5 rounded-lg text-[12.5px] font-medium text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
+            <button onClick={registrarProtocolo} className="h-9 px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] font-medium hover:bg-primary-hover transition-colors">Registrar</button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={exigenciaOpen} onOpenChange={setExigenciaOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Registrar exigência de cartório</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2.5">
+            <div>
+              <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Descrição</label>
+              <Textarea value={exigenciaDescricao} onChange={e => setExigenciaDescricao(e.target.value)} placeholder="O que o ofício exigiu?" className="min-h-[80px] text-[12.5px] mt-1" autoFocus />
+            </div>
+            <div>
+              <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Prazo (opcional)</label>
+              <Input type="date" value={exigenciaPrazo} onChange={e => setExigenciaPrazo(e.target.value)} className="h-9 text-[12.5px] mt-1 font-mono-hbs" />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={() => setExigenciaOpen(false)} className="h-9 px-3.5 rounded-lg text-[12.5px] font-medium text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
+            <button onClick={adicionarExigencia} className="h-9 px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] font-medium hover:bg-primary-hover transition-colors">Registrar</button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={matriculaOpen} onOpenChange={setMatriculaOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Registrar matrícula</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2.5">
+            <div>
+              <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Número da matrícula</label>
+              <Input value={matriculaNumero} onChange={e => setMatriculaNumero(e.target.value)} placeholder="Ex: 12.345" className="h-9 text-[12.5px] mt-1" autoFocus />
+            </div>
+            <div>
+              <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Data de emissão</label>
+              <Input type="date" value={matriculaData} onChange={e => setMatriculaData(e.target.value)} className="h-9 text-[12.5px] mt-1 font-mono-hbs" />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={() => setMatriculaOpen(false)} className="h-9 px-3.5 rounded-lg text-[12.5px] font-medium text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
+            <button onClick={registrarMatricula} className="h-9 px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] font-medium hover:bg-primary-hover transition-colors">Registrar</button>
           </div>
         </DialogContent>
       </Dialog>

@@ -5,6 +5,7 @@ import { getDocuments, getClients, getProcesses, deleteDocument } from '@/lib/st
 import { DocumentRecord, DocumentSituacao, TipoDocumentoTecnico } from '@/lib/types';
 import { DOCUMENT_REGISTRY } from '@/lib/producao/registry';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +32,7 @@ function extOf(nome: string) {
 export default function ProducaoPage() {
   const [aba, setAba] = useState<Aba>('Em produção');
   const [escolhendoTipo, setEscolhendoTipo] = useState<TipoDocumentoTecnico | null>(null);
+  const [buscaTrabalho, setBuscaTrabalho] = useState('');
   const [key, setKey] = useState(0);
   const navigate = useNavigate();
 
@@ -75,6 +77,12 @@ export default function ProducaoPage() {
   function clienteNome(id: string) {
     return clients.find(c => c.id === id)?.nome || 'Cliente';
   }
+
+  const processosFiltrados = processes.filter(p => {
+    if (!buscaTrabalho.trim()) return true;
+    const q = buscaTrabalho.toLowerCase();
+    return (p.objeto || '').toLowerCase().includes(q) || clienteNome(p.clienteId).toLowerCase().includes(q);
+  });
 
   return (
     <div className="space-y-[22px] pb-10 animate-hbs-in">
@@ -150,7 +158,7 @@ export default function ProducaoPage() {
         )}
       </section>
 
-      <Dialog open={!!escolhendoTipo} onOpenChange={v => !v && setEscolhendoTipo(null)}>
+      <Dialog open={!!escolhendoTipo} onOpenChange={v => { if (!v) { setEscolhendoTipo(null); setBuscaTrabalho(''); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Para qual trabalho?</DialogTitle>
@@ -158,21 +166,28 @@ export default function ProducaoPage() {
           {processes.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4">Nenhum trabalho cadastrado ainda. Crie um trabalho primeiro em Trabalhos.</p>
           ) : (
-            <div className="max-h-[360px] overflow-y-auto -mx-1 px-1 space-y-1.5">
-              {processes.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => escolhendoTipo && navigate(`/producao/${p.id}/${escolhendoTipo}`)}
-                  className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg border-2 hover:border-hover hover:bg-surface-3 transition-colors"
-                >
-                  <FileText className="w-3.5 h-3.5 text-mute-2 flex-none" />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[12.5px] font-medium truncate">{p.objeto}</div>
-                    <div className="text-[11px] text-mute-2">{clienteNome(p.clienteId)}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
+            <>
+              <Input value={buscaTrabalho} onChange={e => setBuscaTrabalho(e.target.value)} placeholder="Buscar por trabalho ou cliente" className="h-9 text-[13px]" autoFocus />
+              <div className="max-h-[360px] overflow-y-auto -mx-1 px-1 space-y-1.5">
+                {processosFiltrados.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-3 text-center">Nenhum trabalho encontrado.</p>
+                ) : (
+                  processosFiltrados.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => escolhendoTipo && navigate(`/producao/${p.id}/${escolhendoTipo}`)}
+                      className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg border-2 hover:border-hover hover:bg-surface-3 transition-colors"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-mute-2 flex-none" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[12.5px] font-medium truncate">{p.objeto}</div>
+                        <div className="text-[11px] text-mute-2">{clienteNome(p.clienteId)}</div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </>
           )}
         </DialogContent>
       </Dialog>

@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import {
   LayoutGrid, FolderKanban, Users, ListTodo, Settings as SettingsIcon, Plus, FileText,
-  Receipt, ArrowUpCircle, ArrowDownCircle, UserPlus, BarChart3,
+  Receipt, ArrowUpCircle, ArrowDownCircle, UserPlus, BarChart3, ScrollText, MessageCircle, ShieldAlert,
 } from 'lucide-react';
 import { getClients, getProcesses, getTasks } from '@/lib/storage';
 import { TransactionType } from '@/lib/types';
@@ -72,6 +72,7 @@ export function CommandPalette({ open, onOpenChange, onNavigate, onNewTask, onNe
           <CommandItem onSelect={() => go('/comercial')} className="gap-3 py-2"><Tile icon={Receipt} /><span className="text-[13px]">Comercial</span></CommandItem>
           <CommandItem onSelect={() => go('/caixa/visao-geral')} className="gap-3 py-2"><Tile icon={Receipt} /><span className="text-[13px]">Fluxo de Caixa</span></CommandItem>
           <CommandItem onSelect={() => go('/relatorios')} className="gap-3 py-2"><Tile icon={BarChart3} /><span className="text-[13px]">Relatórios</span></CommandItem>
+          <CommandItem onSelect={() => go('/cartorio')} className="gap-3 py-2"><Tile icon={ScrollText} /><span className="text-[13px]">Cartório & Registros</span></CommandItem>
           <CommandItem onSelect={() => go('/configuracoes')} className="gap-3 py-2"><Tile icon={SettingsIcon} /><span className="text-[13px]">Configurações</span></CommandItem>
         </CommandGroup>
 
@@ -91,6 +92,12 @@ export function CommandPalette({ open, onOpenChange, onNavigate, onNewTask, onNe
           )}
           <CommandItem onSelect={() => { onOpenChange(false); onNewTask(); }} className="gap-3 py-2">
             <Tile icon={Plus} /><span className="text-[13px]">Nova tarefa</span>
+          </CommandItem>
+          <CommandItem onSelect={() => go('/')} className="gap-3 py-2">
+            <Tile icon={MessageCircle} /><span className="text-[13px]">Cobrar vencidos em lote</span>
+          </CommandItem>
+          <CommandItem onSelect={() => go('/cartorio')} className="gap-3 py-2">
+            <Tile icon={ShieldAlert} /><span className="text-[13px]">Registrar exigência de cartório</span>
           </CommandItem>
         </CommandGroup>
 

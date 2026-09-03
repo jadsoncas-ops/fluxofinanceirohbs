@@ -3,9 +3,17 @@ import { montarMensagemLembreteVencimento } from './mensagens';
 
 export type AttentionSeverity = 'critical' | 'warning' | 'info';
 
+// 'Orgao' existe na taxonomia (bate com o protótipo) mas nenhuma regra abaixo
+// a usa ainda — o app não tem nenhum dado de prazo de órgão/prefeitura hoje
+// (AverbacaoData.temAlvara/temHabiteSe são só checkboxes, sem data). Fica
+// definida e vazia até existir um dado real pra alimentá-la — não inventamos
+// prazo de prefeitura fictício só pra preencher a categoria.
+export type AttentionTipo = 'Cobranca' | 'Cartorio' | 'Orgao' | 'Pendencia';
+
 export interface AttentionItem {
   id: string;
   severity: AttentionSeverity;
+  tipo: AttentionTipo;
   title: string;
   sub: string;
   cta: string;
@@ -16,6 +24,9 @@ export interface AttentionItem {
    *  WhatsApp) que já cobrou esse cliente. Sem vínculo com parcela específica, é só um "já avisei". */
   clienteIdParaLembrete?: string;
   lembretesCobranca?: number[];
+  /** Presente só nos itens de exigência de cartório — permite resolver direto da Fila de hoje,
+   *  sem precisar abrir o trabalho primeiro. */
+  exigenciaRef?: { processId: string; exigenciaId: string };
 }
 
 function fmtMoney(v: number) {
@@ -55,12 +66,12 @@ export function computeAttentionItems(
   const emCincoDias = new Date();
   emCincoDias.setDate(emCincoDias.getDate() + 5);
   const emCincoDiasStr = emCincoDias.toISOString().slice(0, 10);
-  const avisosPorCliente = new Map<string, { valor: number; itens: { descricao: string; valor: number; trabalho?: string; data: string }[] }>();
+  const avisosPorCliente = new Map<string, { valor: number; itens: { descricao: string; valor: number; trabalho?: string; processId?: string; data: string }[] }>();
   transactions.forEach(t => {
     if ((t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído' && t.data <= emCincoDiasStr && t.clienteId) {
       const cur = avisosPorCliente.get(t.clienteId) || { valor: 0, itens: [] };
       cur.valor += t.valor;
-      cur.itens.push({ descricao: t.descricao, valor: t.valor, trabalho: processes.find(p => p.id === t.processId)?.objeto, data: t.data });
+      cur.itens.push({ descricao: t.descricao, valor: t.valor, trabalho: processes.find(p => p.id === t.processId)?.objeto, processId: t.processId, data: t.data });
       avisosPorCliente.set(t.clienteId, cur);
     }
   });
@@ -75,15 +86,23 @@ export function computeAttentionItems(
     const telefone = client.telefone?.ddd && client.telefone?.numero ? { ddd: client.telefone.ddd, numero: client.telefone.numero } : undefined;
     const severity: AttentionSeverity = temVencido ? 'critical' : temAmanha ? 'warning' : 'info';
     const title = temVencido ? `Cobrar ${client.nome}` : temAmanha ? `Vence amanhã: ${client.nome}` : `Vence em breve: ${client.nome}`;
+
+    // Antes ia sempre pro perfil do cliente, exigindo achar o lançamento de novo lá dentro.
+    // Quando todas as parcelas em aberto são do mesmo trabalho, vai direto pra ele; senão
+    // (parcelas espalhadas em trabalhos diferentes, ou avulsas) vai pro Caixa.
+    const processIds = new Set(v.itens.map(i => i.processId).filter((id): id is string => !!id));
+    const destinoUnico = processIds.size === 1 ? [...processIds][0] : null;
+
     items.push({
       id: `receber-${clienteId}`,
+      tipo: 'Cobranca',
       severity,
       title,
       sub: temVencido
         ? `${v.itens.length} parcela${v.itens.length > 1 ? 's' : ''} vencida${v.itens.length > 1 ? 's' : ''} há ${dias} dia${dias > 1 ? 's' : ''} · ${fmtMoney(v.valor)}`
         : `${v.itens.length} parcela${v.itens.length > 1 ? 's' : ''} · ${fmtMoney(v.valor)} · envie o lembrete de cobrança`,
-      cta: 'Ver cliente',
-      to: `/clientes/${clienteId}`,
+      cta: destinoUnico ? 'Abrir trabalho' : 'Ver no Caixa',
+      to: destinoUnico ? `/trabalhos/${destinoUnico}` : '/caixa/receitas',
       whatsapp: telefone ? { clienteNome: client.nome, telefone, mensagem: montarMensagemLembreteVencimento({ clienteNome: client.nome, itens: v.itens }) } : undefined,
       clienteIdParaLembrete: clienteId,
       lembretesCobranca: client.lembretesCobranca,
@@ -97,6 +116,7 @@ export function computeAttentionItems(
     const dias = Math.max(...pagarAtrasado.map(t => daysSince(t.data, today)));
     items.push({
       id: 'pagar-atrasado',
+      tipo: 'Cobranca',
       severity: 'critical',
       title: `${pagarAtrasado.length} pagamento${pagarAtrasado.length > 1 ? 's' : ''} em atraso`,
       sub: `Vencido${pagarAtrasado.length > 1 ? 's' : ''} há até ${dias} dia${dias > 1 ? 's' : ''} · ${fmtMoney(total)}`,
@@ -110,6 +130,7 @@ export function computeAttentionItems(
   if (tarefasAtrasadas.length > 0) {
     items.push({
       id: 'tarefas-atrasadas',
+      tipo: 'Pendencia',
       severity: 'warning',
       title: `${tarefasAtrasadas.length} tarefa${tarefasAtrasadas.length > 1 ? 's' : ''} atrasada${tarefasAtrasadas.length > 1 ? 's' : ''}`,
       sub: tarefasAtrasadas.length === 1 ? tarefasAtrasadas[0].titulo : 'Verifique o que ficou para trás',
@@ -126,6 +147,7 @@ export function computeAttentionItems(
   if (tarefasProximas.length > 0) {
     items.push({
       id: 'tarefas-proximas',
+      tipo: 'Pendencia',
       severity: 'warning',
       title: `${tarefasProximas.length} tarefa${tarefasProximas.length > 1 ? 's' : ''} com prazo próximo`,
       sub: tarefasProximas.length === 1 ? tarefasProximas[0].titulo : 'Prazo nos próximos 5 dias',
@@ -141,6 +163,7 @@ export function computeAttentionItems(
     const client = clients.find(c => c.id === p.clienteId);
     items.push({
       id: `trabalho-parado-${p.id}`,
+      tipo: 'Pendencia',
       severity: dias > 14 ? 'critical' : 'warning',
       title: `"${p.objeto}" aguardando o cliente`,
       sub: `${client?.nome || 'Cliente'} · parado há ${dias} dias`,
@@ -155,6 +178,7 @@ export function computeAttentionItems(
     const client = clients.find(c => c.id === p.clienteId);
     items.push({
       id: `proposta-parada-${p.id}`,
+      tipo: 'Pendencia',
       severity: dias > 10 ? 'critical' : 'warning',
       title: `Proposta ${p.codigo} sem resposta há ${dias}d`,
       sub: `${client?.nome || 'Cliente'} · ${fmtMoney(p.resultado.precoVenda)} · ${p.titulo}`,
@@ -175,6 +199,7 @@ export function computeAttentionItems(
         const faltam = e.documentosFaltantes?.length || 0;
         items.push({
           id: `exigencia-${p.id}-${e.id}`,
+          tipo: 'Cartorio',
           severity: vencida || e.prazo === today ? 'critical' : 'warning',
           title: `Exigência ${vencida ? 'vencida' : e.prazo === today ? 'vence hoje' : `vence em ${-dias}d`} — ${p.objeto || 'Trabalho'}`,
           sub: [
@@ -184,6 +209,7 @@ export function computeAttentionItems(
           ].filter(Boolean).join(' · '),
           cta: 'Cumprir exigência',
           to: `/trabalhos/${p.id}`,
+          exigenciaRef: { processId: p.id, exigenciaId: e.id },
         });
       });
   });
@@ -198,6 +224,7 @@ export function computeAttentionItems(
     if (restam > 7) return;
     items.push({
       id: `prenotacao-${p.id}`,
+      tipo: 'Cartorio',
       severity: restam <= 3 ? 'critical' : 'warning',
       title: restam < 0
         ? `Prenotação expirada — ${p.objeto || 'Trabalho'}`
@@ -220,6 +247,7 @@ export function computeAttentionItems(
     const dias = Math.round((Date.now() - p.updatedAt) / 86400000);
     items.push({
       id: `protocolo-parado-${p.id}`,
+      tipo: 'Cartorio',
       severity: 'warning',
       title: `Protocolo sem movimento há ${dias}d — ${p.objeto || 'Trabalho'}`,
       sub: [r.oficio, r.protocolo ? `protocolo ${r.protocolo}` : null, 'cobrar andamento no ofício']

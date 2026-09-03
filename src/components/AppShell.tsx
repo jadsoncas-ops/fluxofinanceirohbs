@@ -4,13 +4,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { TransactionForm } from '@/components/TransactionForm';
 import { PartialPaymentModal } from '@/components/PartialPaymentModal';
 import { NovoRecebimentoDialog } from '@/components/NovoRecebimentoDialog';
+import { NovoTrabalhoDiretoDialog } from '@/components/trabalhos/NovoTrabalhoDiretoDialog';
 import { ClientMigrationModal } from '@/components/ClientMigrationModal';
 import { ClientForm } from '@/components/ClientForm';
 import { NovoCompromissoDialog } from '@/components/dashboard/NovoCompromissoDialog';
 import { AppSidebar } from '@/components/AppSidebar';
 import { CommandPalette } from '@/components/CommandPalette';
 import { NotificationsDropdown } from '@/components/NotificationsDropdown';
-import { getTransactions, getTasks, getClients, getProcesses, getPropostas, onStorageChange } from '@/lib/storage';
+import { getTransactions, getTasks, getClients, getProcesses, getPropostas, getDocuments, onStorageChange } from '@/lib/storage';
 import { computeAttentionItems } from '@/lib/attention';
 import { Transaction, Task, TransactionType } from '@/lib/types';
 import { Search, X, LogOut, Eye, EyeOff } from 'lucide-react';
@@ -33,6 +34,8 @@ export interface ShellContext {
   openEditTransaction: (tx: Transaction) => void;
   openCompleteTransaction: (tx: Transaction) => void;
   openNovoRecebimento: () => void;
+  openNovoTrabalho: () => void;
+  openNovoCliente: () => void;
   pendingNewTask: Partial<Task> | null;
   consumePendingNewTask: () => void;
   requestNewTask: () => void;
@@ -74,6 +77,7 @@ export function AppShell() {
   const [migrationOpen, setMigrationOpen] = useState(false);
   const [clientFormOpen, setClientFormOpen] = useState(false);
   const [recebimentoOpen, setRecebimentoOpen] = useState(false);
+  const [novoTrabalhoOpen, setNovoTrabalhoOpen] = useState(false);
   const [compromissoOpen, setCompromissoOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
@@ -152,7 +156,7 @@ export function AppShell() {
     return (allTransactions || []).filter(t => !t.isRepasse && t.clienteId === undefined).length;
   }, [allTransactions]);
 
-  const { clientCount, trabalhosAtivos, attentionItems } = useMemo(() => {
+  const { clientCount, trabalhosAtivos, attentionItems, documentosEmProducao } = useMemo(() => {
     void txKey;
     const clients = getClients();
     const processes = getProcesses();
@@ -162,13 +166,28 @@ export function AppShell() {
       clientCount: clients.length,
       trabalhosAtivos: processes.filter(p => !p.isArchived).length,
       attentionItems: computeAttentionItems(allTransactions, clients, tasks, processes, propostas),
+      documentosEmProducao: getDocuments().filter(d => d.situacao === 'Em produção').length,
     };
   }, [txKey, allTransactions]);
 
+  // Badges da sidebar — trabalhosAtencao/producaoEmAndamento/caixaAtrasado
+  // eram declarados em AppSidebar.tsx mas nunca populados aqui (só
+  // "financeiroAtrasado" existia, e nenhum item de nav usava essa chave —
+  // os 3 badges nunca apareciam). Cada um usa a fonte mais precisa pro que
+  // representa: trabalhosAtencao e caixaAtrasado continuam vindo do prefixo
+  // de id (mais específico que a nova taxonomia de 4 categorias),
+  // producaoEmAndamento vem direto da situação real dos documentos.
   const sidebarBadges = useMemo(() => {
-    const financeiroAtrasado = attentionItems.filter(i => i.id.startsWith('receber-') || i.id === 'pagar-atrasado').length;
-    return { financeiroAtrasado: financeiroAtrasado > 0 ? financeiroAtrasado : undefined };
-  }, [attentionItems]);
+    const trabalhosAtencao = attentionItems.filter(i => i.id.startsWith('trabalho-parado-')).length;
+    const caixaAtrasado = attentionItems.filter(i => i.id.startsWith('receber-') || i.id === 'pagar-atrasado').length;
+    const cartorioAtencao = attentionItems.filter(i => i.tipo === 'Cartorio').length;
+    return {
+      trabalhosAtencao: trabalhosAtencao > 0 ? trabalhosAtencao : undefined,
+      producaoEmAndamento: documentosEmProducao > 0 ? documentosEmProducao : undefined,
+      caixaAtrasado: caixaAtrasado > 0 ? caixaAtrasado : undefined,
+      cartorioAtencao: cartorioAtencao > 0 ? cartorioAtencao : undefined,
+    };
+  }, [attentionItems, documentosEmProducao]);
 
   function openNewTransaction(opts?: { tipo?: TransactionType }) {
     setEditItem(opts?.tipo ? ({ tipo: opts.tipo } as any) : null);
@@ -190,6 +209,8 @@ export function AppShell() {
     openNewTransaction, openEditTransaction,
     openCompleteTransaction: setCompleteItem,
     openNovoRecebimento: () => setRecebimentoOpen(true),
+    openNovoTrabalho: () => setNovoTrabalhoOpen(true),
+    openNovoCliente: () => setClientFormOpen(true),
     pendingNewTask,
     consumePendingNewTask: () => setPendingNewTask(null),
     requestNewTask: () => setPendingNewTask({}),
@@ -246,12 +267,13 @@ export function AppShell() {
 
           <NovoDropdown
             onNewClient={() => setClientFormOpen(true)}
-            onNewTrabalho={() => navigate('/trabalhos')}
+            onNewTrabalho={() => setNovoTrabalhoOpen(true)}
             onNewProposta={() => navigate('/comercial')}
             onNewDocumento={() => navigate('/producao')}
             onNewReceita={() => setRecebimentoOpen(true)}
             onNewDespesa={() => openNewTransaction({ tipo: 'Saída' })}
             onNewCompromisso={() => setCompromissoOpen(true)}
+            onNewTask={() => { setPendingNewTask({}); navigate('/tarefas'); }}
           />
         </header>
 
@@ -301,8 +323,17 @@ export function AppShell() {
         onSave={refresh}
         transaction={completeItem}
       />
-      <ClientForm open={clientFormOpen} onClose={() => setClientFormOpen(false)} onSave={() => { setClientFormOpen(false); refresh(); }} />
+      <ClientForm
+        open={clientFormOpen}
+        onClose={() => setClientFormOpen(false)}
+        onSave={(client) => { setClientFormOpen(false); refresh(); if (client) navigate(`/clientes/${client.id}`); }}
+      />
       <NovoRecebimentoDialog open={recebimentoOpen} onClose={() => setRecebimentoOpen(false)} onCreated={refresh} />
+      <NovoTrabalhoDiretoDialog
+        open={novoTrabalhoOpen}
+        onClose={() => setNovoTrabalhoOpen(false)}
+        onCreated={(id) => { setNovoTrabalhoOpen(false); refresh(); navigate(`/trabalhos/${id}`); }}
+      />
 
       {migrationOpen && (
         <ClientMigrationModal
@@ -327,7 +358,7 @@ export function AppShell() {
   );
 }
 
-import { Compass, Landmark, Layers, Users, FileStack, UserPlus, Handshake, ArrowUpCircle, ArrowDownCircle, ChevronDown, CalendarPlus } from 'lucide-react';
+import { Compass, Landmark, Layers, Users, FileStack, UserPlus, Handshake, ArrowUpCircle, ArrowDownCircle, ChevronDown, CalendarPlus, ListPlus } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
@@ -339,12 +370,14 @@ interface NovoDropdownProps {
   onNewReceita: () => void;
   onNewDespesa: () => void;
   onNewCompromisso: () => void;
+  onNewTask: () => void;
 }
 
-function NovoDropdown({ onNewClient, onNewTrabalho, onNewProposta, onNewDocumento, onNewReceita, onNewDespesa, onNewCompromisso }: NovoDropdownProps) {
+function NovoDropdown({ onNewClient, onNewTrabalho, onNewProposta, onNewDocumento, onNewReceita, onNewDespesa, onNewCompromisso, onNewTask }: NovoDropdownProps) {
   const items = [
     { label: 'Novo cliente', icon: UserPlus, onClick: onNewClient },
     { label: 'Novo trabalho', icon: Layers, onClick: onNewTrabalho },
+    { label: 'Nova tarefa', icon: ListPlus, onClick: onNewTask },
     { label: 'Nova proposta', icon: Handshake, onClick: onNewProposta },
     { label: 'Novo documento', icon: FileStack, onClick: onNewDocumento },
     { label: 'Nova receita', icon: ArrowUpCircle, onClick: onNewReceita },

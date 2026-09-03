@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Compass, Users, Layers, FileStack, Handshake, Landmark, BarChart3, Settings as SettingsIcon,
-  ChevronLeft, ChevronRight, Command, LogOut, Scale, ListTodo,
+  ChevronLeft, ChevronRight, Command, LogOut, Scale, ListTodo, ScrollText,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
@@ -31,6 +31,7 @@ const items = [
   { to: '/caixa', label: 'Fluxo de Caixa', icon: Landmark, badgeKey: 'caixaAtrasado' },
   { to: '/relatorios', label: 'Relatórios', icon: BarChart3 },
   { to: '/avaliacoes', label: 'Avaliações', icon: Scale },
+  { to: '/cartorio', label: 'Cartório & Registros', icon: ScrollText, badgeKey: 'cartorioAtencao' },
 ];
 
 export function AppSidebar({ onOpenCommand, badges = {} }: Props) {

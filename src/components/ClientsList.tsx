@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { UserPlus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { getClients, getProcesses, getTransactions } from '@/lib/storage';
 import { computeClientFinancials } from '@/lib/financials';
 import { cn } from '@/lib/utils';
+import { useShell } from '@/hooks/use-shell';
 
 interface Props {
   refreshSignal?: number;
@@ -25,6 +27,7 @@ export function ClientsList({ refreshSignal = 0 }: Props = {}) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<ClientFilter>('Todos');
   const navigate = useNavigate();
+  const shell = useShell();
 
   const rows = useMemo(() => {
     void refreshSignal;
@@ -84,6 +87,12 @@ export function ClientsList({ refreshSignal = 0 }: Props = {}) {
             {f}
           </button>
         ))}
+        <button
+          onClick={() => shell.openNovoCliente()}
+          className="h-9 px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] font-medium hover:bg-primary-hover transition-colors flex items-center gap-1.5 whitespace-nowrap"
+        >
+          <UserPlus className="w-3.5 h-3.5" /> Novo cliente
+        </button>
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">

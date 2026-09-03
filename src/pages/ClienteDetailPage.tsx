@@ -2,7 +2,10 @@ import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useShell } from '@/hooks/use-shell';
 import { ArrowLeft, Plus, ExternalLink, ArrowRight, Trash2, MessageCircle } from 'lucide-react';
-import { getClients, getProcesses, getDocuments, getPropostas, getContratos, getHistorico, deleteClient, getCompanyConfig } from '@/lib/storage';
+import {
+  getClients, getProcesses, getDocuments, getPropostas, getContratos, getHistorico, deleteClient, getCompanyConfig,
+  getTasks, addTask, updateTask, deleteTask, addTransaction, registrarEvento,
+} from '@/lib/storage';
 import { computeClientFinancials, computeTrabalhoFinancials } from '@/lib/financials';
 import { formatBRL } from '@/lib/comercial/precificacao';
 import { montarMensagemBoasVindas, linkWhatsApp } from '@/lib/mensagens';
@@ -11,6 +14,7 @@ import { PropostaDetailDialog } from '@/components/comercial/PropostaDetailDialo
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -50,8 +54,16 @@ export default function ClienteDetailPage() {
   const [propostaAberta, setPropostaAberta] = useState<string | null>(null);
   const [boasVindasOpen, setBoasVindasOpen] = useState(false);
   const [mensagemBoasVindas, setMensagemBoasVindas] = useState('');
+  const [novaTarefa, setNovaTarefa] = useState('');
+  const [novaTarefaPrazo, setNovaTarefaPrazo] = useState('');
+  const [novoLancamentoAberto, setNovoLancamentoAberto] = useState(false);
+  const [novoTipo, setNovoTipo] = useState<'Receita' | 'Despesa'>('Receita');
+  const [novaDescricao, setNovaDescricao] = useState('');
+  const [novoValor, setNovoValor] = useState('');
+  const [novaData, setNovaData] = useState(() => new Date().toISOString().slice(0, 10));
+  const [novoJaAconteceu, setNovoJaAconteceu] = useState(false);
 
-  const { client, processes, financials, txs, documents, propostas, contratos, eventos, trabalhoPendente } = useMemo(() => {
+  const { client, processes, financials, txs, documents, propostas, contratos, eventos, trabalhoPendente, tasks } = useMemo(() => {
     void shell.refreshKey;
     void localKey;
     const clients = getClients();
@@ -65,6 +77,7 @@ export default function ClienteDetailPage() {
     const propostas = clienteId ? getPropostas().filter(p => p.clienteId === clienteId) : [];
     const contratos = clienteId ? getContratos().filter(c => c.clienteId === clienteId) : [];
     const eventos = clienteId ? getHistorico({ clienteId }) : [];
+    const tasks = clienteId ? getTasks().filter(t => t.clienteId === clienteId).sort((a, b) => (a.prazo || '9999').localeCompare(b.prazo || '9999')) : [];
 
     // Trabalho com a pendência mais urgente deste cliente — pra ir direto lá da caixa de
     // Financeiro em vez de precisar achar na lista de Trabalhos (é lá que se edita o valor).
@@ -73,7 +86,7 @@ export default function ClienteDetailPage() {
       .filter(x => x.fin.atrasado > 0 || x.fin.aReceber > 0)
       .sort((a, b) => (b.fin.atrasado - a.fin.atrasado) || (b.fin.aReceber - a.fin.aReceber))[0] || null;
 
-    return { client, processes, financials, txs, documents, propostas, contratos, eventos, trabalhoPendente };
+    return { client, processes, financials, txs, documents, propostas, contratos, eventos, trabalhoPendente, tasks };
   }, [clienteId, shell.allTransactions, shell.refreshKey, localKey]);
 
   if (!client) {
@@ -112,6 +125,60 @@ export default function ClienteDetailPage() {
     deleteClient(client!.id);
     toast.success('Cliente excluído.');
     navigate('/clientes');
+  }
+
+  // Ações rápidas em contexto — mesmo padrão comprovado em TrabalhoDetailPage.tsx:
+  // lançamento e tarefa direto na página do cliente, sem precisar abrir um trabalho
+  // específico ou passar por /tarefas.
+  function adicionarTarefa() {
+    if (!novaTarefa.trim() || !client) return;
+    addTask({
+      id: crypto.randomUUID(), titulo: novaTarefa.trim(), status: 'Pendente', prioridade: 'Média', prazo: novaTarefaPrazo || undefined,
+      clienteId: client.id, createdAt: Date.now(), updatedAt: Date.now(),
+    });
+    setNovaTarefa('');
+    setNovaTarefaPrazo('');
+    setLocalKey(k => k + 1);
+  }
+
+  function toggleTarefa(id: string, done: boolean) {
+    const t = tasks.find(x => x.id === id);
+    if (!t) return;
+    updateTask({ ...t, status: done ? 'Concluída' : 'Pendente', completedAt: done ? Date.now() : undefined });
+    setLocalKey(k => k + 1);
+  }
+
+  function removerTarefa(id: string) {
+    deleteTask(id);
+    setLocalKey(k => k + 1);
+  }
+
+  function adicionarLancamentoRapido() {
+    if (!client) return;
+    if (!novaDescricao.trim()) { toast.error('Descreva o lançamento.'); return; }
+    const valor = parseFloat(novoValor.replace(',', '.')) || 0;
+    if (valor <= 0) { toast.error('Informe um valor.'); return; }
+    const isIncome = novoTipo === 'Receita';
+    addTransaction({
+      id: crypto.randomUUID(),
+      data: novaData,
+      tipo: isIncome ? 'A Receber' : 'A Pagar',
+      categoria: isIncome ? '📐 Elaboração de Projeto' : '⚙️ Custos operacionais',
+      descricao: novaDescricao.trim(),
+      valor,
+      status: novoJaAconteceu ? 'Concluído' : 'Pendente',
+      isRepasse: false,
+      clienteId: client.id,
+    });
+    registrarEvento({
+      modulo: 'Financeiro',
+      texto: `${isIncome ? 'Receita' : 'Despesa'} ${novoJaAconteceu ? 'registrada' : 'prevista'} — ${novaDescricao.trim()} — ${fmt(valor)}`,
+      clienteId: client.id,
+    });
+    toast.success('Lançamento adicionado.');
+    setNovaDescricao(''); setNovoValor(''); setNovaData(new Date().toISOString().slice(0, 10)); setNovoJaAconteceu(false);
+    setNovoLancamentoAberto(false);
+    shell.refresh();
   }
 
   // Eventos são a fonte principal (proposta/contrato/trabalho/pagamento já vêm daqui).
@@ -216,6 +283,36 @@ export default function ClienteDetailPage() {
               <button onClick={() => navigate('/caixa/receitas')} className="underline font-medium">Fluxo de Caixa</button> (busque pelo nome do cliente).
             </div>
           )}
+
+          <div className="mt-3 pt-3 border-t border-3">
+            {!novoLancamentoAberto ? (
+              <button onClick={() => setNovoLancamentoAberto(true)} className="text-[11.5px] font-medium text-accent flex items-center gap-1">
+                <Plus className="w-3.5 h-3.5" /> Lançamento avulso pra este cliente
+              </button>
+            ) : (
+              <div className="bg-surface-2 border border-3 rounded-lg p-3 space-y-2.5">
+                <div className="flex bg-card border-2 rounded-lg overflow-hidden w-fit">
+                  <button onClick={() => setNovoTipo('Receita')} className={cn('px-3 py-1.5 text-[11.5px] font-medium', novoTipo === 'Receita' ? 'bg-success text-white' : 'text-muted-foreground')}>Receita</button>
+                  <button onClick={() => setNovoTipo('Despesa')} className={cn('px-3 py-1.5 text-[11.5px] font-medium', novoTipo === 'Despesa' ? 'bg-warning text-white' : 'text-muted-foreground')}>Despesa</button>
+                </div>
+                <div className="grid gap-2" style={{ gridTemplateColumns: '2fr 1fr 1fr' }}>
+                  <Input value={novaDescricao} onChange={e => setNovaDescricao(e.target.value)} placeholder="Descrição" className="h-8 text-xs" autoFocus />
+                  <Input type="number" value={novoValor} onChange={e => setNovoValor(e.target.value)} placeholder="Valor" className="h-8 text-xs" />
+                  <Input type="date" value={novaData} onChange={e => setNovaData(e.target.value)} className="h-8 text-xs" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-1.5 text-[11.5px] text-mute-2 cursor-pointer">
+                    <input type="checkbox" checked={novoJaAconteceu} onChange={e => setNovoJaAconteceu(e.target.checked)} className="w-3.5 h-3.5 accent-primary" />
+                    {novoTipo === 'Receita' ? 'Já recebi' : 'Já paguei'}
+                  </label>
+                  <div className="flex gap-2">
+                    <button onClick={() => setNovoLancamentoAberto(false)} className="h-7 px-2.5 rounded-lg text-[11.5px] text-muted-foreground">Cancelar</button>
+                    <button onClick={adicionarLancamentoRapido} className="h-7 px-3 bg-primary text-primary-foreground rounded-lg text-[11.5px] font-medium">Adicionar</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </section>
 
         {/* Trabalhos */}
@@ -234,6 +331,29 @@ export default function ClienteDetailPage() {
               </div>
             ))
           )}
+        </section>
+
+        {/* Tarefas */}
+        <section className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="px-[18px] pt-[15px] pb-[13px] text-[13.5px] font-semibold">Tarefas</div>
+          {tasks.length === 0 && <div className="px-[18px] pb-4 text-xs text-muted-foreground">Nenhuma tarefa ainda.</div>}
+          {tasks.map(t => (
+            <div key={t.id} className="group flex items-center gap-[11px] px-[18px] py-[10px] border-t border-3 hover:bg-surface-3 transition-colors">
+              <label className="flex items-center gap-[11px] flex-1 min-w-0 cursor-pointer">
+                <input type="checkbox" checked={t.status === 'Concluída'} onChange={e => toggleTarefa(t.id, e.target.checked)} className="w-4 h-4 accent-primary flex-none" />
+                <span className={cn('text-[12.5px] flex-1 min-w-0 truncate', t.status === 'Concluída' && 'line-through text-muted-foreground')}>{t.titulo}</span>
+              </label>
+              {t.prazo && <span className={cn('text-[11px] font-mono-hbs text-mute-2 flex-none', t.prazo < new Date().toISOString().slice(0, 10) && t.status !== 'Concluída' && 'text-destructive')}>{new Date(t.prazo + 'T12:00:00').toLocaleDateString('pt-BR')}</span>}
+              <button onClick={() => removerTarefa(t.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-mute-3 hover:text-destructive flex-none">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+          <div className="flex gap-2 px-[18px] py-3 border-t border-3">
+            <Input value={novaTarefa} onChange={e => setNovaTarefa(e.target.value)} onKeyDown={e => e.key === 'Enter' && adicionarTarefa()} placeholder="Nova tarefa…" className="h-8 text-xs flex-1" />
+            <Input type="date" value={novaTarefaPrazo} onChange={e => setNovaTarefaPrazo(e.target.value)} className="h-8 text-xs w-[130px] font-mono-hbs" />
+            <button onClick={adicionarTarefa} className="h-8 w-8 flex-none grid place-items-center rounded-lg border-2 hover:border-hover transition-colors"><Plus className="w-3.5 h-3.5" /></button>
+          </div>
         </section>
 
         {/* Comercial */}

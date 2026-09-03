@@ -4,11 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Client, ClientTipo } from '@/lib/types';
+import { Client, ClientTipo, EstadoCivil, RegimeBens } from '@/lib/types';
 import { addClient, updateClient } from '@/lib/storage';
 import { toast } from 'sonner';
 
 const TIPOS: ClientTipo[] = ['Pessoa física', 'Pessoa jurídica', 'Condomínio'];
+const ESTADOS_CIVIS: EstadoCivil[] = ['Solteiro(a)', 'Casado(a)', 'Divorciado(a)', 'Viúvo(a)', 'União Estável'];
+const REGIMES_BENS: RegimeBens[] = ['Comunhão Parcial de Bens', 'Comunhão Universal de Bens', 'Separação Total de Bens', 'Participação Final nos Aquestos'];
 
 interface Props {
   open: boolean;
@@ -29,6 +31,19 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
   const [cidade, setCidade] = useState('');
   const [estado, setEstado] = useState('');
   const [descricao, setDescricao] = useState('');
+  const [qualOpen, setQualOpen] = useState(false);
+  const [nacionalidade, setNacionalidade] = useState('');
+  const [estadoCivil, setEstadoCivil] = useState<EstadoCivil | ''>('');
+  const [regimeBens, setRegimeBens] = useState<RegimeBens | ''>('');
+  const [profissao, setProfissao] = useState('');
+  const [rg, setRg] = useState('');
+  const [filiacao, setFiliacao] = useState('');
+  const [conjugeNome, setConjugeNome] = useState('');
+  const [conjugeCpf, setConjugeCpf] = useState('');
+  const [conjugeProfissao, setConjugeProfissao] = useState('');
+  const [conjugeAssina, setConjugeAssina] = useState(false);
+
+  const precisaConjuge = estadoCivil === 'Casado(a)' || estadoCivil === 'União Estável';
 
   useEffect(() => {
     if (editItem) {
@@ -43,8 +58,22 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
       setCidade(editItem.endereco?.cidade || '');
       setEstado(editItem.endereco?.estado || '');
       setDescricao(editItem.descricao || '');
+      const q = editItem.qualificacao;
+      setNacionalidade(q?.nacionalidade || '');
+      setEstadoCivil(q?.estadoCivil || '');
+      setRegimeBens(q?.regimeBens || '');
+      setProfissao(q?.profissao || '');
+      setRg(q?.rg || '');
+      setFiliacao(q?.filiacao || '');
+      setConjugeNome(q?.conjuge?.nome || '');
+      setConjugeCpf(q?.conjuge?.cpf || '');
+      setConjugeProfissao(q?.conjuge?.profissao || '');
+      setConjugeAssina(q?.conjuge?.assina || false);
+      setQualOpen(!!q);
     } else {
       setNome(''); setTipo('Pessoa física'); setDocumento(''); setDdd(''); setNumero(''); setRua(''); setNumEnd(''); setBairro(''); setCidade(''); setEstado(''); setDescricao('');
+      setNacionalidade(''); setEstadoCivil(''); setRegimeBens(''); setProfissao(''); setRg(''); setFiliacao('');
+      setConjugeNome(''); setConjugeCpf(''); setConjugeProfissao(''); setConjugeAssina(false); setQualOpen(false);
     }
   }, [editItem, open]);
 
@@ -56,6 +85,8 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
 
     const clearNumber = (str: string) => str.replace(/\D/g, '');
 
+    const temQualificacao = nacionalidade || estadoCivil || regimeBens || profissao || rg || filiacao || conjugeNome;
+
     const clientData: Client = {
       id: editItem ? editItem.id : crypto.randomUUID(),
       nome,
@@ -64,6 +95,20 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
       telefone: (ddd || numero) ? { ddd: clearNumber(ddd), numero: clearNumber(numero) } : null,
       endereco: (rua || numEnd || bairro || cidade || estado) ? { rua, numero: numEnd, bairro, cidade, estado } : null,
       descricao: descricao || null,
+      qualificacao: temQualificacao ? {
+        nacionalidade: nacionalidade || undefined,
+        estadoCivil: estadoCivil || undefined,
+        regimeBens: precisaConjuge ? (regimeBens || undefined) : undefined,
+        profissao: profissao || undefined,
+        rg: rg || undefined,
+        filiacao: filiacao || undefined,
+        conjuge: precisaConjuge && conjugeNome ? {
+          nome: conjugeNome,
+          cpf: conjugeCpf || undefined,
+          profissao: conjugeProfissao || undefined,
+          assina: conjugeAssina,
+        } : null,
+      } : undefined,
       createdAt: editItem ? editItem.createdAt : Date.now()
     };
 
@@ -132,6 +177,53 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
                 <Input value={cidade} onChange={e => setCidade(e.target.value)} placeholder="Cidade" className="text-xs h-8" />
                 <Input value={estado} onChange={e => setEstado(e.target.value)} placeholder="UF" maxLength={2} className="text-xs h-8 uppercase" />
              </div>
+           </div>
+
+           <div className="border border-border/50 rounded-lg bg-muted/20 overflow-hidden">
+             <button
+               type="button"
+               onClick={() => setQualOpen(o => !o)}
+               className="w-full flex items-center justify-between p-3 text-left"
+             >
+               <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Qualificação jurídica (opcional)</span>
+               <span className="text-[10.5px] text-muted-foreground">{qualOpen ? '▲' : '▼'}</span>
+             </button>
+             {qualOpen && (
+               <div className="px-3 pb-3 space-y-2">
+                 <p className="text-[10.5px] text-muted-foreground -mt-1">Preenchido aqui, já entra pronto na hora de gerar documentos técnicos — sem precisar redigitar por trabalho.</p>
+                 <div className="grid grid-cols-2 gap-2">
+                   <Input value={nacionalidade} onChange={e => setNacionalidade(e.target.value)} placeholder="Nacionalidade" className="text-xs h-8" />
+                   <Input value={profissao} onChange={e => setProfissao(e.target.value)} placeholder="Profissão" className="text-xs h-8" />
+                 </div>
+                 <div className="grid grid-cols-2 gap-2">
+                   <Select value={estadoCivil} onValueChange={v => setEstadoCivil(v as EstadoCivil)}>
+                     <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Estado civil" /></SelectTrigger>
+                     <SelectContent>{ESTADOS_CIVIS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
+                   </Select>
+                   <Input value={rg} onChange={e => setRg(e.target.value)} placeholder="RG" className="text-xs h-8" />
+                 </div>
+                 <Input value={filiacao} onChange={e => setFiliacao(e.target.value)} placeholder="Filiação (ex: filho de Fulano e Sicrana)" className="text-xs h-8" />
+
+                 {precisaConjuge && (
+                   <div className="space-y-2 border-t border-border/50 pt-2 mt-1">
+                     <Label className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">Cônjuge</Label>
+                     <Select value={regimeBens} onValueChange={v => setRegimeBens(v as RegimeBens)}>
+                       <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Regime de bens" /></SelectTrigger>
+                       <SelectContent>{REGIMES_BENS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                     </Select>
+                     <div className="grid grid-cols-2 gap-2">
+                       <Input value={conjugeNome} onChange={e => setConjugeNome(e.target.value)} placeholder="Nome do cônjuge" className="text-xs h-8" />
+                       <Input value={conjugeCpf} onChange={e => setConjugeCpf(e.target.value)} placeholder="CPF do cônjuge" className="text-xs h-8" />
+                     </div>
+                     <Input value={conjugeProfissao} onChange={e => setConjugeProfissao(e.target.value)} placeholder="Profissão do cônjuge" className="text-xs h-8" />
+                     <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
+                       <input type="checkbox" checked={conjugeAssina} onChange={e => setConjugeAssina(e.target.checked)} className="w-3.5 h-3.5 accent-primary" />
+                       Cônjuge também assina os documentos
+                     </label>
+                   </div>
+                 )}
+               </div>
+             )}
            </div>
 
            <div className="space-y-1.5">

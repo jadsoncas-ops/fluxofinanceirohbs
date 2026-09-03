@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Transaction, TransactionType, TransactionStatus, getCategorias } from '@/lib/types';
-import { updateTransaction, addTransaction, deleteTransaction, getClients } from '@/lib/storage';
+import { updateTransaction, addTransaction, deleteTransaction, getClients, getProcesses } from '@/lib/storage';
 import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
 
@@ -27,6 +27,8 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
   const [data, setData] = useState(new Date().toISOString().slice(0, 10));
   const [status, setStatus] = useState<TransactionStatus>('Concluído');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [clienteId, setClienteId] = useState('');
+  const [processId, setProcessId] = useState('');
 
   useEffect(() => {
     if (!open) return;
@@ -37,6 +39,8 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
       setValor(String(editItem.valor));
       setData(editItem.data);
       setStatus(editItem.status);
+      setClienteId(editItem.clienteId || '');
+      setProcessId(editItem.processId || '');
     } else {
       setTipo(editItem?.tipo || 'Saída');
       setCategoria('');
@@ -44,12 +48,15 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
       setValor('');
       setData(new Date().toISOString().slice(0, 10));
       setStatus('Concluído');
+      setClienteId('');
+      setProcessId('');
     }
   }, [editItem, open]);
 
   const categorias = getCategorias(tipo);
   const numValor = parseFloat(valor) || 0;
-  const clienteVinculado = editItem?.clienteId ? getClients().find(c => c.id === editItem.clienteId) : null;
+  const clientes = getClients();
+  const trabalhosDoCliente = clienteId ? getProcesses().filter(p => p.clienteId === clienteId && !p.isArchived) : [];
 
   function statusParaTipo(t: TransactionType, s: TransactionStatus): TransactionType {
     const isPago = s === 'Concluído';
@@ -70,7 +77,7 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
     const tipoFinal = statusParaTipo(tipo, status);
 
     if (editItem?.id) {
-      updateTransaction({ ...editItem, tipo: tipoFinal, categoria, descricao, valor: numValor, data, status, updatedAt: Date.now() });
+      updateTransaction({ ...editItem, tipo: tipoFinal, categoria, descricao, valor: numValor, data, status, clienteId: clienteId || undefined, processId: processId || undefined, updatedAt: Date.now() });
       toast.success('Lançamento atualizado.');
     } else {
       addTransaction({
@@ -82,6 +89,8 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
         valor: numValor,
         status,
         isRepasse: false,
+        clienteId: clienteId || undefined,
+        processId: processId || undefined,
       });
       toast.success('Lançamento registrado.');
     }
@@ -115,10 +124,31 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <p className="text-xs text-muted-foreground -mt-2">
-              {clienteVinculado
-                ? `Lançamento avulso de ${clienteVinculado.nome}, sem trabalho vinculado.`
-                : 'Despesa geral do escritório — sem cliente nem trabalho. Receita de cliente ou repasse a parceiro são lançados no Trabalho.'}
+              Pra despesa geral do escritório, deixe sem cliente. Se já for de alguém, vincule aqui e evita organizar depois.
             </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Cliente (opcional)</Label>
+                <Select value={clienteId || '__none__'} onValueChange={v => { setClienteId(v === '__none__' ? '' : v); setProcessId(''); }}>
+                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Trabalho (opcional)</Label>
+                <Select value={processId || '__none__'} onValueChange={v => setProcessId(v === '__none__' ? '' : v)} disabled={!clienteId || trabalhosDoCliente.length === 0}>
+                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {trabalhosDoCliente.map(p => <SelectItem key={p.id} value={p.id}>{p.objeto || 'Trabalho'}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">

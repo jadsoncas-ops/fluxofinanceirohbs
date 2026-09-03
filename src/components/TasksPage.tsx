@@ -1,20 +1,24 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Task, TaskStatus, TaskPriority, Client, Process } from '@/lib/types';
 import { getTasks, addTask, updateTask, deleteTask, getClients, getProcesses } from '@/lib/storage';
 import { toast } from 'sonner';
-import { Plus, CheckCircle2, Clock, AlertTriangle, Trash2, Pencil, CalendarDays, Briefcase, ListTodo, Flame, Search, Circle, PlayCircle } from 'lucide-react';
+import { Plus, CheckCircle2, Clock3, AlertTriangle, Trash2, Pencil, CalendarDays, Briefcase, Circle, PlayCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 type FilterTab = 'todas' | 'hoje' | 'atrasadas' | 'semana' | 'concluidas';
+
+const FILTROS: { key: FilterTab; label: string }[] = [
+  { key: 'todas', label: 'Abertas' },
+  { key: 'hoje', label: 'Hoje' },
+  { key: 'atrasadas', label: 'Atrasadas' },
+  { key: 'semana', label: 'Semana' },
+  { key: 'concluidas', label: 'Concluídas' },
+];
 
 interface Props {
   initialTask?: Partial<Task> | null;
@@ -26,7 +30,7 @@ export function TasksPage({ initialTask, onConsumed }: Props) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [filter, setFilter] = useState<FilterTab>('todas');
   const [search, setSearch] = useState('');
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
 
@@ -72,7 +76,7 @@ export function TasksPage({ initialTask, onConsumed }: Props) {
 
   const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
 
-  // Open drawer with initialTask seed (e.g. from command palette)
+  // Abre o formulário com initialTask como semente (ex.: vindo do Command Palette ou do "+Novo")
   useEffect(() => {
     if (initialTask) {
       openCreate(initialTask);
@@ -92,7 +96,7 @@ export function TasksPage({ initialTask, onConsumed }: Props) {
       processId: seed?.processId || 'none',
       clienteId: seed?.clienteId || 'none',
     });
-    setDrawerOpen(true);
+    setFormOpen(true);
   }
 
   function openEdit(t: Task) {
@@ -106,7 +110,7 @@ export function TasksPage({ initialTask, onConsumed }: Props) {
       processId: t.processId || 'none',
       clienteId: t.clienteId || 'none',
     });
-    setDrawerOpen(true);
+    setFormOpen(true);
   }
 
   function handleSave() {
@@ -134,7 +138,7 @@ export function TasksPage({ initialTask, onConsumed }: Props) {
       addTask(payload);
       toast.success('Tarefa criada.');
     }
-    setDrawerOpen(false);
+    setFormOpen(false);
     refresh();
   }
 
@@ -207,169 +211,144 @@ export function TasksPage({ initialTask, onConsumed }: Props) {
     return clientes.find(c => c.id === id)?.nome || null;
   }
 
-  function priorityColor(p: TaskPriority) {
-    if (p === 'Alta') return 'bg-rose-500/10 text-rose-600 border-rose-500/20';
-    if (p === 'Média') return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
-    return 'bg-muted text-muted-foreground border-border';
-  }
-
   function statusIcon(s: TaskStatus) {
     if (s === 'Concluída') return <CheckCircle2 className="w-4 h-4 text-success" />;
-    if (s === 'Em Andamento') return <PlayCircle className="w-4 h-4 text-primary" />;
+    if (s === 'Em Andamento') return <PlayCircle className="w-4 h-4 text-accent" />;
     return <Circle className="w-4 h-4 text-muted-foreground" />;
   }
 
   return (
-    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300 pb-10">
+    <div className="flex flex-col gap-[18px] pb-10 animate-hbs-in">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-lg font-black uppercase tracking-widest flex items-center gap-2">
-            <ListTodo className="w-5 h-5 text-primary" /> Tarefas & Agenda
-          </h2>
-          <p className="text-xs text-muted-foreground mt-0.5 font-medium">Prazos, follow-ups e checklists vinculados aos processos</p>
+          <h1 className="text-[19px] font-semibold -tracking-[.02em] leading-tight">Tarefas & Agenda</h1>
+          <p className="text-[11px] text-mute-2 font-mono-hbs mt-0.5">Prazos, follow-ups e checklists vinculados aos trabalhos</p>
         </div>
-        <Button size="sm" onClick={() => openCreate()} className="gap-1.5 font-bold rounded-lg">
-          <Plus className="w-4 h-4" /> Nova Tarefa
-        </Button>
+        <button onClick={() => openCreate()} className="h-[34px] px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] hover:bg-primary-hover transition-colors flex items-center gap-1.5">
+          <Plus className="w-3.5 h-3.5" /> Nova tarefa
+        </button>
       </div>
 
-      {/* Stats compactos */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      {/* Stats — também funcionam como filtro, mesmo padrão da KPI strip do Início */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border border border-border rounded-xl overflow-hidden">
         {[
-          { key: 'hoje', label: 'Hoje', value: counts.hoje, icon: CalendarDays, accent: 'text-primary' },
-          { key: 'atrasadas', label: 'Atrasadas', value: counts.atrasadas, icon: Flame, accent: 'text-rose-600' },
-          { key: 'semana', label: 'Semana', value: counts.semana, icon: Clock, accent: 'text-amber-600' },
-          { key: 'todas', label: 'Abertas', value: counts.todas, icon: ListTodo, accent: 'text-foreground' },
+          { key: 'hoje' as const, label: 'Hoje', value: counts.hoje, hintColor: undefined },
+          { key: 'atrasadas' as const, label: 'Atrasadas', value: counts.atrasadas, hintColor: counts.atrasadas > 0 ? 'text-destructive' : undefined },
+          { key: 'semana' as const, label: 'Semana', value: counts.semana, hintColor: counts.semana > 0 ? 'text-warning' : undefined },
+          { key: 'todas' as const, label: 'Abertas', value: counts.todas, hintColor: undefined },
         ].map(s => (
           <button
             key={s.key}
-            onClick={() => setFilter(s.key as FilterTab)}
-            className={`text-left p-3 rounded-xl border bg-card hover:border-primary/40 transition-all ${filter === s.key ? 'border-primary ring-1 ring-primary/20' : 'border-border/60'}`}
+            onClick={() => setFilter(s.key)}
+            className={cn('bg-card px-3 pt-2.5 pb-2.5 text-left hover:bg-surface-3 transition-colors', filter === s.key && 'bg-surface-3')}
           >
-            <div className="flex items-center gap-2 mb-1">
-              <s.icon className={`w-3.5 h-3.5 ${s.accent}`} />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{s.label}</span>
-            </div>
-            <p className={`text-2xl font-black tabular-nums ${s.accent}`}>{s.value}</p>
+            <div className="text-[9.5px] tracking-[.06em] uppercase text-mute-2 font-medium">{s.label}</div>
+            <div className={cn('font-mono-hbs text-[20px] font-medium -tracking-[.03em] mt-1', s.hintColor)}>{s.value}</div>
           </button>
         ))}
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
-        <Tabs value={filter} onValueChange={v => setFilter(v as FilterTab)} className="flex-1 min-w-0">
-          <TabsList className="h-8">
-            <TabsTrigger value="todas" className="text-xs">Abertas</TabsTrigger>
-            <TabsTrigger value="hoje" className="text-xs">Hoje</TabsTrigger>
-            <TabsTrigger value="atrasadas" className="text-xs">Atrasadas</TabsTrigger>
-            <TabsTrigger value="semana" className="text-xs">Semana</TabsTrigger>
-            <TabsTrigger value="concluidas" className="text-xs">Concluídas</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." className="h-8 pl-8 w-44 text-xs" />
+        <div className="flex gap-1 flex-1 min-w-0 flex-wrap">
+          {FILTROS.map(f => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={cn('px-2.5 h-7 rounded-full text-[11px] font-medium border', filter === f.key ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-mute-2 hover:border-hover')}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
+        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar…" className="h-8 text-xs w-44" />
       </div>
 
       {filtered.length === 0 ? (
-        <Card className="border-dashed border-border/60 bg-muted/20">
-          <CardContent className="p-10 text-center text-muted-foreground flex flex-col items-center gap-3">
-            <div className="bg-primary/5 p-4 rounded-full">
-              <ListTodo className="w-10 h-10 text-primary/40" />
-            </div>
-            <p className="text-sm font-bold uppercase tracking-wide">Nenhuma tarefa</p>
-            <p className="text-xs opacity-80 max-w-xs leading-relaxed">Crie a primeira tarefa para acompanhar prazos, follow-ups e pendências dos seus processos.</p>
-            <Button variant="outline" size="sm" onClick={() => openCreate()} className="gap-1.5 mt-2"><Plus className="w-3.5 h-3.5" /> Nova Tarefa</Button>
-          </CardContent>
-        </Card>
+        <div className="bg-card border border-dashed border-border rounded-xl px-[18px] py-8 text-center">
+          <p className="text-sm font-medium">Nenhuma tarefa</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto leading-relaxed">Crie a primeira tarefa para acompanhar prazos, follow-ups e pendências dos seus trabalhos.</p>
+          <button onClick={() => openCreate()} className="mt-3 h-8 px-3 rounded-lg border-2 text-[11.5px] font-medium hover:border-hover transition-colors inline-flex items-center gap-1.5">
+            <Plus className="w-3.5 h-3.5" /> Nova tarefa
+          </button>
+        </div>
       ) : (
-        <div className="space-y-2">
-          {filtered.map(t => {
-            const isLate = t.status !== 'Concluída' && t.prazo && t.prazo < today;
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          {filtered.map((t, i) => {
+            const isLate = t.status !== 'Concluída' && !!t.prazo && t.prazo < today;
             const isToday = t.prazo === today && t.status !== 'Concluída';
             const procName = getProcessName(t.processId);
             const cliName = procName ? null : getClientName(t.clienteId);
             return (
-              <Card key={t.id} className={`group border transition-all hover:shadow-md ${isLate ? 'border-rose-500/40 bg-rose-500/5' : 'border-border/60'}`}>
-                <CardContent className="p-3 flex items-start gap-3">
-                  <button onClick={() => toggleComplete(t)} className="mt-0.5 shrink-0 hover:scale-110 transition-transform" aria-label="Alternar conclusão">
-                    {statusIcon(t.status)}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className={`text-sm font-bold leading-tight break-words ${t.status === 'Concluída' ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{t.titulo}</p>
-                        {t.descricao && <p className="text-[11px] text-muted-foreground mt-1 leading-snug line-clamp-2 break-words">{t.descricao}</p>}
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => openEdit(t)}>
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/60 hover:text-destructive hover:bg-destructive/10" onClick={() => setDeleteTarget(t)}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                      <Badge variant="outline" className={`text-[10px] py-0 h-5 ${priorityColor(t.prioridade)}`}>
-                        {t.prioridade}
-                      </Badge>
-                      {t.prazo && (
-                        <Badge variant="outline" className={`text-[10px] py-0 h-5 gap-1 ${isLate ? 'bg-rose-500/10 text-rose-600 border-rose-500/30' : isToday ? 'bg-primary/10 text-primary border-primary/30' : 'bg-muted text-muted-foreground'}`}>
-                          {isLate ? <AlertTriangle className="w-2.5 h-2.5" /> : <CalendarDays className="w-2.5 h-2.5" />}
-                          {new Date(t.prazo + 'T12:00:00').toLocaleDateString('pt-BR')}
-                          {isLate && ' • Atrasada'}
-                          {isToday && ' • Hoje'}
-                        </Badge>
-                      )}
-                      {procName && (
-                        <Badge variant="outline" className="text-[10px] py-0 h-5 gap-1 bg-primary/5 text-primary border-primary/20 max-w-[200px]">
-                          <Briefcase className="w-2.5 h-2.5 shrink-0" />
-                          <span className="truncate">{procName}</span>
-                        </Badge>
-                      )}
-                      {cliName && (
-                        <Badge variant="outline" className="text-[10px] py-0 h-5 bg-muted text-muted-foreground">
-                          {cliName}
-                        </Badge>
-                      )}
-                      <Badge variant="outline" className="text-[10px] py-0 h-5 bg-muted/50 text-muted-foreground">
-                        {t.status}
-                      </Badge>
-                    </div>
+              <div key={t.id} className={cn('group flex items-start gap-[11px] px-[18px] py-[11px] hover:bg-surface-3 transition-colors', i > 0 && 'border-t border-3', isLate && 'bg-destructive-soft')}>
+                <button onClick={() => toggleComplete(t)} className="mt-0.5 shrink-0 hover:scale-110 transition-transform" aria-label="Alternar conclusão">
+                  {statusIcon(t.status)}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className={cn('text-[13px] font-medium leading-tight break-words', t.status === 'Concluída' && 'line-through text-muted-foreground')}>{t.titulo}</p>
+                  {t.descricao && <p className="text-[11px] text-muted-foreground mt-1 leading-snug line-clamp-2 break-words">{t.descricao}</p>}
+                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                    <span className={cn(
+                      'text-[10px] px-1.5 py-[2px] rounded-[4px] font-medium',
+                      t.prioridade === 'Alta' ? 'bg-destructive-soft text-destructive' : t.prioridade === 'Média' ? 'bg-warning-soft text-warning' : 'bg-neutral-soft text-mute-2'
+                    )}>
+                      {t.prioridade}
+                    </span>
+                    {t.prazo && (
+                      <span className={cn(
+                        'text-[10px] px-1.5 py-[2px] rounded-[4px] font-medium flex items-center gap-1',
+                        isLate ? 'bg-destructive-soft text-destructive' : isToday ? 'bg-accent-soft text-accent' : 'bg-neutral-soft text-mute-2'
+                      )}>
+                        {isLate ? <AlertTriangle className="w-2.5 h-2.5" /> : <CalendarDays className="w-2.5 h-2.5" />}
+                        {new Date(t.prazo + 'T12:00:00').toLocaleDateString('pt-BR')}
+                        {isLate && ' · atrasada'}
+                        {isToday && ' · hoje'}
+                      </span>
+                    )}
+                    {procName && (
+                      <span className="text-[10px] px-1.5 py-[2px] rounded-[4px] font-medium bg-accent-soft text-accent flex items-center gap-1 max-w-[220px]">
+                        <Briefcase className="w-2.5 h-2.5 shrink-0" /> <span className="truncate">{procName}</span>
+                      </span>
+                    )}
+                    {cliName && <span className="text-[10px] px-1.5 py-[2px] rounded-[4px] font-medium bg-neutral-soft text-mute-2">{cliName}</span>}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+                <div className="flex-none flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => openEdit(t)} className="h-6 w-6 grid place-items-center rounded-md hover:bg-surface-3 text-mute-2" title="Editar">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => setDeleteTarget(t)} className="h-6 w-6 grid place-items-center rounded-md hover:bg-destructive-soft text-mute-2 hover:text-destructive" title="Excluir">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
             );
           })}
         </div>
       )}
 
-      {/* Drawer de criação/edição */}
-      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{editing ? 'Editar Tarefa' : 'Nova Tarefa'}</SheetTitle>
-            <SheetDescription>{editing ? 'Atualize os detalhes da tarefa.' : 'Defina título, prazo e vínculo a processo se necessário.'}</SheetDescription>
-          </SheetHeader>
-          <div className="space-y-4 mt-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Título *</Label>
-              <Input value={form.titulo} onChange={e => setForm({ ...form, titulo: e.target.value })} placeholder="Ex: Enviar ART para cliente" autoFocus />
+      <Dialog open={formOpen} onOpenChange={setFormOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editing ? 'Editar tarefa' : 'Nova tarefa'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2.5">
+            <div>
+              <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Título *</label>
+              <Input value={form.titulo} onChange={e => setForm({ ...form, titulo: e.target.value })} placeholder="Ex: Enviar ART para cliente" className="h-9 text-[12.5px] mt-1" autoFocus />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Descrição (opcional)</Label>
-              <Textarea value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} placeholder="Detalhes, links, contexto..." rows={3} />
+            <div>
+              <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Descrição (opcional)</label>
+              <Textarea value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} placeholder="Detalhes, links, contexto…" rows={3} className="text-[12.5px] mt-1" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Prazo</Label>
-                <Input type="date" value={form.prazo} onChange={e => setForm({ ...form, prazo: e.target.value })} />
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Prazo</label>
+                <Input type="date" value={form.prazo} onChange={e => setForm({ ...form, prazo: e.target.value })} className="h-9 text-[12.5px] mt-1 font-mono-hbs" />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Prioridade</Label>
+              <div>
+                <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Prioridade</label>
                 <Select value={form.prioridade} onValueChange={v => setForm({ ...form, prioridade: v as TaskPriority })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-9 text-[12.5px] mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Baixa">Baixa</SelectItem>
                     <SelectItem value="Média">Média</SelectItem>
@@ -378,10 +357,10 @@ export function TasksPage({ initialTask, onConsumed }: Props) {
                 </Select>
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Status</Label>
+            <div>
+              <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Status</label>
               <Select value={form.status} onValueChange={v => setForm({ ...form, status: v as TaskStatus })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9 text-[12.5px] mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Pendente">Pendente</SelectItem>
                   <SelectItem value="Em Andamento">Em Andamento</SelectItem>
@@ -389,13 +368,13 @@ export function TasksPage({ initialTask, onConsumed }: Props) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Vincular a Processo</Label>
+            <div>
+              <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Vincular a trabalho</label>
               <Select value={form.processId} onValueChange={v => {
                 const proc = processes.find(p => p.id === v);
                 setForm({ ...form, processId: v, clienteId: proc ? proc.clienteId : form.clienteId });
               }}>
-                <SelectTrigger><SelectValue placeholder="Sem vínculo" /></SelectTrigger>
+                <SelectTrigger className="h-9 text-[12.5px] mt-1"><SelectValue placeholder="Sem vínculo" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none"><span className="italic text-muted-foreground">Sem vínculo</span></SelectItem>
                   {processes.filter(p => !p.isArchived).map(p => {
@@ -405,23 +384,23 @@ export function TasksPage({ initialTask, onConsumed }: Props) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Vincular a Cliente (opcional)</Label>
+            <div>
+              <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Vincular a cliente (opcional)</label>
               <Select value={form.clienteId} onValueChange={v => setForm({ ...form, clienteId: v })}>
-                <SelectTrigger><SelectValue placeholder="Sem vínculo" /></SelectTrigger>
+                <SelectTrigger className="h-9 text-[12.5px] mt-1"><SelectValue placeholder="Sem vínculo" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none"><span className="italic text-muted-foreground">Sem vínculo</span></SelectItem>
                   {clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex gap-2 pt-2">
-              <Button variant="outline" onClick={() => setDrawerOpen(false)} className="flex-1">Cancelar</Button>
-              <Button onClick={handleSave} className="flex-1 font-bold">{editing ? 'Salvar' : 'Criar Tarefa'}</Button>
-            </div>
           </div>
-        </SheetContent>
-      </Sheet>
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={() => setFormOpen(false)} className="h-9 px-3.5 rounded-lg text-[12.5px] font-medium text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
+            <button onClick={handleSave} className="h-9 px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] font-medium hover:bg-primary-hover transition-colors">{editing ? 'Salvar' : 'Criar tarefa'}</button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={v => !v && setDeleteTarget(null)}>
         <AlertDialogContent>

@@ -473,7 +473,7 @@ export interface Contrato {
   updatedAt: number;
 }
 
-export type HistoricoModulo = 'Comercial' | 'Financeiro' | 'Trabalhos' | 'Produção Técnica' | 'Clientes';
+export type HistoricoModulo = 'Comercial' | 'Financeiro' | 'Trabalhos' | 'Produção Técnica' | 'Clientes' | 'Cartório';
 
 export interface HistoricoEvent {
   id: string;

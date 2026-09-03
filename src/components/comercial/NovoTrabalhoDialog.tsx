@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,18 @@ export function NovoTrabalhoDialog({ open, onClose, onCreated, contrato, propost
   const [endereco, setEndereco] = useState('');
   const [prazo, setPrazo] = useState(todayPlus(30));
   const [parcelas, setParcelas] = useState<ParcelaInput[]>([]);
+
+  // A proposta já vem com as parcelas que o cliente negociou (descrição + valor,
+  // sem data — isso só se define na hora de virar trabalho). Antes o usuário tinha
+  // que redigitar tudo aqui do zero; agora só ajusta as datas se precisar.
+  useEffect(() => {
+    if (!open) return;
+    if (proposta?.parcelasPagamento && proposta.parcelasPagamento.length > 0) {
+      setParcelas(proposta.parcelasPagamento.map((p, i) => ({ descricao: p.descricao, valor: p.valor, vencimento: todayPlus(30 * (i + 1)) })));
+    } else {
+      setParcelas([]);
+    }
+  }, [open, proposta]);
 
   if (!contrato || !proposta) return null;
 
