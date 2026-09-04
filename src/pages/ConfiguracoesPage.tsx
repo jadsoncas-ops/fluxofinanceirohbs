@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRef } from 'react';
-import { Moon, Download, Upload, Shield, Trash2, Building2, Smartphone, Calculator, Plus, CloudUpload } from 'lucide-react';
+import { Moon, Download, Upload, Shield, Trash2, Building2, Smartphone, Calculator, Plus, CloudUpload, PiggyBank } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
 import { getCompanyConfig, saveCompanyConfig, getPrecificacaoConfig, savePrecificacaoConfig, exportBackup, importBackup, clearAllTransactions } from '@/lib/storage';
 import { importarDadosLocaisParaSupabase } from '@/lib/localImport';
@@ -196,6 +196,19 @@ export default function ConfiguracoesPage() {
           <Field label="CREA/CAU"><Input value={config.responsavelCrea || ''} onChange={e => salvarConfig({ responsavelCrea: e.target.value })} placeholder="CREA-BA 000000" className="h-9 text-xs" /></Field>
           <Field label="Título profissional"><Input value={config.responsavelTitulo || ''} onChange={e => salvarConfig({ responsavelTitulo: e.target.value })} placeholder="Engenheiro Civil" className="h-9 text-xs" /></Field>
           <Field label="Validade padrão de proposta (dias)"><Input type="number" value={config.validadePropostaDias ?? ''} onChange={e => salvarConfig({ validadePropostaDias: parseInt(e.target.value) || undefined })} placeholder="15" className="h-9 text-xs" /></Field>
+        </div>
+      </section>
+
+      <section className="bg-card border border-border rounded-xl p-[17px_18px]">
+        <div className="flex items-center gap-2 mb-1">
+          <PiggyBank className="w-4 h-4 text-accent" />
+          <div className="text-[13.5px] font-semibold">Reserva & disponível pra você</div>
+        </div>
+        <p className="text-[11.5px] text-muted-foreground mb-3.5">De toda receita recebida (já sem repasse a parceiro), essa % fica reservada pra despesa de escritório — o resto é seu, pra usar como quiser. Some no card "Reserva & disponível" do Início.</p>
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+          <Field label="% que fica pra empresa">
+            <Input type="number" min="0" max="100" value={config.percentualReserva ?? 20} onChange={e => salvarConfig({ percentualReserva: Math.min(100, Math.max(0, parseInt(e.target.value) || 0)) })} placeholder="20" className="h-9 text-xs" />
+          </Field>
         </div>
       </section>
 

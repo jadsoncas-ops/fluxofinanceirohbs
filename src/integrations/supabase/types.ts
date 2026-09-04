@@ -261,6 +261,7 @@ export type Database = {
           valor: number
           status: string
           is_repasse: boolean
+          is_retirada: boolean
           parent_id: string | null
           partner_id: string | null
           cliente_id: string | null
@@ -280,6 +281,7 @@ export type Database = {
           valor: number
           status?: string
           is_repasse?: boolean
+          is_retirada?: boolean
           parent_id?: string | null
           partner_id?: string | null
           cliente_id?: string | null
@@ -299,6 +301,7 @@ export type Database = {
           valor?: number
           status?: string
           is_repasse?: boolean
+          is_retirada?: boolean
           parent_id?: string | null
           partner_id?: string | null
           cliente_id?: string | null
