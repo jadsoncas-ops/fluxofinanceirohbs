@@ -414,9 +414,13 @@ export default function TrabalhoDetailPage() {
         </div>
         <div className="bg-card px-[18px] py-[15px]">
           <div className="text-[11px] uppercase tracking-[.07em] text-mute-2">Prazo</div>
-          <div className={cn('font-mono-hbs text-[20px] mt-1.5', prazoInfo !== null && prazoInfo < 0 && 'text-destructive', prazoInfo !== null && prazoInfo >= 0 && prazoInfo <= 7 && 'text-warning')}>
-            {prazoInfo === null ? '—' : prazoInfo < 0 ? `${Math.abs(prazoInfo)}d atraso` : `${prazoInfo} dias`}
-          </div>
+          {etapaAtual === 'Concluído' ? (
+            <div className="font-mono-hbs text-[20px] mt-1.5 text-success">Entregue</div>
+          ) : (
+            <div className={cn('font-mono-hbs text-[20px] mt-1.5', prazoInfo !== null && prazoInfo < 0 && 'text-destructive', prazoInfo !== null && prazoInfo >= 0 && prazoInfo <= 7 && 'text-warning')}>
+              {prazoInfo === null ? '—' : prazoInfo < 0 ? `${Math.abs(prazoInfo)}d atraso` : `${prazoInfo} dias`}
+            </div>
+          )}
           <div className="text-[11.5px] text-muted-foreground mt-1">{trabalho.prazo ? `Entrega ${new Date(trabalho.prazo + 'T12:00:00').toLocaleDateString('pt-BR')}` : 'Sem prazo definido'}</div>
         </div>
         <div className="bg-card px-[18px] py-[15px]">

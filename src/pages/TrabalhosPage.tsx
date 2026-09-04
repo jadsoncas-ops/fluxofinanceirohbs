@@ -13,7 +13,8 @@ function fmt(v: number) {
   return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
-function prazoInfo(prazo?: string): { label: string; color: string } {
+function prazoInfo(prazo?: string, etapa?: TrabalhoEtapa): { label: string; color: string } {
+  if (etapa === 'Concluído') return { label: 'entregue', color: 'text-success' };
   if (!prazo) return { label: '—', color: 'text-mute-2' };
   const dias = Math.round((new Date(prazo + 'T12:00:00').getTime() - Date.now()) / 86400000);
   if (dias < 0) return { label: `vencido há ${Math.abs(dias)}d`, color: 'text-destructive' };
@@ -93,7 +94,7 @@ export default function TrabalhosPage() {
                 </div>
                 <div className="flex flex-col gap-2.5">
                   {items.map(t => {
-                    const pi = prazoInfo(t.prazo);
+                    const pi = prazoInfo(t.prazo, col);
                     const proximo = proximoPagamentoPorTrabalho.get(t.id);
                     return (
                       <div
@@ -143,8 +144,8 @@ export default function TrabalhosPage() {
             <div className="py-14 text-center text-sm text-muted-foreground">Nenhum trabalho cadastrado ainda.</div>
           ) : (
             trabalhos.map(t => {
-              const pi = prazoInfo(t.prazo);
               const etapa = t.etapa || 'Levantamento';
+              const pi = prazoInfo(t.prazo, etapa);
               return (
                 <div key={t.id} onClick={() => navigate(`/trabalhos/${t.id}`)} className="flex gap-3.5 items-center px-[18px] py-3 border-b border-3 last:border-b-0 cursor-pointer hover:bg-surface-3 transition-colors">
                   <div className="flex-[2.4] min-w-0">
