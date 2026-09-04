@@ -248,7 +248,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex flex-col gap-2.5 lg:h-full lg:min-h-0 lg:overflow-hidden animate-hbs-in">
+    <div className="flex flex-col gap-2.5 animate-hbs-in">
       <div className="flex items-center justify-between gap-3 flex-wrap flex-none">
         <div className="min-w-0">
           <h1 className="text-[19px] font-semibold -tracking-[.02em] leading-tight">{saudacao()}, Jádson.</h1>
@@ -323,11 +323,11 @@ export default function DashboardPage() {
         )}
       </div>
 
-      <div className="flex flex-col gap-2.5 lg:flex-1 lg:min-h-0">
-        <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-2.5 lg:flex-1 lg:min-h-0">
+      <div className="flex flex-col gap-2.5">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)] gap-2.5 items-start">
 
           {/* Fila de hoje — attention.ts inteiro, filtrável, com ação de cobrança em lote */}
-          <section className="bg-card border border-border rounded-xl overflow-hidden flex flex-col">
+          <section className="bg-card border border-border rounded-xl overflow-hidden flex flex-col lg:min-h-[420px]">
             <div className="px-3 py-2 border-b border-3 flex items-center gap-2 flex-wrap">
               <div className="text-[12.5px] font-semibold">Fila de hoje</div>
               <span className="text-[10.5px] font-mono-hbs text-mute-2">{filaVisivel.length} de {attention.length}</span>
@@ -355,7 +355,7 @@ export default function DashboardPage() {
             {filaVisivel.length === 0 ? (
               <div className="px-3 py-8 text-center text-[12px] text-muted-foreground">Nada nesta fila. Bom sinal.</div>
             ) : (
-              <div className="overflow-y-auto flex-1 min-h-0">
+              <div className="flex-1">
                 {filaVisivel.map(a => {
                   const historico = a.lembretesCobranca || [];
                   const ultimoLembrete = historico.length > 0 ? Math.max(...historico) : null;
@@ -427,7 +427,7 @@ export default function DashboardPage() {
             )}
           </section>
 
-          <div className="flex flex-col gap-2.5 min-h-0 overflow-y-auto">
+          <div className="flex flex-col gap-2.5">
             {/* Caixa real (6 meses fechados) + projeção (8 semanas à frente), num
                 card só. Ficam como dois blocos — não uma linha contínua — porque
                 fluxo mensal (receita−despesa) e saldo acumulado são grandezas
@@ -441,7 +441,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="text-[9.5px] uppercase tracking-[.06em] text-mute-3 mt-2">6 meses fechados</div>
-              <div className="flex items-end gap-2.5 h-[90px] mt-1.5">
+              <div className="flex items-end gap-2.5 h-[130px] mt-1.5">
                 {cashflow.map(m => (
                   <div key={m.mes} className="flex-1 flex flex-col items-center gap-1.5 h-full">
                     <div className="flex-1 w-full flex items-end justify-center gap-1">
@@ -454,7 +454,7 @@ export default function DashboardPage() {
               </div>
 
               <div className="text-[9.5px] uppercase tracking-[.06em] text-mute-3 mt-3 pt-3 border-t border-3">Saldo projetado · 8 semanas, só o que já está lançado</div>
-              <div className="flex items-end gap-1.5 h-[70px] mt-1.5">
+              <div className="flex items-end gap-1.5 h-[110px] mt-1.5">
                 {saldoProjetado.map(p => {
                   const negativo = p.saldo < 0;
                   const alturaPct = Math.max(4, (Math.abs(p.saldo) / maxSaldoProjetado) * 100);
@@ -490,7 +490,7 @@ export default function DashboardPage() {
             </section>
 
             {/* Trabalhos por etapa — pipeline inteiro, cada etapa diz o que fazer */}
-            <section className="bg-card border border-border rounded-xl overflow-hidden flex flex-col flex-1 min-h-[220px]">
+            <section className="bg-card border border-border rounded-xl overflow-hidden flex flex-col min-h-[220px]">
               <div className="px-3 py-2 border-b border-3 flex items-center justify-between gap-2">
                 <div className="text-[12.5px] font-semibold">Trabalhos por etapa</div>
                 <button onClick={() => navigate('/trabalhos')} className="text-[10.5px] font-medium text-accent flex items-center gap-0.5"><ChevronLeft className="w-2.5 h-2.5 rotate-180" />Todos</button>
@@ -517,7 +517,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="min-h-[420px] lg:flex-1 lg:min-h-0">
+        <div>
           <CalendarioAgenda compromissos={compromissos} tasks={tasks} transactions={transactions} clients={clients} onNovo={abrirNovoCompromisso} onEditar={abrirEditarCompromisso} />
         </div>
       </div>

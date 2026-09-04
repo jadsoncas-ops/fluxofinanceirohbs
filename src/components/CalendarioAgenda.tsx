@@ -133,7 +133,7 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
   const detalhe = diaDetalhe ? itensDoDia(diaDetalhe) : null;
 
   return (
-    <section className="bg-card border border-border rounded-xl overflow-hidden flex flex-col h-full">
+    <section className="bg-card border border-border rounded-xl overflow-hidden flex flex-col min-h-[520px]">
       <div className="px-[16px] py-[10px] border-b border-3 flex items-center justify-between gap-2 flex-wrap flex-none">
         <div className="flex items-center gap-2.5">
           <div className="flex items-center rounded-lg bg-surface-3 p-0.5">
