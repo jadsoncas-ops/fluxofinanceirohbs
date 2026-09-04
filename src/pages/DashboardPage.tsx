@@ -36,7 +36,7 @@ function saudacao() {
 // andamento" — só entra na frase o que existe de verdade; nunca lista "0 X".
 function montarResumoFrase(vencidos: number, exigHoje: number, trabalhos: number) {
   const partes: string[] = [];
-  if (vencidos > 0) partes.push(`${vencidos} item${vencidos > 1 ? 's' : ''} vencido${vencidos > 1 ? 's' : ''}`);
+  if (vencidos > 0) partes.push(`${vencidos} ${vencidos > 1 ? 'itens vencidos' : 'item vencido'}`);
   if (exigHoje > 0) partes.push(`${exigHoje} exigência${exigHoje > 1 ? 's' : ''} de cartório que vence${exigHoje > 1 ? 'm' : ''} hoje`);
   partes.push(`${trabalhos} trabalho${trabalhos !== 1 ? 's' : ''} em andamento`);
   if (partes.length === 1) return `Você tem ${partes[0]}.`;
