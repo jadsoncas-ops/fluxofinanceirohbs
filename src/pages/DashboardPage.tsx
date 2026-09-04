@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Layers, FileStack, Handshake, Landmark, MessageCircle, Check, ChevronLeft, Flame, PiggyBank, Wallet } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
 import { getAccounts, getProcesses, getClients, getTasks, getPropostas, getCompromissos, getCompanyConfig, updateClient, updateProcess, registrarEvento } from '@/lib/storage';
-import { computeAttentionItems, AttentionItem, AttentionTipo } from '@/lib/attention';
+import { computeAttentionItems, AttentionItem, AttentionTipo, toggleLembreteCobranca } from '@/lib/attention';
 import { computeReserva } from '@/lib/reserva';
 import { linkWhatsApp } from '@/lib/mensagens';
 import { TrabalhoEtapa, Compromisso } from '@/lib/types';
@@ -188,11 +188,7 @@ export default function DashboardPage() {
     if (!clienteId) return;
     const client = clients.find(c => c.id === clienteId);
     if (!client) return;
-    const hojeStr = new Date().toISOString().slice(0, 10);
-    const historico = client.lembretesCobranca || [];
-    const jaTemHoje = historico.some(ts => new Date(ts).toISOString().slice(0, 10) === hojeStr);
-    const novoHistorico = jaTemHoje ? historico.filter(ts => new Date(ts).toISOString().slice(0, 10) !== hojeStr) : [...historico, Date.now()];
-    updateClient({ ...client, lembretesCobranca: novoHistorico });
+    updateClient(toggleLembreteCobranca(client));
   }
 
   // Botão da Análise: filtra a fila pra Cobrança e já seleciona os clientes

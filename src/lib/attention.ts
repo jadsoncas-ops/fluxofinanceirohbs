@@ -43,6 +43,25 @@ function daysSince(dateStr: string, today: string) {
   return Math.round((t.getTime() - d.getTime()) / 86400000);
 }
 
+/** Um lançamento é "a receber de cliente" quando é Entrada/A Receber e tem cliente vinculado —
+ *  mesmo critério usado pela regra de cobrança abaixo e pela Central de Cobrança
+ *  (src/pages/financeiro/CobrancaPage.tsx). Único lugar que define isso, pra nunca haver dois
+ *  números diferentes de "quanto tem a receber de clientes" no app. */
+export function isReceivableFromClient(t: Transaction): boolean {
+  return (t.tipo === 'Entrada' || t.tipo === 'A Receber') && !!t.clienteId;
+}
+
+/** Liga/desliga "já cobrei hoje" no histórico do cliente — mesma ação usada na Fila de hoje do
+ *  Dashboard e na Central de Cobrança. Retorna o cliente atualizado; quem chama decide persistir
+ *  (updateClient) e dar o feedback (toast). */
+export function toggleLembreteCobranca(client: Client): Client {
+  const hojeStr = new Date().toISOString().slice(0, 10);
+  const historico = client.lembretesCobranca || [];
+  const jaTemHoje = historico.some(ts => new Date(ts).toISOString().slice(0, 10) === hojeStr);
+  const novoHistorico = jaTemHoje ? historico.filter(ts => new Date(ts).toISOString().slice(0, 10) !== hojeStr) : [...historico, Date.now()];
+  return { ...client, lembretesCobranca: novoHistorico };
+}
+
 /**
  * Fonte única de verdade para "o que precisa de atenção" — usada no Dashboard,
  * na central de notificações e no badge do Financeiro na sidebar.
@@ -72,7 +91,7 @@ export function computeAttentionItems(
   const emCincoDiasStr = emCincoDias.toISOString().slice(0, 10);
   const avisosPorCliente = new Map<string, { valor: number; itens: { id: string; descricao: string; valor: number; trabalho?: string; processId?: string; data: string }[] }>();
   transactions.forEach(t => {
-    if ((t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído' && t.data <= emCincoDiasStr && t.clienteId) {
+    if (isReceivableFromClient(t) && t.status !== 'Concluído' && t.data <= emCincoDiasStr) {
       const cur = avisosPorCliente.get(t.clienteId) || { valor: 0, itens: [] };
       cur.valor += t.valor;
       cur.itens.push({ id: t.id, descricao: t.descricao, valor: t.valor, trabalho: processes.find(p => p.id === t.processId)?.objeto, processId: t.processId, data: t.data });

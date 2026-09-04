@@ -29,6 +29,7 @@ import CaixaVisaoGeralPage from "./pages/financeiro/VisaoGeralPage";
 import CaixaMovimentacoesPage from "./pages/financeiro/MovimentacoesPage";
 import CaixaContasPage from "./pages/financeiro/ContasPage";
 import CaixaParceirosPage from "./pages/financeiro/ParceirosPage";
+import CaixaCobrancaPage from "./pages/financeiro/CobrancaPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -69,6 +70,7 @@ const App = () => (
             <Route path="/caixa" element={<CaixaLayout />}>
               <Route index element={<Navigate to="/caixa/visao-geral" replace />} />
               <Route path="visao-geral" element={<CaixaVisaoGeralPage />} />
+              <Route path="cobranca" element={<CaixaCobrancaPage />} />
               <Route path="fluxo-de-caixa" element={<Navigate to="/caixa/visao-geral" replace />} />
               <Route path="receitas" element={<CaixaMovimentacoesPage />} />
               <Route path="despesas" element={<Navigate to="/caixa/receitas" replace />} />
