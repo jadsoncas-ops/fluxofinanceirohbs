@@ -8,6 +8,7 @@ import { calcularResumoAvaliacao, fmtMoney } from '@/lib/avaliacao/homogeneizaca
 import { novoComparavel, novaFoto } from '@/lib/avaliacao/defaults';
 import { extrairMultiplos } from '@/lib/avaliacao/parseAnuncio';
 import { DocumentoAvaliacao } from '@/components/avaliacao/DocumentoAvaliacao';
+import { usePrintTitle } from '@/hooks/use-print-title';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -44,6 +45,8 @@ export default function AvaliacaoDetailPage() {
   const [rascunho, setRascunho] = useState<AvaliacaoAluguel | null>(avaliacaoSalva);
   const [colagem, setColagem] = useState('');
   const data = rascunho || avaliacaoSalva;
+
+  usePrintTitle(data ? `${data.tipoLaudo || 'Laudo de Avaliação'} - ${data.proprietario || ''}` : undefined);
 
   if (!data) {
     return (

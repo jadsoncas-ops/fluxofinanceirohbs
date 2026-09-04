@@ -23,6 +23,7 @@ import { DocumentoCartaReforma } from '@/components/documento/DocumentoCartaRefo
 import { DocumentoAnuencia } from '@/components/documento/DocumentoAnuencia';
 import { DocumentoDescarteEntulhos } from '@/components/documento/DocumentoDescarteEntulhos';
 import { RequerimentoAverbacaoWizard } from './RequerimentoAverbacaoWizard';
+import { usePrintTitle } from '@/hooks/use-print-title';
 import { toast } from 'sonner';
 
 const TIPOS_SEM_DADOS_TECNICOS: TipoDocumentoTecnico[] = ['procuracao', 'carta_reforma', 'declaracao_anuencia', 'descarte_entulhos'];
@@ -42,6 +43,8 @@ export default function DocumentoGeradorPage() {
     const template = tipo ? buscarTemplate(tipo) : null;
     return { trabalho, cliente, clientes, config, template };
   }, [trabalhoId, tipo, key]);
+
+  usePrintTitle(template ? `${template.label} - ${cliente?.nome || trabalho?.objeto || ''}` : undefined);
 
   if (!trabalho || !template) {
     return (

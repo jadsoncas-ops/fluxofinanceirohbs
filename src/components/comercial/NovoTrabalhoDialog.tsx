@@ -8,11 +8,19 @@ import { Trash2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Contrato, Proposta } from '@/lib/types';
 import { criarTrabalhoDoContrato, ParcelaInput } from '@/lib/comercial/fluxo';
+import { getClients } from '@/lib/storage';
 
 const TIPOS_TRABALHO = [
   'Regularização de imóvel', 'Instituição de condomínio', 'Convenção de condomínio',
   'Projeto arquitetônico', 'As Built', 'Vistoria', 'Consultoria', 'Serviço técnico',
 ];
+
+function enderecoDoCliente(clienteId: string | undefined): string {
+  const cliente = clienteId ? getClients().find(c => c.id === clienteId) : undefined;
+  if (!cliente?.endereco) return '';
+  return [cliente.endereco.rua, cliente.endereco.numero, cliente.endereco.bairro, cliente.endereco.cidade, cliente.endereco.estado]
+    .filter(Boolean).join(', ');
+}
 
 interface Props {
   open: boolean;
@@ -33,6 +41,13 @@ export function NovoTrabalhoDialog({ open, onClose, onCreated, contrato, propost
   const [endereco, setEndereco] = useState('');
   const [prazo, setPrazo] = useState(todayPlus(30));
   const [parcelas, setParcelas] = useState<ParcelaInput[]>([]);
+  const [usarEnderecoCliente, setUsarEnderecoCliente] = useState(false);
+
+  const enderecoCliente = enderecoDoCliente(proposta?.clienteId);
+
+  useEffect(() => {
+    if (usarEnderecoCliente && enderecoCliente) setEndereco(enderecoCliente);
+  }, [usarEnderecoCliente, enderecoCliente]);
 
   // A proposta já vem com as parcelas que o cliente negociou (descrição + valor,
   // sem data — isso só se define na hora de virar trabalho). Antes o usuário tinha
@@ -44,6 +59,8 @@ export function NovoTrabalhoDialog({ open, onClose, onCreated, contrato, propost
     } else {
       setParcelas([]);
     }
+    setEndereco('');
+    setUsarEnderecoCliente(false);
   }, [open, proposta]);
 
   if (!contrato || !proposta) return null;
@@ -113,6 +130,12 @@ export function NovoTrabalhoDialog({ open, onClose, onCreated, contrato, propost
           <div className="space-y-1.5">
             <Label>Endereço (opcional)</Label>
             <Input value={endereco} onChange={e => setEndereco(e.target.value)} placeholder="Rua, número, bairro, cidade" />
+            {enderecoCliente && (
+              <label className="flex items-center gap-2 text-[11.5px] text-muted-foreground bg-surface-2 border border-3 rounded-lg px-2.5 py-2 cursor-pointer">
+                <input type="checkbox" checked={usarEnderecoCliente} onChange={e => setUsarEnderecoCliente(e.target.checked)} className="w-3.5 h-3.5 accent-primary" />
+                Usar o endereço já cadastrado do cliente ({enderecoCliente})
+              </label>
+            )}
           </div>
 
           <div>

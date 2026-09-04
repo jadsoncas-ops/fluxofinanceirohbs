@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { usePrintTitle } from '@/hooks/use-print-title';
 import { toast } from 'sonner';
 
 const ESTADOS_CIVIS: EstadoCivil[] = ['Solteiro(a)', 'Casado(a)', 'Divorciado(a)', 'Viúvo(a)', 'União Estável'];
@@ -46,6 +47,8 @@ export function RequerimentoAverbacaoWizard({ trabalho, cliente }: Props) {
   const [data, setData] = useState<AverbacaoData>(() => dadosIniciaisAverbacao(trabalho, cliente));
   const [erros, setErros] = useState<CampoFaltante[]>([]);
   const [versaoSalva, setVersaoSalva] = useState<string | null>(existenteInicial?.versao || null);
+
+  usePrintTitle(`Requerimento de Averbação - ${cliente?.nome || trabalho.objeto}`);
 
   const isPJ = cliente?.tipo === 'Pessoa jurídica';
   const avisoCondominio = trabalhoPareceCondominio(trabalho, cliente);

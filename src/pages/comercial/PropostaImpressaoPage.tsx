@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { getPropostas, getClients, getCompanyConfig } from '@/lib/storage';
 import { ETAPAS_PADRAO, GRUPOS, CUSTOS_PROTOCOLO_PADRAO, formatBRL } from '@/lib/comercial/precificacao';
+import { usePrintTitle } from '@/hooks/use-print-title';
 import hbsLogo from '@/assets/hbs-logo.png';
 import logoJadsonCastro from '@/assets/logo-jadson-castro.png';
 
@@ -30,6 +31,8 @@ export default function PropostaImpressaoPage() {
     const config = getCompanyConfig();
     return { proposta, cliente, config };
   }, [propostaId]);
+
+  usePrintTitle(proposta ? `Proposta - ${cliente?.nome || proposta.titulo}` : undefined);
 
   if (!proposta) {
     return (
