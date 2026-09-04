@@ -73,7 +73,7 @@ export default function DashboardPage() {
     const compromissos = getCompromissos();
     const today = new Date().toISOString().slice(0, 10);
     const now = new Date();
-    const reserva = computeReserva(transactions, getCompanyConfig().percentualReserva);
+    const reserva = computeReserva(accounts, getCompanyConfig().contaReservaId);
 
     const saldoDisponivel = accounts.filter(a => a.ativo).reduce((s, a) => s + a.saldo, 0);
     const aReceberTx = transactions.filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído');
@@ -280,34 +280,35 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Reserva & disponível pra você — receita líquida (já sem repasse a parceiro) dividida em
-          % que fica pra empresa (despesa de escritório) e o resto, que é seu. Acumulado desde
-          sempre, nunca reseta — dinheiro que já existe não some porque o mês virou. */}
+      {/* Reserva & disponível pra você — saldo real das contas, sem fórmula sobre histórico. A
+          Reserva é o saldo atual da conta que você marcou como "conta reserva" em Contas; só
+          sobe/desce quando você de fato transfere ou tira dinheiro dela. */}
       <div className="flex-none bg-card border border-border rounded-xl p-3 flex flex-col gap-2.5">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-1.5">
             <Wallet className="w-3.5 h-3.5 text-mute-2" />
             <span className="text-[12.5px] font-semibold">Reserva & disponível pra você</span>
           </div>
-          <button onClick={() => shell.openNewTransaction({ tipo: 'Saída' })} className="h-7 px-2.5 rounded-lg bg-primary text-primary-foreground text-[11px] font-medium hover:bg-primary-hover transition-colors">
-            Registrar retirada
+          <button onClick={() => navigate('/caixa/contas')} className="h-7 px-2.5 rounded-lg bg-primary text-primary-foreground text-[11px] font-medium hover:bg-primary-hover transition-colors">
+            Ver contas
           </button>
         </div>
-        <div className="grid grid-cols-2 gap-px bg-border border border-border rounded-lg overflow-hidden">
-          <div className="bg-card px-3 py-2.5">
-            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[.06em] text-mute-2"><PiggyBank className="w-3 h-3" /> Reserva da empresa ({reserva.percentual}%)</div>
-            <div className={cn('font-mono-hbs text-[19px] mt-1', reserva.reservaDisponivel < 0 && 'text-destructive')}>{fmtMoney(reserva.reservaDisponivel)}</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">de {fmtMoney(reserva.reserva)} acumulados</div>
+        {reserva.temContaReserva ? (
+          <div className="grid grid-cols-2 gap-px bg-border border border-border rounded-lg overflow-hidden">
+            <div className="bg-card px-3 py-2.5">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[.06em] text-mute-2"><PiggyBank className="w-3 h-3" /> Reserva da empresa</div>
+              <div className="font-mono-hbs text-[19px] mt-1">{fmtMoney(reserva.reserva)}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5 truncate">saldo real de "{reserva.contaNome}"</div>
+            </div>
+            <div className="bg-card px-3 py-2.5">
+              <div className="text-[10px] uppercase tracking-[.06em] text-mute-2">Disponível pra você agora</div>
+              <div className={cn('font-mono-hbs text-[19px] mt-1', reserva.disponivelAgora < 0 ? 'text-destructive' : 'text-success')}>{fmtMoney(reserva.disponivelAgora)}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">{fmtMoney(reserva.caixaTotal)} em caixa no total</div>
+            </div>
           </div>
-          <div className="bg-card px-3 py-2.5">
-            <div className="text-[10px] uppercase tracking-[.06em] text-mute-2">Disponível pra você agora</div>
-            <div className={cn('font-mono-hbs text-[19px] mt-1', reserva.disponivelAgora < 0 ? 'text-destructive' : 'text-success')}>{fmtMoney(reserva.disponivelAgora)}</div>
-            <div className="text-[10px] text-muted-foreground mt-0.5">{fmtMoney(reserva.retirado)} já retirado</div>
-          </div>
-        </div>
-        {reserva.disponivelAgora < 0 && (
-          <div className="text-[11px] text-destructive bg-destructive-soft rounded-lg px-2.5 py-2">
-            Você já retirou {fmtMoney(Math.abs(reserva.disponivelAgora))} além do disponível — isso está saindo da reserva da empresa.
+        ) : (
+          <div className="text-[11.5px] text-muted-foreground bg-surface-2 border border-3 rounded-lg px-2.5 py-2.5">
+            Marque uma das suas contas como "conta reserva da empresa" em <button onClick={() => navigate('/caixa/contas')} className="text-accent font-medium underline underline-offset-2">Contas</button> pra acompanhar aqui quanto está protegido e quanto sobra pra você.
           </div>
         )}
       </div>

@@ -29,7 +29,6 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [clienteId, setClienteId] = useState('');
   const [processId, setProcessId] = useState('');
-  const [isRetirada, setIsRetirada] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -42,7 +41,6 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
       setStatus(editItem.status);
       setClienteId(editItem.clienteId || '');
       setProcessId(editItem.processId || '');
-      setIsRetirada(editItem.isRetirada || false);
     } else {
       setTipo(editItem?.tipo || 'Saída');
       setCategoria('');
@@ -52,11 +50,8 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
       setStatus('Concluído');
       setClienteId('');
       setProcessId('');
-      setIsRetirada(false);
     }
   }, [editItem, open]);
-
-  const podeSerRetirada = (tipo === 'Saída' || tipo === 'A Pagar') && !clienteId;
 
   const categorias = getCategorias(tipo);
   const numValor = parseFloat(valor) || 0;
@@ -81,10 +76,8 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
 
     const tipoFinal = statusParaTipo(tipo, status);
 
-    const retiradaFinal = podeSerRetirada && isRetirada;
-
     if (editItem?.id) {
-      updateTransaction({ ...editItem, tipo: tipoFinal, categoria, descricao, valor: numValor, data, status, clienteId: clienteId || undefined, processId: processId || undefined, isRetirada: retiradaFinal, updatedAt: Date.now() });
+      updateTransaction({ ...editItem, tipo: tipoFinal, categoria, descricao, valor: numValor, data, status, clienteId: clienteId || undefined, processId: processId || undefined, updatedAt: Date.now() });
       toast.success('Lançamento atualizado.');
     } else {
       addTransaction({
@@ -98,7 +91,6 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
         isRepasse: false,
         clienteId: clienteId || undefined,
         processId: processId || undefined,
-        isRetirada: retiradaFinal,
       });
       toast.success('Lançamento registrado.');
     }
@@ -206,13 +198,6 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
               <Label className="text-xs">Valor (R$)</Label>
               <Input type="number" min="0" step="0.01" value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00" />
             </div>
-
-            {podeSerRetirada && (
-              <label className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/20 border border-border/50 rounded-lg px-3 py-2.5 cursor-pointer">
-                <input type="checkbox" checked={isRetirada} onChange={e => setIsRetirada(e.target.checked)} className="w-3.5 h-3.5 accent-primary" />
-                Isso é uma retirada pessoal (sai do seu disponível, não da reserva da empresa)
-              </label>
-            )}
 
             <Button onClick={handleSave} className="w-full">{editItem?.id ? 'Salvar alterações' : 'Registrar lançamento'}</Button>
           </div>

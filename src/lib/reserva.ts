@@ -1,56 +1,31 @@
-import { Transaction } from './types';
+import { Account } from './types';
 
-export const PERCENTUAL_RESERVA_PADRAO = 20;
-
+/** Reserva & disponível — baseado 100% no saldo real das contas (o mesmo saldo mantido
+ *  manualmente em Contas), nunca numa fórmula sobre o histórico de lançamentos. A "conta
+ *  reserva" é a conta que você designa em Contas como o dinheiro protegido da empresa; ela
+ *  só sobe/desce quando você de fato transfere ou tira dinheiro dela. */
 export interface ReservaResumo {
-  percentual: number;
-  /** Receita líquida acumulada — recebido, já descontado repasse a parceiro. Base de tudo abaixo. */
-  receitaLiquida: number;
-  /** O que fica pra empresa (paga despesa de escritório: contador, luz, nota fiscal). */
+  temContaReserva: boolean;
+  contaNome?: string;
   reserva: number;
-  /** Já gasto de despesa de escritório — sai da reserva. */
-  gastoReserva: number;
-  /** O que sobra na reserva agora. */
-  reservaDisponivel: number;
-  /** O que é seu, pra usar como quiser. */
-  disponivelPessoal: number;
-  /** Já retirado pra você. */
-  retirado: number;
-  /** O que ainda pode ser retirado sem mexer na reserva. */
+  caixaTotal: number;
   disponivelAgora: number;
 }
 
-/**
- * Divide toda receita já recebida (líquida de repasse a parceiro) em dois baldes: a % que fica
- * reservada pra empresa (paga despesa de escritório) e o resto, que é seu, pra usar como quiser
- * (inclusive dívida pessoal). É um cálculo acumulado — nunca reseta, porque o dinheiro não some
- * só porque o mês virou. Despesa avulsa (sem cliente/trabalho) sai da reserva por padrão; quando
- * marcada como retirada pessoal, sai do seu lado.
- */
-export function computeReserva(transactions: Transaction[], percentual: number = PERCENTUAL_RESERVA_PADRAO): ReservaResumo {
-  const recebido = transactions
-    .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
-    .reduce((s, t) => s + t.valor, 0);
-  const repassado = transactions
-    .filter(t => t.isRepasse && (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status === 'Concluído')
-    .reduce((s, t) => s + t.valor, 0);
-  const receitaLiquida = Math.max(0, recebido - repassado);
+export function computeReserva(accounts: Account[], contaReservaId?: string): ReservaResumo {
+  const ativas = accounts.filter(a => a.ativo);
+  const caixaTotal = ativas.reduce((s, a) => s + a.saldo, 0);
+  const contaReserva = contaReservaId ? ativas.find(a => a.id === contaReservaId) : undefined;
 
-  const avulsas = transactions.filter(t => !t.isRepasse && !t.clienteId && !t.processId && (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status === 'Concluído');
-  const gastoReserva = avulsas.filter(t => !t.isRetirada).reduce((s, t) => s + t.valor, 0);
-  const retirado = avulsas.filter(t => t.isRetirada).reduce((s, t) => s + t.valor, 0);
-
-  const reserva = receitaLiquida * (percentual / 100);
-  const disponivelPessoal = receitaLiquida - reserva;
+  if (!contaReserva) {
+    return { temContaReserva: false, reserva: 0, caixaTotal, disponivelAgora: caixaTotal };
+  }
 
   return {
-    percentual,
-    receitaLiquida,
-    reserva,
-    gastoReserva,
-    reservaDisponivel: reserva - gastoReserva,
-    disponivelPessoal,
-    retirado,
-    disponivelAgora: disponivelPessoal - retirado,
+    temContaReserva: true,
+    contaNome: contaReserva.nome,
+    reserva: contaReserva.saldo,
+    caixaTotal,
+    disponivelAgora: caixaTotal - contaReserva.saldo,
   };
 }

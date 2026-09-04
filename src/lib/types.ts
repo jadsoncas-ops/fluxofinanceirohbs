@@ -13,9 +13,6 @@ export interface Transaction {
   parentId?: string; // Links repasse to parent transaction
   /** Parceiro que recebe este repasse — presente quando o repasse tem um parceiro cadastrado vinculado. */
   partnerId?: string | null;
-  /** Retirada pessoal do dono — saída avulsa que sai do "disponível pra você" (os 80%), não da
-   *  reserva da empresa (os 20%, que cobrem despesa de escritório). Ver src/lib/reserva.ts. */
-  isRetirada?: boolean;
   clienteId?: string | null; // Vinculo com o cliente
   processId?: string; // Vinculo com o processo específico (Suporte a múltiplos processos p/ mesmo cliente)
   previsaoData?: string; // Data esperada p/ o evento (YYYY-MM-DD)
@@ -380,9 +377,10 @@ export interface CompanyConfig {
   responsavelTitulo?: string;
   /** Validade padrão de uma proposta comercial, em dias. */
   validadePropostaDias?: number;
-  /** % de toda receita líquida (já descontado repasse a parceiro) que fica reservado pra despesa
-   *  de escritório — o resto é o que está disponível pra retirada pessoal. Padrão 20. */
-  percentualReserva?: number;
+  /** Id da Account (ver src/pages/financeiro/ContasPage.tsx) marcada como "conta reserva da
+   *  empresa" — o saldo real dessa conta é o que aparece como Reserva no Início. Sem fórmula:
+   *  só sobe/desce quando você de fato transfere dinheiro pra ela ou tira dela. */
+  contaReservaId?: string;
 }
 
 /** Configuração da precificação — custos operacionais, horas produtivas e taxas de protocolo usadas no cálculo de toda proposta. */

@@ -72,7 +72,6 @@ function rowToTransaction(r: Row<'hbs_transactions'>): Transaction {
     valor: Number(r.valor),
     status: r.status as Transaction['status'],
     isRepasse: r.is_repasse,
-    isRetirada: r.is_retirada ?? undefined,
     parentId: r.parent_id ?? undefined,
     partnerId: r.partner_id,
     clienteId: r.cliente_id,
@@ -85,7 +84,7 @@ function rowToTransaction(r: Row<'hbs_transactions'>): Transaction {
 function transactionToRow(t: Transaction): Database['public']['Tables']['hbs_transactions']['Insert'] {
   return {
     id: t.id, data: t.data, tipo: t.tipo, categoria: t.categoria, descricao: t.descricao,
-    valor: t.valor, status: t.status, is_repasse: t.isRepasse, is_retirada: t.isRetirada ?? false, parent_id: t.parentId ?? null,
+    valor: t.valor, status: t.status, is_repasse: t.isRepasse, parent_id: t.parentId ?? null,
     partner_id: t.partnerId ?? null, cliente_id: t.clienteId ?? null, process_id: t.processId ?? null,
     previsao_data: t.previsaoData ?? null, original_total: t.originalTotal ?? null,
   };

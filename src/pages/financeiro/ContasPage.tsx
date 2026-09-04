@@ -3,8 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Wallet, Pencil, Trash2, Landmark } from 'lucide-react';
-import { getAccounts, addAccount, updateAccount, deleteAccount } from '@/lib/storage';
+import { Plus, Wallet, Pencil, Trash2, Landmark, PiggyBank } from 'lucide-react';
+import { getAccounts, addAccount, updateAccount, deleteAccount, getCompanyConfig, saveCompanyConfig } from '@/lib/storage';
 import { Account, AccountType } from '@/lib/types';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -24,9 +24,16 @@ export default function FinanceiroContasPage() {
   const [saldo, setSaldo] = useState('');
   const [ativo, setAtivo] = useState(true);
 
-  const accounts = useMemo(() => { void key; return getAccounts(); }, [key]);
+  const { accounts, contaReservaId } = useMemo(() => { void key; return { accounts: getAccounts(), contaReservaId: getCompanyConfig().contaReservaId }; }, [key]);
   const refresh = () => setKey(k => k + 1);
   const total = accounts.filter(a => a.ativo).reduce((s, a) => s + a.saldo, 0);
+
+  function alternarContaReserva(a: Account) {
+    const config = getCompanyConfig();
+    saveCompanyConfig({ ...config, contaReservaId: config.contaReservaId === a.id ? undefined : a.id });
+    toast.success(config.contaReservaId === a.id ? 'Conta desmarcada como reserva.' : `"${a.nome}" agora é a conta reserva da empresa.`);
+    refresh();
+  }
 
   function openNew() {
     setEditItem(null);
@@ -90,24 +97,36 @@ export default function FinanceiroContasPage() {
         </div>
       ) : (
         <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
-          {accounts.map(a => (
-            <div key={a.id} className={cn('bg-card border border-border rounded-xl p-[15px_18px]', !a.ativo && 'opacity-50')}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[13px] font-medium truncate">{a.nome}</span>
-                    {!a.ativo && <span className="text-[9.5px] uppercase font-medium bg-neutral-soft text-mute-2 px-1.5 py-[1px] rounded-[4px]">Inativa</span>}
+          {accounts.map(a => {
+            const ehReserva = contaReservaId === a.id;
+            return (
+              <div key={a.id} className={cn('bg-card border rounded-xl p-[15px_18px]', ehReserva ? 'border-accent' : 'border-border', !a.ativo && 'opacity-50')}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[13px] font-medium truncate">{a.nome}</span>
+                      {!a.ativo && <span className="text-[9.5px] uppercase font-medium bg-neutral-soft text-mute-2 px-1.5 py-[1px] rounded-[4px]">Inativa</span>}
+                    </div>
+                    <div className="text-[11px] text-mute-2 uppercase tracking-[.05em] mt-0.5">{a.tipo}</div>
                   </div>
-                  <div className="text-[11px] text-mute-2 uppercase tracking-[.05em] mt-0.5">{a.tipo}</div>
+                  <div className="flex gap-0.5 flex-none">
+                    <button onClick={() => openEdit(a)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 transition-colors text-mute-2"><Pencil className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => handleDelete(a)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-destructive-soft transition-colors text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
                 </div>
-                <div className="flex gap-0.5 flex-none">
-                  <button onClick={() => openEdit(a)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 transition-colors text-mute-2"><Pencil className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => handleDelete(a)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-destructive-soft transition-colors text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
-                </div>
+                <div className="font-mono-hbs text-[19px] mt-2.5">{fmt(a.saldo)}</div>
+                <button
+                  onClick={() => alternarContaReserva(a)}
+                  className={cn(
+                    'flex items-center gap-1.5 text-[10.5px] font-medium mt-2.5 pt-2.5 border-t w-full',
+                    ehReserva ? 'border-transparent text-accent' : 'border-border text-mute-2 hover:text-foreground transition-colors'
+                  )}
+                >
+                  <PiggyBank className="w-3 h-3" /> {ehReserva ? 'Conta reserva da empresa' : 'Marcar como conta reserva'}
+                </button>
               </div>
-              <div className="font-mono-hbs text-[19px] mt-2.5">{fmt(a.saldo)}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
