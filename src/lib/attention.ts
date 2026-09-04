@@ -27,6 +27,10 @@ export interface AttentionItem {
   /** Presente só nos itens de exigência de cartório — permite resolver direto da Fila de hoje,
    *  sem precisar abrir o trabalho primeiro. */
   exigenciaRef?: { processId: string; exigenciaId: string };
+  /** Presente só quando o cliente tem exatamente 1 parcela em aberto — permite marcar como
+   *  recebido direto da Fila de hoje, sem ambiguidade de qual parcela é. Com mais de uma parcela,
+   *  o usuário precisa escolher qual foi paga, então isso fica de fora e o cta leva pro trabalho/caixa. */
+  transactionId?: string;
 }
 
 function fmtMoney(v: number) {
@@ -66,12 +70,12 @@ export function computeAttentionItems(
   const emCincoDias = new Date();
   emCincoDias.setDate(emCincoDias.getDate() + 5);
   const emCincoDiasStr = emCincoDias.toISOString().slice(0, 10);
-  const avisosPorCliente = new Map<string, { valor: number; itens: { descricao: string; valor: number; trabalho?: string; processId?: string; data: string }[] }>();
+  const avisosPorCliente = new Map<string, { valor: number; itens: { id: string; descricao: string; valor: number; trabalho?: string; processId?: string; data: string }[] }>();
   transactions.forEach(t => {
     if ((t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído' && t.data <= emCincoDiasStr && t.clienteId) {
       const cur = avisosPorCliente.get(t.clienteId) || { valor: 0, itens: [] };
       cur.valor += t.valor;
-      cur.itens.push({ descricao: t.descricao, valor: t.valor, trabalho: processes.find(p => p.id === t.processId)?.objeto, processId: t.processId, data: t.data });
+      cur.itens.push({ id: t.id, descricao: t.descricao, valor: t.valor, trabalho: processes.find(p => p.id === t.processId)?.objeto, processId: t.processId, data: t.data });
       avisosPorCliente.set(t.clienteId, cur);
     }
   });
@@ -93,19 +97,27 @@ export function computeAttentionItems(
     const processIds = new Set(v.itens.map(i => i.processId).filter((id): id is string => !!id));
     const destinoUnico = processIds.size === 1 ? [...processIds][0] : null;
 
+    // Contagem de lembretes já enviados (histórico completo, não só hoje) — mostra o
+    // nível de escalonamento da cobrança, tipo "3º lembrete enviado".
+    const totalLembretes = (client.lembretesCobranca || []).length;
+
     items.push({
       id: `receber-${clienteId}`,
       tipo: 'Cobranca',
       severity,
       title,
-      sub: temVencido
-        ? `${v.itens.length} parcela${v.itens.length > 1 ? 's' : ''} vencida${v.itens.length > 1 ? 's' : ''} há ${dias} dia${dias > 1 ? 's' : ''} · ${fmtMoney(v.valor)}`
-        : `${v.itens.length} parcela${v.itens.length > 1 ? 's' : ''} · ${fmtMoney(v.valor)} · envie o lembrete de cobrança`,
+      sub: [
+        temVencido
+          ? `${v.itens.length} parcela${v.itens.length > 1 ? 's' : ''} vencida${v.itens.length > 1 ? 's' : ''} há ${dias} dia${dias > 1 ? 's' : ''} · ${fmtMoney(v.valor)}`
+          : `${v.itens.length} parcela${v.itens.length > 1 ? 's' : ''} · ${fmtMoney(v.valor)} · envie o lembrete de cobrança`,
+        totalLembretes > 0 ? `${totalLembretes}º lembrete enviado` : null,
+      ].filter(Boolean).join(' · '),
       cta: destinoUnico ? 'Abrir trabalho' : 'Ver no Caixa',
       to: destinoUnico ? `/trabalhos/${destinoUnico}` : '/caixa/receitas',
       whatsapp: telefone ? { clienteNome: client.nome, telefone, mensagem: montarMensagemLembreteVencimento({ clienteNome: client.nome, itens: v.itens }) } : undefined,
       clienteIdParaLembrete: clienteId,
       lembretesCobranca: client.lembretesCobranca,
+      transactionId: v.itens.length === 1 ? v.itens[0].id : undefined,
     });
   });
 

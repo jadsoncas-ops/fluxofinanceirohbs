@@ -347,6 +347,15 @@ export default function DashboardPage() {
                           {a.exigenciaRef && (
                             <button onClick={() => cumprirExigenciaInline(a.exigenciaRef!)} title="Marcar exigência como cumprida" className="h-6 w-6 grid place-items-center rounded-md hover:bg-success-soft text-mute-2 hover:text-success"><Check className="w-3 h-3" /></button>
                           )}
+                          {a.transactionId && (
+                            <button
+                              onClick={() => { const tx = transactions.find(t => t.id === a.transactionId); if (tx) shell.openCompleteTransaction(tx); }}
+                              title="Marcar como recebido — some da fila de verdade"
+                              className="h-6 px-2 rounded-md text-[10.5px] font-medium bg-success text-success-foreground hover:opacity-90 flex-none whitespace-nowrap flex items-center gap-1"
+                            >
+                              <Check className="w-3 h-3" /> Recebido
+                            </button>
+                          )}
                           {a.whatsapp && (
                             <button onClick={() => abrirLembrete(a)} title="Enviar lembrete por WhatsApp" className="h-6 w-6 grid place-items-center bg-warning text-warning-foreground rounded-md hover:opacity-90"><MessageCircle className="w-3 h-3" /></button>
                           )}
