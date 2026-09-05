@@ -55,13 +55,28 @@ export default function DashboardPage() {
   const [telefoneDdd, setTelefoneDdd] = useState('');
   const [telefoneNumero, setTelefoneNumero] = useState('');
   const [selecionados, setSelecionados] = useState<string[]>([]);
+  const hoje = new Date();
+  const [refMes, setRefMes] = useState(hoje.getMonth());
+  const [refAno, setRefAno] = useState(hoje.getFullYear());
+  const noMesAtual = refMes === hoje.getMonth() && refAno === hoje.getFullYear();
+
+  function mudarMesRef(delta: number) {
+    const d = new Date(refAno, refMes + delta, 1);
+    if (d.getFullYear() > hoje.getFullYear() || (d.getFullYear() === hoje.getFullYear() && d.getMonth() > hoje.getMonth())) return;
+    setRefMes(d.getMonth());
+    setRefAno(d.getFullYear());
+  }
+  function voltarMesAtual() {
+    setRefMes(hoje.getMonth());
+    setRefAno(hoje.getFullYear());
+  }
 
   function abrirNovoCompromisso(data?: string) { setCompromissoEditando(undefined); setNovoCompromissoData(data); setCompromissoDialogOpen(true); }
   function abrirEditarCompromisso(c: Compromisso) { setCompromissoEditando(c); setCompromissoDialogOpen(true); }
 
   const {
     attention, cashflow, etapas, tasks, clients, compromissos, trabalhosAtivosTotal, saldoProjetado, saudeEscritorio, reserva,
-    statusGeral, kpis, atencaoTop, hojeAgenda, trabalhosAtencao, financeiro, atividadeRecente,
+    statusGeral, kpis, faturamentoKpi, atencaoTop, hojeAgenda, trabalhosAtencao, financeiro, atividadeRecente,
   } = useMemo(() => {
     const accounts = getAccounts();
     const processes = getProcesses();
@@ -80,7 +95,7 @@ export default function DashboardPage() {
     const aPagar = aPagarTx.reduce((s, t) => s + t.valor, 0);
     const receitaMes = transactions
       .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
-      .filter(t => { const d = new Date(dataEfetiva(t) + 'T12:00:00'); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); })
+      .filter(t => { const d = new Date(dataEfetiva(t) + 'T12:00:00'); return d.getMonth() === refMes && d.getFullYear() === refAno; })
       .reduce((s, t) => s + t.valor, 0);
 
     const trabalhosAtivos = processes.filter(p => !p.isArchived && (p.etapa || 'Levantamento') !== 'Concluído');
@@ -154,10 +169,20 @@ export default function DashboardPage() {
     // ── KPIs — só os 4 que importam pra decisão do dia, cada um com contexto real. ──
     const semanaAtrasMs = Date.now() - 7 * 86400000;
     const trabalhosNovosSemana = trabalhosAtivos.filter(p => p.createdAt >= semanaAtrasMs).length;
-    const faturamentoMesAnterior = cashflow[4]?.receita || 0;
+    const mesAnteriorRef = new Date(refAno, refMes - 1, 1);
+    const faturamentoMesAnterior = transactions
+      .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
+      .filter(t => { const d = new Date(dataEfetiva(t) + 'T12:00:00'); return d.getMonth() === mesAnteriorRef.getMonth() && d.getFullYear() === mesAnteriorRef.getFullYear(); })
+      .reduce((s, t) => s + t.valor, 0);
     const faturamentoDeltaPct = faturamentoMesAnterior > 0 ? Math.round(((receitaMes - faturamentoMesAnterior) / faturamentoMesAnterior) * 1000) / 10 : null;
     const inicioMesMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
     const clientesNovosMes = clients.filter(c => (c.createdAt || 0) >= inicioMesMs).length;
+
+    const faturamentoKpi = {
+      value: fmtMoney(receitaMes),
+      delta: faturamentoDeltaPct === null ? (receitaMes > 0 ? 'Sem mês anterior pra comparar' : 'Nada faturado ainda') : `${faturamentoDeltaPct >= 0 ? '+' : ''}${faturamentoDeltaPct}% vs. mês anterior`,
+      deltaColor: faturamentoDeltaPct === null ? 'text-muted-foreground' : faturamentoDeltaPct >= 0 ? 'text-success' : 'text-destructive',
+    };
 
     const kpis = [
       {
@@ -165,12 +190,6 @@ export default function DashboardPage() {
         delta: trabalhosNovosSemana > 0 ? `+${trabalhosNovosSemana} esta semana` : 'Nenhum novo esta semana',
         deltaColor: trabalhosNovosSemana > 0 ? 'text-success' : 'text-muted-foreground',
         cta: 'Ver trabalhos', to: '/trabalhos', money: false,
-      },
-      {
-        label: 'Faturamento do mês', value: fmtMoney(receitaMes),
-        delta: faturamentoDeltaPct === null ? (receitaMes > 0 ? 'Sem mês anterior pra comparar' : 'Nada faturado ainda') : `${faturamentoDeltaPct >= 0 ? '+' : ''}${faturamentoDeltaPct}% vs. mês anterior`,
-        deltaColor: faturamentoDeltaPct === null ? 'text-muted-foreground' : faturamentoDeltaPct >= 0 ? 'text-success' : 'text-destructive',
-        cta: 'Ver financeiro', to: '/caixa', money: true,
       },
       {
         label: 'Clientes ativos', value: String(clients.length),
@@ -233,9 +252,9 @@ export default function DashboardPage() {
 
     return {
       attention, cashflow, etapas, tasks, clients, compromissos, trabalhosAtivosTotal: trabalhosAtivos.length, saldoProjetado, saudeEscritorio, reserva,
-      statusGeral, kpis, atencaoTop, hojeAgenda, trabalhosAtencao, financeiro, atividadeRecente,
+      statusGeral, kpis, faturamentoKpi, atencaoTop, hojeAgenda, trabalhosAtencao, financeiro, atividadeRecente,
     };
-  }, [transactions, shell.refreshKey]);
+  }, [transactions, shell.refreshKey, refMes, refAno]);
 
   const maxCash = Math.max(1, ...cashflow.flatMap(m => [m.receita, m.despesa]));
   const tiposPresentes = Array.from(new Set(attention.map(a => a.tipo)));
@@ -353,7 +372,41 @@ export default function DashboardPage() {
 
       {/* KPIs — depois de Atenção no mobile, antes no desktop (ordem pedida por breakpoint) */}
       <div className="order-4 lg:order-3 grid grid-cols-2 lg:grid-cols-4 gap-px bg-border border border-border rounded-xl overflow-hidden flex-none">
-        {kpis.map(k => (
+        {kpis.slice(0, 1).map(k => (
+          <button key={k.label} onClick={() => kpiClick(k.to)} className="bg-card px-3.5 pt-3 pb-3 text-left hover:bg-surface-3 transition-colors">
+            <div className="text-[10px] tracking-[.05em] uppercase text-mute-2 font-medium">{k.label}</div>
+            <div className="font-mono-hbs text-[21px] font-semibold -tracking-[.02em] mt-1.5">
+              {k.money ? <ValorMonetario value={k.value} /> : k.value}
+            </div>
+            <div className={cn('text-[10.5px] mt-1', k.deltaColor)}>{k.delta}</div>
+            <div className="text-[11px] font-semibold text-primary mt-2 pt-2 border-t border-3">{k.cta} →</div>
+          </button>
+        ))}
+
+        {/* Faturamento — único KPI com seletor de mês; os demais são sempre "agora". */}
+        <div className="bg-card px-3.5 pt-3 pb-3 text-left">
+          <div className="flex items-center justify-between gap-1">
+            <div className="text-[10px] tracking-[.05em] uppercase text-mute-2 font-medium">Faturamento</div>
+            <div className="flex items-center gap-0.5 flex-none">
+              <button onClick={() => mudarMesRef(-1)} title="Mês anterior" className="w-4 h-4 grid place-items-center text-mute-2 hover:text-foreground transition-colors">
+                <ChevronLeft className="w-3 h-3" />
+              </button>
+              <button onClick={voltarMesAtual} disabled={noMesAtual} title={noMesAtual ? undefined : 'Voltar pro mês atual'} className={cn('text-[9.5px] font-mono-hbs w-10 text-center', noMesAtual ? 'text-mute-2' : 'text-accent font-semibold')}>
+                {MONTHS_SHORT[refMes]}/{String(refAno).slice(2)}
+              </button>
+              <button onClick={() => mudarMesRef(1)} disabled={noMesAtual} title="Próximo mês" className="w-4 h-4 grid place-items-center text-mute-2 hover:text-foreground transition-colors disabled:opacity-25 disabled:hover:text-mute-2">
+                <ChevronLeft className="w-3 h-3 rotate-180" />
+              </button>
+            </div>
+          </div>
+          <button onClick={() => kpiClick('/caixa')} className="block w-full text-left hover:opacity-80 transition-opacity">
+            <div className="font-mono-hbs text-[21px] font-semibold -tracking-[.02em] mt-1.5"><ValorMonetario value={faturamentoKpi.value} /></div>
+            <div className={cn('text-[10.5px] mt-1', faturamentoKpi.deltaColor)}>{faturamentoKpi.delta}</div>
+            <div className="text-[11px] font-semibold text-primary mt-2 pt-2 border-t border-3">Ver financeiro →</div>
+          </button>
+        </div>
+
+        {kpis.slice(1).map(k => (
           <button key={k.label} onClick={() => kpiClick(k.to)} className="bg-card px-3.5 pt-3 pb-3 text-left hover:bg-surface-3 transition-colors">
             <div className="text-[10px] tracking-[.05em] uppercase text-mute-2 font-medium">{k.label}</div>
             <div className="font-mono-hbs text-[21px] font-semibold -tracking-[.02em] mt-1.5">
@@ -411,107 +464,57 @@ export default function DashboardPage() {
       </section>
 
       {/* HOJE + TRABALHOS QUE MERECEM ATENÇÃO */}
-      <div className="order-5 grid grid-cols-1 lg:grid-cols-2 gap-3 flex-none items-start">
-        <section className="bg-card border border-border rounded-xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-[14px] font-semibold">Hoje</div>
-            <button onClick={() => abrirNovoCompromisso()} className="text-mute-2 hover:text-primary transition-colors" title="Agendar compromisso"><CalendarPlus className="w-4 h-4" /></button>
-          </div>
-          {hojeAgenda.length === 0 ? (
-            <div className="text-[12.5px] text-muted-foreground py-3">Nada agendado para hoje.</div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {hojeAgenda.map(c => (
-                <div key={c.id} onClick={() => abrirEditarCompromisso(c)} className="flex gap-3.5 cursor-pointer">
-                  <div className="font-mono-hbs text-[12.5px] text-mute-2 w-[42px] flex-none pt-[1px]">{c.horaInicio || '—'}</div>
-                  <div className="min-w-0">
-                    <div className="text-[13px] font-medium truncate">{c.titulo}</div>
-                    {c.comQuem && <div className="text-[11.5px] text-muted-foreground truncate mt-[1px]">{c.comQuem}</div>}
+      {/* Masonry de 2 colunas — evita o vão em branco que sobrava quando uma coluna com
+          conteúdo curto (ex.: "Hoje" vazio) ficava emparelhada com uma bem mais alta. As duas
+          pilhas são independentes: cada uma cresce só até onde o próprio conteúdo pede. */}
+      <div className="order-5 grid grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)] gap-3 items-start">
+        <div className="flex flex-col gap-3">
+          <section className="bg-card border border-border rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-[14px] font-semibold">Hoje</div>
+              <button onClick={() => abrirNovoCompromisso()} className="text-mute-2 hover:text-primary transition-colors" title="Agendar compromisso"><CalendarPlus className="w-4 h-4" /></button>
+            </div>
+            {hojeAgenda.length === 0 ? (
+              <div className="text-[12.5px] text-muted-foreground py-3">Nada agendado para hoje.</div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {hojeAgenda.map(c => (
+                  <div key={c.id} onClick={() => abrirEditarCompromisso(c)} className="flex gap-3.5 cursor-pointer">
+                    <div className="font-mono-hbs text-[12.5px] text-mute-2 w-[42px] flex-none pt-[1px]">{c.horaInicio || '—'}</div>
+                    <div className="min-w-0">
+                      <div className="text-[13px] font-medium truncate">{c.titulo}</div>
+                      {c.comQuem && <div className="text-[11.5px] text-muted-foreground truncate mt-[1px]">{c.comQuem}</div>}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+                ))}
+              </div>
+            )}
+          </section>
 
-        <section className="bg-card border border-border rounded-xl p-4">
-          <div className="text-[14px] font-semibold mb-3">Trabalhos que merecem atenção</div>
-          {trabalhosAtencao.length === 0 ? (
-            <div className="text-[12.5px] text-muted-foreground py-3">Nenhum trabalho ativo agora.</div>
-          ) : (
-            <div className="flex flex-col">
-              {trabalhosAtencao.map(t => (
-                <div key={t.id} onClick={() => navigate(`/trabalhos/${t.id}`)} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 py-[9px] border-b border-3 last:border-b-0 cursor-pointer">
-                  <div className="text-[13px] leading-[1.3] flex-1 min-w-0">{t.nome}</div>
-                  <div className="flex items-center gap-2.5 flex-none">
-                    <span className={cn('text-[10.5px] font-semibold px-2 py-[3px] rounded-md', TRABALHO_STATUS_STYLE[t.status])}>{t.status}</span>
-                    <span className="font-mono-hbs text-[11.5px] text-mute-2 w-9 text-right">{t.prazo ? t.prazo.slice(8, 10) + '/' + t.prazo.slice(5, 7) : '—'}</span>
+          <section className="bg-card border border-border rounded-xl p-4">
+            <div className="text-[14px] font-semibold mb-3">Trabalhos que merecem atenção</div>
+            {trabalhosAtencao.length === 0 ? (
+              <div className="text-[12.5px] text-muted-foreground py-3">Nenhum trabalho ativo agora.</div>
+            ) : (
+              <div className="flex flex-col">
+                {trabalhosAtencao.map(t => (
+                  <div key={t.id} onClick={() => navigate(`/trabalhos/${t.id}`)} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 py-[9px] border-b border-3 last:border-b-0 cursor-pointer">
+                    <div className="text-[13px] leading-[1.3] flex-1 min-w-0">{t.nome}</div>
+                    <div className="flex items-center gap-2.5 flex-none">
+                      <span className={cn('text-[10.5px] font-semibold px-2 py-[3px] rounded-md', TRABALHO_STATUS_STYLE[t.status])}>{t.status}</span>
+                      <span className="font-mono-hbs text-[11.5px] text-mute-2 w-9 text-right">{t.prazo ? t.prazo.slice(8, 10) + '/' + t.prazo.slice(5, 7) : '—'}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
+            <div className="text-right mt-3">
+              <button onClick={() => navigate('/trabalhos')} className="text-[12.5px] font-semibold text-primary">Ver todos os trabalhos →</button>
             </div>
-          )}
-          <div className="text-right mt-3">
-            <button onClick={() => navigate('/trabalhos')} className="text-[12.5px] font-semibold text-primary">Ver todos os trabalhos →</button>
-          </div>
-        </section>
-      </div>
-
-      {/* FINANCEIRO + ATIVIDADE + SAÚDE */}
-      <div className="order-6 grid grid-cols-1 lg:grid-cols-3 gap-3 flex-none items-start">
-        <section className="bg-card border border-border rounded-xl p-4">
-          <div className="text-[14px] font-semibold mb-3">Financeiro</div>
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            <div><div className="font-mono-hbs text-[16.5px] font-semibold"><ValorMonetario value={fmtMoney(financeiro.recebido)} /></div><div className="text-[11px] text-muted-foreground mt-0.5">Recebido</div></div>
-            <div><div className="font-mono-hbs text-[16.5px] font-semibold"><ValorMonetario value={fmtMoney(financeiro.aReceber)} /></div><div className="text-[11px] text-muted-foreground mt-0.5">A receber</div></div>
-            <div><div className="font-mono-hbs text-[16.5px] font-semibold"><ValorMonetario value={fmtMoney(financeiro.aPagar)} /></div><div className="text-[11px] text-muted-foreground mt-0.5">A pagar</div></div>
-            <div><div className={cn('font-mono-hbs text-[16.5px] font-semibold', financeiro.resultadoPrevisto < 0 && 'text-destructive')}><ValorMonetario value={fmtMoney(financeiro.resultadoPrevisto)} /></div><div className="text-[11px] text-muted-foreground mt-0.5">Resultado previsto</div></div>
-          </div>
-          {financeiro.alerta && (
-            <button onClick={cobrarAgoraClick} className="w-full text-left text-[11.5px] text-destructive bg-destructive-soft rounded-lg px-3 py-2 mb-3 flex items-center gap-1.5 hover:opacity-90 transition-opacity">
-              <AlertTriangle className="w-3.5 h-3.5 flex-none" /> {financeiro.alerta}
-            </button>
-          )}
-          <button onClick={() => navigate('/caixa')} className="text-[12.5px] font-semibold text-primary">Ver financeiro →</button>
-        </section>
-
-        <section className="bg-card border border-border rounded-xl p-4">
-          <div className="text-[14px] font-semibold mb-3">Atividade recente</div>
-          {atividadeRecente.length === 0 ? (
-            <div className="text-[12.5px] text-muted-foreground py-3">Nenhuma atividade registrada ainda.</div>
-          ) : (
-            <div className="flex flex-col gap-2.5">
-              {atividadeRecente.map(ev => (
-                <div key={ev.id} className="flex items-start gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-success flex-none mt-[2px]" />
-                  <div className="text-[12.5px] text-foreground/85 leading-[1.4]">{ev.texto}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="bg-card border border-border rounded-xl p-4">
-          <div className="flex items-baseline justify-between mb-1">
-            <div className="text-[14px] font-semibold">Saúde do escritório</div>
-            <div className="font-mono-hbs text-[17px] font-semibold">{saudeEscritorio.nota}<span className="text-[11px] text-mute-2 font-normal">/100</span></div>
-          </div>
-          <div className={cn('text-[11.5px] font-semibold mb-2.5', saudeEscritorio.nota >= 80 ? 'text-success' : saudeEscritorio.nota >= 50 ? 'text-warning' : 'text-destructive')}>{saudeEscritorio.status}</div>
-          <div className="flex flex-col gap-1 mb-3">
-            {saudeEscritorio.motivos.map((m, i) => <div key={i} className="text-[11.5px] text-muted-foreground">• {m}</div>)}
-          </div>
-          <button onClick={() => navigate('/relatorios')} className="text-[12.5px] font-semibold text-primary">Ver análise →</button>
-        </section>
-      </div>
-
-      {/* INFORMAÇÕES SECUNDÁRIAS */}
-      <div className="order-7 flex flex-col gap-3 pt-1">
-        <div className="text-[11px] uppercase tracking-[.08em] text-mute-3 font-semibold px-1">Mais informações</div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)] gap-2.5 items-start">
+          </section>
 
           {/* Fila de hoje — attention.ts inteiro, filtrável, com ação de cobrança em lote */}
-          <section id="fila-completa" className="bg-card border border-border rounded-xl overflow-hidden flex flex-col lg:min-h-[420px]">
+          <section id="fila-completa" className="bg-card border border-border rounded-xl overflow-hidden flex flex-col">
             <div className="px-3 py-2 border-b border-3 flex items-center gap-2 flex-wrap">
               <div className="text-[12.5px] font-semibold">Fila completa</div>
               <span className="text-[10.5px] font-mono-hbs text-mute-2">{filaVisivel.length} de {attention.length}</span>
@@ -613,113 +616,157 @@ export default function DashboardPage() {
             )}
           </section>
 
-          <div className="flex flex-col gap-2.5">
-            {/* Reserva & disponível pra você — saldo real das contas, sem fórmula sobre histórico. */}
-            <section className="bg-card border border-border rounded-xl p-3 flex flex-col gap-2.5">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-1.5">
-                  <Wallet className="w-3.5 h-3.5 text-mute-2" />
-                  <span className="text-[12.5px] font-semibold">Reserva & disponível pra você</span>
-                </div>
-                <button onClick={() => navigate('/caixa/contas')} className="h-7 px-2.5 rounded-lg bg-primary text-primary-foreground text-[11px] font-medium hover:bg-primary-hover transition-colors">
-                  Ver contas
-                </button>
-              </div>
-              {reserva.temContaReserva ? (
-                <div className="grid grid-cols-2 gap-px bg-border border border-border rounded-lg overflow-hidden">
-                  <div className="bg-card px-3 py-2.5">
-                    <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[.06em] text-mute-2"><PiggyBank className="w-3 h-3" /> Reserva da empresa</div>
-                    <div className="font-mono-hbs text-[19px] mt-1">{fmtMoney(reserva.reserva)}</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 truncate">saldo real de "{reserva.contaNome}"</div>
+          {/* Trabalhos por etapa — pipeline inteiro, cada etapa diz o que fazer */}
+          <section className="bg-card border border-border rounded-xl overflow-hidden flex flex-col">
+            <div className="px-3 py-2 border-b border-3 flex items-center justify-between gap-2">
+              <div className="text-[12.5px] font-semibold">Trabalhos por etapa</div>
+              <button onClick={() => navigate('/trabalhos')} className="text-[10.5px] font-medium text-accent flex items-center gap-0.5"><ChevronLeft className="w-2.5 h-2.5 rotate-180" />Todos</button>
+            </div>
+            <div className="flex-1">
+              {etapas.length === 0 ? (
+                <div className="px-3 py-6 text-center text-[12px] text-muted-foreground">Nenhum trabalho em andamento.</div>
+              ) : etapas.map(e => (
+                <div key={e.etapa} onClick={() => navigate('/trabalhos')} className={cn('px-3 py-[8px] border-b border-3 last:border-b-0 cursor-pointer hover:bg-surface-3 transition-colors', e.destaque && 'bg-warning-soft')}>
+                  <div className="flex items-center gap-2">
+                    <span className={cn('w-1.5 h-1.5 rounded-full flex-none', e.dot)} />
+                    <div className="text-[11.5px] font-medium flex-1">{e.etapa}</div>
+                    {e.destaque && <Flame className="w-3 h-3 text-warning flex-none" />}
+                    <span className="font-mono-hbs text-[10px] text-mute-2 flex-none">{e.count}</span>
                   </div>
-                  <div className="bg-card px-3 py-2.5">
-                    <div className="text-[10px] uppercase tracking-[.06em] text-mute-2">Disponível pra você agora</div>
-                    <div className={cn('font-mono-hbs text-[19px] mt-1', reserva.disponivelAgora < 0 ? 'text-destructive' : 'text-success')}>{fmtMoney(reserva.disponivelAgora)}</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5">{fmtMoney(reserva.caixaTotal)} em caixa no total</div>
+                  <div className="text-[10px] text-muted-foreground truncate mt-0.5 pl-3.5">{e.destaque ? `Parado em média há ${Math.round(e.diasParadoMedio)} dias — ${e.acao.toLowerCase()}` : e.acao}</div>
+                  <div className="h-1 bg-bar-track rounded-full mt-1.5 ml-3.5 overflow-hidden">
+                    <div className={cn('h-full rounded-full', e.destaque ? 'bg-warning' : 'bg-accent-faded')} style={{ width: `${e.pct}%` }} />
                   </div>
                 </div>
-              ) : (
-                <div className="text-[11.5px] text-muted-foreground bg-surface-2 border border-3 rounded-lg px-2.5 py-2.5">
-                  Marque uma das suas contas como "conta reserva da empresa" em <button onClick={() => navigate('/caixa/contas')} className="text-accent font-medium underline underline-offset-2">Contas</button> pra acompanhar aqui quanto está protegido e quanto sobra pra você.
-                </div>
-              )}
-            </section>
+              ))}
+            </div>
+          </section>
+        </div>
 
-            {/* Caixa real (6 meses fechados) + projeção (8 semanas à frente) */}
-            <section className="bg-card border border-border rounded-xl px-3 pt-2.5 pb-2.5 flex flex-col">
-              <div className="flex items-baseline justify-between">
-                <div className="text-[12.5px] font-semibold">Caixa · real & projeção</div>
-                <div className="flex gap-2 text-[10px] text-muted-foreground">
-                  <span className="flex items-center gap-1"><span className="w-[7px] h-[7px] rounded-[2px] bg-accent" />Receita</span>
-                  <span className="flex items-center gap-1"><span className="w-[7px] h-[7px] rounded-[2px] bg-warning" />Despesa</span>
-                </div>
-              </div>
-              <div className="text-[9.5px] uppercase tracking-[.06em] text-mute-3 mt-2">6 meses fechados</div>
-              <div className="flex items-end gap-2.5 h-[130px] mt-1.5">
-                {cashflow.map(m => (
-                  <div key={m.mes} className="flex-1 flex flex-col items-center gap-1.5 h-full">
-                    <div className="flex-1 w-full flex items-end justify-center gap-1">
-                      <div className="w-2.5 rounded-t-[3px] bg-accent" style={{ height: `${Math.max(2, (m.receita / maxCash) * 100)}%` }} title={`Receita · ${fmtMoney(m.receita)}`} />
-                      <div className="w-2.5 rounded-t-[3px] bg-warning" style={{ height: `${Math.max(2, (m.despesa / maxCash) * 100)}%` }} title={`Despesa · ${fmtMoney(m.despesa)}`} />
-                    </div>
-                    <span className="text-[9.5px] text-mute-2 font-mono-hbs">{m.mes}</span>
+        <div className="flex flex-col gap-3">
+          <section className="bg-card border border-border rounded-xl p-4">
+            <div className="text-[14px] font-semibold mb-3">Financeiro</div>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div><div className="font-mono-hbs text-[16.5px] font-semibold"><ValorMonetario value={fmtMoney(financeiro.recebido)} /></div><div className="text-[11px] text-muted-foreground mt-0.5">Recebido</div></div>
+              <div><div className="font-mono-hbs text-[16.5px] font-semibold"><ValorMonetario value={fmtMoney(financeiro.aReceber)} /></div><div className="text-[11px] text-muted-foreground mt-0.5">A receber</div></div>
+              <div><div className="font-mono-hbs text-[16.5px] font-semibold"><ValorMonetario value={fmtMoney(financeiro.aPagar)} /></div><div className="text-[11px] text-muted-foreground mt-0.5">A pagar</div></div>
+              <div><div className={cn('font-mono-hbs text-[16.5px] font-semibold', financeiro.resultadoPrevisto < 0 && 'text-destructive')}><ValorMonetario value={fmtMoney(financeiro.resultadoPrevisto)} /></div><div className="text-[11px] text-muted-foreground mt-0.5">Resultado previsto</div></div>
+            </div>
+            {financeiro.alerta && (
+              <button onClick={cobrarAgoraClick} className="w-full text-left text-[11.5px] text-destructive bg-destructive-soft rounded-lg px-3 py-2 mb-3 flex items-center gap-1.5 hover:opacity-90 transition-opacity">
+                <AlertTriangle className="w-3.5 h-3.5 flex-none" /> {financeiro.alerta}
+              </button>
+            )}
+            <button onClick={() => navigate('/caixa')} className="text-[12.5px] font-semibold text-primary">Ver financeiro →</button>
+          </section>
+
+          <section className="bg-card border border-border rounded-xl p-4">
+            <div className="text-[14px] font-semibold mb-3">Atividade recente</div>
+            {atividadeRecente.length === 0 ? (
+              <div className="text-[12.5px] text-muted-foreground py-3">Nenhuma atividade registrada ainda.</div>
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {atividadeRecente.map(ev => (
+                  <div key={ev.id} className="flex items-start gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-success flex-none mt-[2px]" />
+                    <div className="text-[12.5px] text-foreground/85 leading-[1.4]">{ev.texto}</div>
                   </div>
                 ))}
               </div>
+            )}
+          </section>
 
-              <div className="text-[9.5px] uppercase tracking-[.06em] text-mute-3 mt-3 pt-3 border-t border-3">Saldo projetado · 8 semanas, só o que já está lançado</div>
-              <div className="flex items-end gap-1.5 h-[110px] mt-1.5">
-                {saldoProjetado.map(p => {
-                  const negativo = p.saldo < 0;
-                  const alturaPct = Math.max(4, (Math.abs(p.saldo) / maxSaldoProjetado) * 100);
-                  return (
-                    <div key={p.semana} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
-                      <div
-                        className={cn('w-full rounded-t-[3px]', negativo ? 'bg-destructive' : 'bg-accent')}
-                        style={{ height: `${alturaPct}%` }}
-                        title={`${p.label} · ${fmtMoney(p.saldo)}`}
-                      />
-                      <span className="text-[9px] text-mute-2 font-mono-hbs">{p.label}</span>
-                    </div>
-                  );
-                })}
-              </div>
-              {saldoProjetado.some(p => p.saldo < 0) && (
-                <div className="text-[10.5px] text-destructive mt-1.5">Saldo fica negativo em alguma semana das próximas 8.</div>
-              )}
-            </section>
+          <section className="bg-card border border-border rounded-xl p-4">
+            <div className="flex items-baseline justify-between mb-1">
+              <div className="text-[14px] font-semibold">Saúde do escritório</div>
+              <div className="font-mono-hbs text-[17px] font-semibold">{saudeEscritorio.nota}<span className="text-[11px] text-mute-2 font-normal">/100</span></div>
+            </div>
+            <div className={cn('text-[11.5px] font-semibold mb-2.5', saudeEscritorio.nota >= 80 ? 'text-success' : saudeEscritorio.nota >= 50 ? 'text-warning' : 'text-destructive')}>{saudeEscritorio.status}</div>
+            <div className="flex flex-col gap-1 mb-3">
+              {saudeEscritorio.motivos.map((m, i) => <div key={i} className="text-[11.5px] text-muted-foreground">• {m}</div>)}
+            </div>
+            <button onClick={() => navigate('/relatorios')} className="text-[12.5px] font-semibold text-primary">Ver análise →</button>
+          </section>
 
-            {/* Trabalhos por etapa — pipeline inteiro, cada etapa diz o que fazer */}
-            <section className="bg-card border border-border rounded-xl overflow-hidden flex flex-col min-h-[220px]">
-              <div className="px-3 py-2 border-b border-3 flex items-center justify-between gap-2">
-                <div className="text-[12.5px] font-semibold">Trabalhos por etapa</div>
-                <button onClick={() => navigate('/trabalhos')} className="text-[10.5px] font-medium text-accent flex items-center gap-0.5"><ChevronLeft className="w-2.5 h-2.5 rotate-180" />Todos</button>
+          {/* Reserva & disponível pra você — saldo real das contas, sem fórmula sobre histórico. */}
+          <section className="bg-card border border-border rounded-xl p-3 flex flex-col gap-2.5">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <Wallet className="w-3.5 h-3.5 text-mute-2" />
+                <span className="text-[12.5px] font-semibold">Reserva & disponível pra você</span>
               </div>
-              <div className="flex-1">
-                {etapas.length === 0 ? (
-                  <div className="px-3 py-6 text-center text-[12px] text-muted-foreground">Nenhum trabalho em andamento.</div>
-                ) : etapas.map(e => (
-                  <div key={e.etapa} onClick={() => navigate('/trabalhos')} className={cn('px-3 py-[8px] border-b border-3 last:border-b-0 cursor-pointer hover:bg-surface-3 transition-colors', e.destaque && 'bg-warning-soft')}>
-                    <div className="flex items-center gap-2">
-                      <span className={cn('w-1.5 h-1.5 rounded-full flex-none', e.dot)} />
-                      <div className="text-[11.5px] font-medium flex-1">{e.etapa}</div>
-                      {e.destaque && <Flame className="w-3 h-3 text-warning flex-none" />}
-                      <span className="font-mono-hbs text-[10px] text-mute-2 flex-none">{e.count}</span>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground truncate mt-0.5 pl-3.5">{e.destaque ? `Parado em média há ${Math.round(e.diasParadoMedio)} dias — ${e.acao.toLowerCase()}` : e.acao}</div>
-                    <div className="h-1 bg-bar-track rounded-full mt-1.5 ml-3.5 overflow-hidden">
-                      <div className={cn('h-full rounded-full', e.destaque ? 'bg-warning' : 'bg-accent-faded')} style={{ width: `${e.pct}%` }} />
-                    </div>
+              <button onClick={() => navigate('/caixa/contas')} className="h-7 px-2.5 rounded-lg bg-primary text-primary-foreground text-[11px] font-medium hover:bg-primary-hover transition-colors">
+                Ver contas
+              </button>
+            </div>
+            {reserva.temContaReserva ? (
+              <div className="grid grid-cols-2 gap-px bg-border border border-border rounded-lg overflow-hidden">
+                <div className="bg-card px-3 py-2.5">
+                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[.06em] text-mute-2"><PiggyBank className="w-3 h-3" /> Reserva da empresa</div>
+                  <div className="font-mono-hbs text-[19px] mt-1">{fmtMoney(reserva.reserva)}</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5 truncate">saldo real de "{reserva.contaNome}"</div>
+                </div>
+                <div className="bg-card px-3 py-2.5">
+                  <div className="text-[10px] uppercase tracking-[.06em] text-mute-2">Disponível pra você agora</div>
+                  <div className={cn('font-mono-hbs text-[19px] mt-1', reserva.disponivelAgora < 0 ? 'text-destructive' : 'text-success')}>{fmtMoney(reserva.disponivelAgora)}</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">{fmtMoney(reserva.caixaTotal)} em caixa no total</div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-[11.5px] text-muted-foreground bg-surface-2 border border-3 rounded-lg px-2.5 py-2.5">
+                Marque uma das suas contas como "conta reserva da empresa" em <button onClick={() => navigate('/caixa/contas')} className="text-accent font-medium underline underline-offset-2">Contas</button> pra acompanhar aqui quanto está protegido e quanto sobra pra você.
+              </div>
+            )}
+          </section>
+
+          {/* Caixa real (6 meses fechados) + projeção (8 semanas à frente) */}
+          <section className="bg-card border border-border rounded-xl px-3 pt-2.5 pb-2.5 flex flex-col">
+            <div className="flex items-baseline justify-between">
+              <div className="text-[12.5px] font-semibold">Caixa · real & projeção</div>
+              <div className="flex gap-2 text-[10px] text-muted-foreground">
+                <span className="flex items-center gap-1"><span className="w-[7px] h-[7px] rounded-[2px] bg-accent" />Receita</span>
+                <span className="flex items-center gap-1"><span className="w-[7px] h-[7px] rounded-[2px] bg-warning" />Despesa</span>
+              </div>
+            </div>
+            <div className="text-[9.5px] uppercase tracking-[.06em] text-mute-3 mt-2">6 meses fechados</div>
+            <div className="flex items-end gap-2.5 h-[130px] mt-1.5">
+              {cashflow.map(m => (
+                <div key={m.mes} className="flex-1 flex flex-col items-center gap-1.5 h-full">
+                  <div className="flex-1 w-full flex items-end justify-center gap-1">
+                    <div className="w-2.5 rounded-t-[3px] bg-accent" style={{ height: `${Math.max(2, (m.receita / maxCash) * 100)}%` }} title={`Receita · ${fmtMoney(m.receita)}`} />
+                    <div className="w-2.5 rounded-t-[3px] bg-warning" style={{ height: `${Math.max(2, (m.despesa / maxCash) * 100)}%` }} title={`Despesa · ${fmtMoney(m.despesa)}`} />
                   </div>
-                ))}
-              </div>
-            </section>
-          </div>
-        </div>
+                  <span className="text-[9.5px] text-mute-2 font-mono-hbs">{m.mes}</span>
+                </div>
+              ))}
+            </div>
 
-        <div>
-          <CalendarioAgenda compromissos={compromissos} tasks={tasks} transactions={transactions} clients={clients} onNovo={abrirNovoCompromisso} onEditar={abrirEditarCompromisso} />
+            <div className="text-[9.5px] uppercase tracking-[.06em] text-mute-3 mt-3 pt-3 border-t border-3">Saldo projetado · 8 semanas, só o que já está lançado</div>
+            <div className="flex items-end gap-1.5 h-[110px] mt-1.5">
+              {saldoProjetado.map(p => {
+                const negativo = p.saldo < 0;
+                const alturaPct = Math.max(4, (Math.abs(p.saldo) / maxSaldoProjetado) * 100);
+                return (
+                  <div key={p.semana} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+                    <div
+                      className={cn('w-full rounded-t-[3px]', negativo ? 'bg-destructive' : 'bg-accent')}
+                      style={{ height: `${alturaPct}%` }}
+                      title={`${p.label} · ${fmtMoney(p.saldo)}`}
+                    />
+                    <span className="text-[9px] text-mute-2 font-mono-hbs">{p.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+            {saldoProjetado.some(p => p.saldo < 0) && (
+              <div className="text-[10.5px] text-destructive mt-1.5">Saldo fica negativo em alguma semana das próximas 8.</div>
+            )}
+          </section>
         </div>
+      </div>
+
+      <div className="order-7">
+        <CalendarioAgenda compromissos={compromissos} tasks={tasks} transactions={transactions} clients={clients} onNovo={abrirNovoCompromisso} onEditar={abrirEditarCompromisso} />
       </div>
 
       <Dialog open={!!lembrete} onOpenChange={v => !v && setLembrete(null)}>
