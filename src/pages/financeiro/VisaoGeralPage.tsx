@@ -117,11 +117,11 @@ export default function FinanceiroVisaoGeralPage() {
 
   return (
     <div className="space-y-[18px] pb-10 animate-hbs-in">
-      <div className="grid gap-px bg-border border border-border rounded-xl overflow-hidden" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border border border-border rounded-xl overflow-hidden">
         {kpiCards.map(k => (
-          <div key={k.label} className="bg-card px-[16px] py-[14px]">
-            <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">{k.label}</div>
-            <div className={cn('font-mono-hbs text-[19px] mt-1.5', k.cls)}><ValorMonetario value={fmt(k.value)} /></div>
+          <div key={k.label} className="bg-card px-[16px] py-[14px] min-w-0">
+            <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2 truncate">{k.label}</div>
+            <div className={cn('font-mono-hbs text-[19px] mt-1.5 truncate', k.cls)}><ValorMonetario value={fmt(k.value)} /></div>
           </div>
         ))}
       </div>
