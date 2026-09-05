@@ -76,7 +76,7 @@ export default function DashboardPage() {
 
   const {
     attention, cashflow, etapas, tasks, clients, compromissos, trabalhosAtivosTotal, saldoProjetado, saudeEscritorio, reserva,
-    statusGeral, kpis, faturamentoKpi, atencaoTop, hojeAgenda, trabalhosAtencao, financeiro, atividadeRecente,
+    statusGeral, kpis, faturamentoKpi, atencaoTop, hojeAgenda, trabalhosAtencao, atividadeRecente,
   } = useMemo(() => {
     const accounts = getAccounts();
     const processes = getProcesses();
@@ -91,8 +91,6 @@ export default function DashboardPage() {
     const aReceberTx = transactions.filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído');
     const aReceber = aReceberTx.reduce((s, t) => s + t.valor, 0);
     const aReceberAtrasado = aReceberTx.filter(t => t.data < today).reduce((s, t) => s + t.valor, 0);
-    const aPagarTx = transactions.filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído');
-    const aPagar = aPagarTx.reduce((s, t) => s + t.valor, 0);
     const receitaMes = transactions
       .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
       .filter(t => { const d = new Date(dataEfetiva(t) + 'T12:00:00'); return d.getMonth() === refMes && d.getFullYear() === refAno; })
@@ -130,10 +128,8 @@ export default function DashboardPage() {
 
     const mesesFechados = cashflow.slice(0, 5);
     const receitaMediaMensal = mesesFechados.length > 0 ? mesesFechados.reduce((s, m) => s + m.receita, 0) / mesesFechados.length : 0;
-    const clientesInadimplentes = new Set(aReceberTx.filter(t => t.data < today && t.clienteId).map(t => t.clienteId));
     const inadimplenciaPct = aReceber > 0 ? Math.round((aReceberAtrasado / aReceber) * 1000) / 10 : 0;
     void receitaMediaMensal;
-    const cobrarAgoraIds = Array.from(clientesInadimplentes);
 
     const saldoProjetado = Array.from({ length: 9 }).map((_, w) => {
       const limite = new Date(now); limite.setDate(limite.getDate() + w * 7);
@@ -142,7 +138,6 @@ export default function DashboardPage() {
       const pagarAte = transactions.filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído' && t.data <= limiteStr).reduce((s, t) => s + t.valor, 0);
       return { semana: w, label: w === 0 ? 'hoje' : `${w}sem`, saldo: saldoDisponivel + receberAte - pagarAte };
     });
-    const primeiraSemanaNegativa = saldoProjetado.find(p => p.saldo < 0);
 
     let nota = 100;
     const motivos: string[] = [];
@@ -234,25 +229,13 @@ export default function DashboardPage() {
       trabalhosAtencao = [...trabalhosAtencao, ...extras];
     }
 
-    // ── Financeiro (resumo) — reaproveita exatamente os mesmos números já
-    // calculados acima; não recalcula nada com regra nova. ──
-    const financeiro = {
-      recebido: receitaMes, aReceber, aPagar, resultadoPrevisto: aReceber - aPagar,
-      alerta: aReceberAtrasado > 0
-        ? `${clientesInadimplentes.size} cobrança${clientesInadimplentes.size > 1 ? 's' : ''} vencida${clientesInadimplentes.size > 1 ? 's' : ''} — ${fmtMoney(aReceberAtrasado)}`
-        : primeiraSemanaNegativa
-          ? `Caixa projetado fica negativo em ${primeiraSemanaNegativa.label === 'hoje' ? 'breve' : primeiraSemanaNegativa.label}`
-          : null,
-      cobrarAgoraIds,
-    };
-
     // ── Atividade recente — histórico global de verdade (getHistorico sem
     // filtro), não um feed inventado. ──
     const atividadeRecente = getHistorico().slice(0, 4);
 
     return {
       attention, cashflow, etapas, tasks, clients, compromissos, trabalhosAtivosTotal: trabalhosAtivos.length, saldoProjetado, saudeEscritorio, reserva,
-      statusGeral, kpis, faturamentoKpi, atencaoTop, hojeAgenda, trabalhosAtencao, financeiro, atividadeRecente,
+      statusGeral, kpis, faturamentoKpi, atencaoTop, hojeAgenda, trabalhosAtencao, atividadeRecente,
     };
   }, [transactions, shell.refreshKey, refMes, refAno]);
 
@@ -269,14 +252,6 @@ export default function DashboardPage() {
     const client = clients.find(c => c.id === clienteId);
     if (!client) return;
     updateClient(toggleLembreteCobranca(client));
-  }
-
-  function cobrarAgoraClick() {
-    if (financeiro.cobrarAgoraIds.length === 0) return;
-    setFiltro('Cobranca');
-    const idsCobranca = attention.filter(a => a.tipo === 'Cobranca' && a.clienteIdParaLembrete && financeiro.cobrarAgoraIds.includes(a.clienteIdParaLembrete)).map(a => a.id);
-    setSelecionados(idsCobranca);
-    document.getElementById('fila-completa')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function cumprirExigenciaInline(ref: { processId: string; exigenciaId: string }) {
@@ -616,50 +591,9 @@ export default function DashboardPage() {
             )}
           </section>
 
-          {/* Trabalhos por etapa — pipeline inteiro, cada etapa diz o que fazer */}
-          <section className="bg-card border border-border rounded-xl overflow-hidden flex flex-col">
-            <div className="px-3 py-2 border-b border-3 flex items-center justify-between gap-2">
-              <div className="text-[12.5px] font-semibold">Trabalhos por etapa</div>
-              <button onClick={() => navigate('/trabalhos')} className="text-[10.5px] font-medium text-accent flex items-center gap-0.5"><ChevronLeft className="w-2.5 h-2.5 rotate-180" />Todos</button>
-            </div>
-            <div className="flex-1">
-              {etapas.length === 0 ? (
-                <div className="px-3 py-6 text-center text-[12px] text-muted-foreground">Nenhum trabalho em andamento.</div>
-              ) : etapas.map(e => (
-                <div key={e.etapa} onClick={() => navigate('/trabalhos')} className={cn('px-3 py-[8px] border-b border-3 last:border-b-0 cursor-pointer hover:bg-surface-3 transition-colors', e.destaque && 'bg-warning-soft')}>
-                  <div className="flex items-center gap-2">
-                    <span className={cn('w-1.5 h-1.5 rounded-full flex-none', e.dot)} />
-                    <div className="text-[11.5px] font-medium flex-1">{e.etapa}</div>
-                    {e.destaque && <Flame className="w-3 h-3 text-warning flex-none" />}
-                    <span className="font-mono-hbs text-[10px] text-mute-2 flex-none">{e.count}</span>
-                  </div>
-                  <div className="text-[10px] text-muted-foreground truncate mt-0.5 pl-3.5">{e.destaque ? `Parado em média há ${Math.round(e.diasParadoMedio)} dias — ${e.acao.toLowerCase()}` : e.acao}</div>
-                  <div className="h-1 bg-bar-track rounded-full mt-1.5 ml-3.5 overflow-hidden">
-                    <div className={cn('h-full rounded-full', e.destaque ? 'bg-warning' : 'bg-accent-faded')} style={{ width: `${e.pct}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
         </div>
 
         <div className="flex flex-col gap-3">
-          <section className="bg-card border border-border rounded-xl p-4">
-            <div className="text-[14px] font-semibold mb-3">Financeiro</div>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div><div className="font-mono-hbs text-[16.5px] font-semibold"><ValorMonetario value={fmtMoney(financeiro.recebido)} /></div><div className="text-[11px] text-muted-foreground mt-0.5">Recebido</div></div>
-              <div><div className="font-mono-hbs text-[16.5px] font-semibold"><ValorMonetario value={fmtMoney(financeiro.aReceber)} /></div><div className="text-[11px] text-muted-foreground mt-0.5">A receber</div></div>
-              <div><div className="font-mono-hbs text-[16.5px] font-semibold"><ValorMonetario value={fmtMoney(financeiro.aPagar)} /></div><div className="text-[11px] text-muted-foreground mt-0.5">A pagar</div></div>
-              <div><div className={cn('font-mono-hbs text-[16.5px] font-semibold', financeiro.resultadoPrevisto < 0 && 'text-destructive')}><ValorMonetario value={fmtMoney(financeiro.resultadoPrevisto)} /></div><div className="text-[11px] text-muted-foreground mt-0.5">Resultado previsto</div></div>
-            </div>
-            {financeiro.alerta && (
-              <button onClick={cobrarAgoraClick} className="w-full text-left text-[11.5px] text-destructive bg-destructive-soft rounded-lg px-3 py-2 mb-3 flex items-center gap-1.5 hover:opacity-90 transition-opacity">
-                <AlertTriangle className="w-3.5 h-3.5 flex-none" /> {financeiro.alerta}
-              </button>
-            )}
-            <button onClick={() => navigate('/caixa')} className="text-[12.5px] font-semibold text-primary">Ver financeiro →</button>
-          </section>
-
           <section className="bg-card border border-border rounded-xl p-4">
             <div className="text-[14px] font-semibold mb-3">Atividade recente</div>
             {atividadeRecente.length === 0 ? (
@@ -761,6 +695,32 @@ export default function DashboardPage() {
             {saldoProjetado.some(p => p.saldo < 0) && (
               <div className="text-[10.5px] text-destructive mt-1.5">Saldo fica negativo em alguma semana das próximas 8.</div>
             )}
+          </section>
+
+          {/* Trabalhos por etapa — pipeline inteiro, cada etapa diz o que fazer */}
+          <section className="bg-card border border-border rounded-xl overflow-hidden flex flex-col">
+            <div className="px-3 py-2 border-b border-3 flex items-center justify-between gap-2">
+              <div className="text-[12.5px] font-semibold">Trabalhos por etapa</div>
+              <button onClick={() => navigate('/trabalhos')} className="text-[10.5px] font-medium text-accent flex items-center gap-0.5"><ChevronLeft className="w-2.5 h-2.5 rotate-180" />Todos</button>
+            </div>
+            <div className="flex-1">
+              {etapas.length === 0 ? (
+                <div className="px-3 py-6 text-center text-[12px] text-muted-foreground">Nenhum trabalho em andamento.</div>
+              ) : etapas.map(e => (
+                <div key={e.etapa} onClick={() => navigate('/trabalhos')} className={cn('px-3 py-[8px] border-b border-3 last:border-b-0 cursor-pointer hover:bg-surface-3 transition-colors', e.destaque && 'bg-warning-soft')}>
+                  <div className="flex items-center gap-2">
+                    <span className={cn('w-1.5 h-1.5 rounded-full flex-none', e.dot)} />
+                    <div className="text-[11.5px] font-medium flex-1">{e.etapa}</div>
+                    {e.destaque && <Flame className="w-3 h-3 text-warning flex-none" />}
+                    <span className="font-mono-hbs text-[10px] text-mute-2 flex-none">{e.count}</span>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground truncate mt-0.5 pl-3.5">{e.destaque ? `Parado em média há ${Math.round(e.diasParadoMedio)} dias — ${e.acao.toLowerCase()}` : e.acao}</div>
+                  <div className="h-1 bg-bar-track rounded-full mt-1.5 ml-3.5 overflow-hidden">
+                    <div className={cn('h-full rounded-full', e.destaque ? 'bg-warning' : 'bg-accent-faded')} style={{ width: `${e.pct}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
           </section>
         </div>
       </div>
