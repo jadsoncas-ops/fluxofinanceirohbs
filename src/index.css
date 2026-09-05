@@ -33,9 +33,9 @@
     --popover: 0 0% 100%;
     --popover-foreground: 210 33% 9%;
 
-    --primary: 209 59% 12%;            /* navy #0d2032 — botão primário, sidebar */
+    --primary: 14 42% 46%;             /* terracota #a8624b — botão primário, marca */
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 205 62% 23%;      /* navy-hover #16405f */
+    --primary-hover: 14 46% 38%;       /* terracota-hover, mais escuro */
 
     --secondary: 210 18% 96%;
     --secondary-foreground: 209 10% 40%;
@@ -80,8 +80,8 @@
 
     --avatar: 206 49% 27%;              /* #244a68 — avatar de usuário/cliente */
 
-    /* Sidebar — sempre navy, independente do tema claro/escuro do canvas */
-    --sidebar-bg: 209 59% 12%;          /* #0d2032 */
+    /* Sidebar — sempre terracota escuro, independente do tema claro/escuro do canvas */
+    --sidebar-bg: 15 24% 15%;           /* #3d2b23 — terracota escuro e sóbrio */
     --sidebar-badge: 39 79% 34%;        /* amber por padrão — cor real por badge fica no componente */
   }
 
@@ -107,8 +107,9 @@
     --popover: 216 12% 11%;
     --popover-foreground: 45 15% 94%;
 
-    --primary: 45 15% 94%;
-    --primary-foreground: 216 12% 10%;
+    --primary: 16 42% 62%;             /* terracota mais claro, contraste sobre cartão escuro */
+    --primary-foreground: 16 30% 12%;
+    --primary-hover: 16 48% 55%;
 
     --secondary: 216 10% 16%;
     --secondary-foreground: 45 15% 94%;
@@ -148,7 +149,7 @@
     --info-foreground: 216 12% 10%;
     --info-soft: 209 30% 18%;
 
-    --sidebar-bg: 216 16% 5%;
+    --sidebar-bg: 15 26% 8%;
     --sidebar-badge: 5 46% 42%;
   }
 }
