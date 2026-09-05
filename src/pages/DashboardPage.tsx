@@ -221,7 +221,8 @@ export default function DashboardPage() {
       const parado = !atrasado && !prazoProximo && paradoDias > 14;
       const status = atrasado ? 'Atrasado' : prazoProximo ? 'Atenção' : parado ? 'Atenção' : 'Em andamento';
       const prioridade = atrasado ? 0 : prazoProximo ? 1 : parado ? 2 : 3;
-      return { id: p.id, nome: p.objeto || 'Trabalho', status, prazo: p.prazo, updatedAt: p.updatedAt, prioridade };
+      const clienteNome = clients.find(c => c.id === p.clienteId)?.nome || 'Cliente';
+      return { id: p.id, nome: p.objeto || 'Trabalho', clienteNome, status, prazo: p.prazo, updatedAt: p.updatedAt, prioridade };
     });
     let trabalhosAtencao = trabalhosInfo.filter(t => t.prioridade < 3).sort((a, b) => a.prioridade - b.prioridade || (a.prazo || '9999').localeCompare(b.prazo || '9999')).slice(0, 5);
     if (trabalhosAtencao.length < 3) {
@@ -474,7 +475,10 @@ export default function DashboardPage() {
               <div className="flex flex-col">
                 {trabalhosAtencao.map(t => (
                   <div key={t.id} onClick={() => navigate(`/trabalhos/${t.id}`)} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 py-[9px] border-b border-3 last:border-b-0 cursor-pointer">
-                    <div className="text-[13px] leading-[1.3] flex-1 min-w-0">{t.nome}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] leading-[1.3] truncate">{t.clienteNome}</div>
+                      <div className="text-[11px] text-mute-2 truncate mt-[1px]">{t.nome}</div>
+                    </div>
                     <div className="flex items-center gap-2.5 flex-none">
                       <span className={cn('text-[10.5px] font-semibold px-2 py-[3px] rounded-md', TRABALHO_STATUS_STYLE[t.status])}>{t.status}</span>
                       <span className="font-mono-hbs text-[11.5px] text-mute-2 w-9 text-right">{t.prazo ? t.prazo.slice(8, 10) + '/' + t.prazo.slice(5, 7) : '—'}</span>
