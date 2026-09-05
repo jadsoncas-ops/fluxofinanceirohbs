@@ -4,6 +4,7 @@ import { MessageCircle, CheckCircle2, ArrowRight, Phone } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
 import { getClients, getProcesses, updateClient } from '@/lib/storage';
 import { isReceivableFromClient, toggleLembreteCobranca } from '@/lib/attention';
+import { dataEfetiva } from '@/lib/financials';
 import { montarMensagemLembreteVencimento, linkWhatsApp, ItemVencimento } from '@/lib/mensagens';
 import { ValorMonetario } from '@/components/ValorMonetario';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -53,14 +54,14 @@ export default function FinanceiroCobrancaPage() {
     const grupos: Record<Bucket, typeof recebiveis> = { vencido: [], hoje: [], proximos7: [], recebido: [] };
     recebiveis.forEach(t => {
       if (t.status === 'Concluído') {
-        if (t.data.slice(0, 7) === mesAtual) grupos.recebido.push(t);
+        if (dataEfetiva(t).slice(0, 7) === mesAtual) grupos.recebido.push(t);
         return;
       }
       if (t.data < hoje) grupos.vencido.push(t);
       else if (t.data === hoje) grupos.hoje.push(t);
       else if (t.data <= em7diasStr) grupos.proximos7.push(t);
     });
-    (Object.keys(grupos) as Bucket[]).forEach(b => grupos[b].sort((a, b2) => a.data.localeCompare(b2.data)));
+    (Object.keys(grupos) as Bucket[]).forEach(b => grupos[b].sort((a, b2) => dataEfetiva(a).localeCompare(dataEfetiva(b2))));
 
     const totais: Record<Bucket, number> = {
       vencido: grupos.vencido.reduce((s, t) => s + t.valor, 0),
@@ -218,7 +219,7 @@ function Grupo({ bucket, itens, clientesMap, processes, ultimaCobranca, onCobrar
                   {bucket === 'vencido' && <span className="text-[9.5px] px-1.5 py-[1px] rounded-[4px] bg-destructive-soft text-destructive font-medium uppercase tracking-wide">{diasAtraso}d de atraso</span>}
                 </div>
                 <div className="text-[11px] text-mute-2 mt-0.5 truncate">
-                  {t.descricao}{trabalho && <> · {trabalho.objeto}</>} · {new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR')}
+                  {t.descricao}{trabalho && <> · {trabalho.objeto}</>} · {new Date(dataEfetiva(t) + 'T12:00:00').toLocaleDateString('pt-BR')}
                   {ultima && !isRecebido && <> · última cobrança {ultima}</>}
                 </div>
               </div>

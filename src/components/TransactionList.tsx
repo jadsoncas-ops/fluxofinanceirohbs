@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Transaction, Process } from '@/lib/types';
 import { getClients, getProcesses } from '@/lib/storage';
+import { dataEfetiva } from '@/lib/financials';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -149,7 +150,7 @@ export function TransactionList({ transactions, tipo, onEdit, onComplete, onDele
                     <div className="text-[11px] text-mute-2 mt-0.5 truncate">
                       {clienteNome || 'Sem cliente'}
                       {trabalho && <> · {trabalho.objeto}</>}
-                      {' · '}{new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR')}
+                      {' · '}{new Date(dataEfetiva(t) + 'T12:00:00').toLocaleDateString('pt-BR')}
                     </div>
                   </div>
                   <span className={cn('font-mono-hbs text-[14px] flex-none', isIncome ? 'text-success' : 'text-warning')}>

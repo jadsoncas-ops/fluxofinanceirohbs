@@ -3,12 +3,17 @@ export type TransactionStatus = 'Pendente' | 'Concluído' | 'Parcial';
 
 export interface Transaction {
   id: string;
-  data: string; // YYYY-MM-DD
+  data: string; // YYYY-MM-DD — vencimento/data prevista. Não muda quando o lançamento é concluído.
   tipo: TransactionType;
   categoria: string;
   descricao: string;
   valor: number;
   status: TransactionStatus;
+  /** Data em que o dinheiro de fato entrou/saiu (YYYY-MM-DD) — só existe em lançamentos
+   *  Concluído/Parcial. Diferente de `data` (vencimento): uma parcela vencida dia 1 e paga dia 25
+   *  do mês anterior tem `data` = dia 1 e `dataConclusao` = dia 25. Toda leitura de "faturamento
+   *  do mês"/"recebido este mês" deve usar `dataConclusao ?? data`, nunca só `data`. */
+  dataConclusao?: string;
   isRepasse: boolean;
   parentId?: string; // Links repasse to parent transaction
   /** Parceiro que recebe este repasse — presente quando o repasse tem um parceiro cadastrado vinculado. */

@@ -1,5 +1,13 @@
 import { Transaction, Process } from './types';
 
+/** Data que representa quando o dinheiro de fato entrou/saiu — usa dataConclusao quando existe
+ *  (lançamento Concluído/Parcial confirmado após a data original), senão cai no vencimento
+ *  (`data`). Toda leitura de "faturamento do mês" / "recebido este mês" deve usar isto, nunca
+ *  `t.data` direto — é o único jeito de não misturar vencimento com data real de recebimento. */
+export function dataEfetiva(t: Transaction): string {
+  return t.dataConclusao || t.data;
+}
+
 export interface ClientFinancials {
   totalContratado: number;
   recebido: number;

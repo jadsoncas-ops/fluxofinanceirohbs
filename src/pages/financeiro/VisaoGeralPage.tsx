@@ -4,7 +4,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { AlertTriangle } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
 import { getClients, getAccounts, getProcesses } from '@/lib/storage';
-import { computeTrabalhoFinancials } from '@/lib/financials';
+import { computeTrabalhoFinancials, dataEfetiva } from '@/lib/financials';
 import { ValorMonetario } from '@/components/ValorMonetario';
 import { cn } from '@/lib/utils';
 
@@ -40,8 +40,8 @@ export default function FinanceiroVisaoGeralPage() {
     const saldoRealizado = realizadas.reduce((s, t) => s + (isIncome(t) ? t.valor : -t.valor), 0);
     const saldoAtual = contasSaldo || saldoRealizado;
 
-    const entradasMes = realizadas.filter(t => isIncome(t) && t.data.slice(0, 7) === monthStr).reduce((s, t) => s + t.valor, 0);
-    const saidasMes = realizadas.filter(t => isExpense(t) && t.data.slice(0, 7) === monthStr).reduce((s, t) => s + t.valor, 0);
+    const entradasMes = realizadas.filter(t => isIncome(t) && dataEfetiva(t).slice(0, 7) === monthStr).reduce((s, t) => s + t.valor, 0);
+    const saidasMes = realizadas.filter(t => isExpense(t) && dataEfetiva(t).slice(0, 7) === monthStr).reduce((s, t) => s + t.valor, 0);
 
     const pendentes = allTransactions.filter(t => t.status !== 'Concluído');
     const aReceber = pendentes.filter(isIncome).reduce((s, t) => s + t.valor, 0);
@@ -72,10 +72,10 @@ export default function FinanceiroVisaoGeralPage() {
       .map(t => ({ ...t, atrasado: t.data < todayStr, clienteNome: nomeCliente(t.clienteId) }));
     const despesasPrevisto = pendentes.filter(isExpense).sort((a, b) => a.data.localeCompare(b.data))
       .map(t => ({ ...t, atrasado: t.data < todayStr, clienteNome: nomeCliente(t.clienteId) }));
-    const receitasRealizado = realizadas.filter(isIncome).sort((a, b) => b.data.localeCompare(a.data))
-      .map(t => ({ ...t, atrasado: false, clienteNome: nomeCliente(t.clienteId) }));
-    const despesasRealizado = realizadas.filter(isExpense).sort((a, b) => b.data.localeCompare(a.data))
-      .map(t => ({ ...t, atrasado: false, clienteNome: nomeCliente(t.clienteId) }));
+    const receitasRealizado = realizadas.filter(isIncome).sort((a, b) => dataEfetiva(b).localeCompare(dataEfetiva(a)))
+      .map(t => ({ ...t, data: dataEfetiva(t), atrasado: false, clienteNome: nomeCliente(t.clienteId) }));
+    const despesasRealizado = realizadas.filter(isExpense).sort((a, b) => dataEfetiva(b).localeCompare(dataEfetiva(a)))
+      .map(t => ({ ...t, data: dataEfetiva(t), atrasado: false, clienteNome: nomeCliente(t.clienteId) }));
 
     // Lucro previsto por trabalho = a receber (só o que já está lançado) − repasse pendente daquele
     // trabalho. Antes usava o valor total do contrato, que incluía parcelas nem lançadas ainda —
@@ -91,9 +91,15 @@ export default function FinanceiroVisaoGeralPage() {
       .sort((a, b) => b.previsto - a.previsto);
     const lucroLiquidoPrevistoTotal = aReceber - aPagar;
     const lucroLiquidoRealizadoTotal = lucroTrabalhos.reduce((s, t) => s + t.realizado, 0);
+    // Resultado líquido do mês = entradas realizadas − saídas realizadas, ambas já calculadas
+    // acima (dataEfetiva, sem duplicar critério nenhum) — não é a mesma coisa que "lucro por
+    // trabalho" (que já desconta repasse por trabalho); aqui é só o extrato bruto do mês, líquido
+    // entre os dois lados. Não muda como Receitas/Despesas mostram valor bruto lançamento a
+    // lançamento — é só a soma final das duas colunas.
+    const resultadoLiquidoMes = entradasMes - saidasMes;
 
     return {
-      kpis: { saldoAtual, entradasMes, saidasMes, aReceber, aPagar, saldoProjetado, lucroLiquidoPrevistoTotal },
+      kpis: { saldoAtual, entradasMes, saidasMes, resultadoLiquidoMes, aReceber, aPagar, saldoProjetado, lucroLiquidoPrevistoTotal },
       points, negativeAlert, receitasPrevisto, receitasRealizado, despesasPrevisto, despesasRealizado, clientes, lucroTrabalhos, lucroLiquidoRealizadoTotal,
     };
   }, [allTransactions, horizon]);
@@ -102,6 +108,7 @@ export default function FinanceiroVisaoGeralPage() {
     { label: 'Saldo atual', value: kpis.saldoAtual, cls: kpis.saldoAtual >= 0 ? 'text-foreground' : 'text-destructive' },
     { label: 'Entradas do mês', value: kpis.entradasMes, cls: 'text-success' },
     { label: 'Saídas do mês', value: kpis.saidasMes, cls: 'text-destructive' },
+    { label: 'Resultado líquido do mês', value: kpis.resultadoLiquidoMes, cls: kpis.resultadoLiquidoMes >= 0 ? 'text-success' : 'text-destructive' },
     { label: 'A receber', value: kpis.aReceber, cls: 'text-accent' },
     { label: 'A pagar', value: kpis.aPagar, cls: 'text-warning' },
     { label: 'Saldo projetado', value: kpis.saldoProjetado, cls: kpis.saldoProjetado >= 0 ? 'text-foreground' : 'text-destructive' },
