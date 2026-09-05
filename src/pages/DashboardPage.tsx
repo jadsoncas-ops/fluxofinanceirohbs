@@ -549,19 +549,21 @@ export default function DashboardPage() {
                   const telefoneAberto = telefoneInlineId === a.clienteIdParaLembrete;
                   return (
                     <div key={a.id} className={cn('px-3 py-[7px] border-b border-3', !telefoneAberto && 'hover:bg-surface-3 transition-colors')}>
-                      <div className="flex items-center gap-2">
-                        {a.clienteIdParaLembrete ? (
-                          <input type="checkbox" checked={sel} onChange={() => setSelecionados(s => sel ? s.filter(x => x !== a.id) : [...s, a.id])} className="w-3.5 h-3.5 accent-accent flex-none" />
-                        ) : <span className="w-3.5 flex-none" />}
-                        <span className={cn('w-[3px] self-stretch rounded-[2px] min-h-[24px]', a.severity === 'critical' ? 'bg-destructive' : a.severity === 'warning' ? 'bg-warning' : 'bg-mute-3')} />
-                        <div onClick={() => navigate(a.to)} className="min-w-0 flex-1 cursor-pointer">
-                          <div className="flex items-center gap-1.5">
-                            <span className={cn('text-[8.5px] px-1.5 py-[1px] rounded-[4px] font-semibold uppercase tracking-wide flex-none', TIPO_TAG[a.tipo])}>{TIPO_LABEL[a.tipo]}</span>
-                            <span className="text-[11.5px] font-medium leading-[1.3] truncate">{a.title}</span>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {a.clienteIdParaLembrete ? (
+                            <input type="checkbox" checked={sel} onChange={() => setSelecionados(s => sel ? s.filter(x => x !== a.id) : [...s, a.id])} className="w-3.5 h-3.5 accent-accent flex-none" />
+                          ) : <span className="w-3.5 flex-none" />}
+                          <span className={cn('w-[3px] self-stretch rounded-[2px] min-h-[24px]', a.severity === 'critical' ? 'bg-destructive' : a.severity === 'warning' ? 'bg-warning' : 'bg-mute-3')} />
+                          <div onClick={() => navigate(a.to)} className="min-w-0 flex-1 cursor-pointer">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={cn('text-[8.5px] px-1.5 py-[1px] rounded-[4px] font-semibold uppercase tracking-wide flex-none', TIPO_TAG[a.tipo])}>{TIPO_LABEL[a.tipo]}</span>
+                              <span className="text-[11.5px] font-medium leading-[1.3] sm:truncate">{a.title}</span>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground sm:truncate mt-[1px]">{a.sub}{cobradoHoje && <span className="text-success font-medium"> · ✓ cobrado hoje</span>}</div>
                           </div>
-                          <div className="text-[10px] text-muted-foreground truncate mt-[1px]">{a.sub}{cobradoHoje && <span className="text-success font-medium"> · ✓ cobrado hoje</span>}</div>
                         </div>
-                        <div className="flex items-center gap-1 flex-none">
+                        <div className="flex items-center gap-1 flex-wrap flex-none pl-[23px] sm:pl-0">
                           {a.exigenciaRef && (
                             <button onClick={() => cumprirExigenciaInline(a.exigenciaRef!)} title="Marcar exigência como cumprida" className="h-6 w-6 grid place-items-center rounded-md hover:bg-success-soft text-mute-2 hover:text-success"><Check className="w-3 h-3" /></button>
                           )}

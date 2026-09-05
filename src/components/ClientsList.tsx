@@ -96,7 +96,7 @@ export function ClientsList({ refreshSignal = 0 }: Props = {}) {
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="flex gap-3.5 px-[18px] py-[11px] border-b border-border bg-surface-2 text-[10.5px] tracking-[.07em] uppercase text-mute-2">
+        <div className="hidden sm:flex gap-3.5 px-[18px] py-[11px] border-b border-border bg-surface-2 text-[10.5px] tracking-[.07em] uppercase text-mute-2">
           <span className="flex-[2] min-w-0">Cliente</span>
           <span className="flex-1 min-w-0">Trabalhos</span>
           <span className="flex-1 min-w-0 text-right">Contrato</span>
@@ -116,22 +116,32 @@ export function ClientsList({ refreshSignal = 0 }: Props = {}) {
             <div
               key={c.id}
               onClick={() => navigate(`/clientes/${c.id}`)}
-              className="flex gap-3.5 items-center px-[18px] py-[13px] border-b border-3 last:border-b-0 cursor-pointer hover:bg-surface-3 transition-colors"
+              className="flex flex-col sm:flex-row gap-2 sm:gap-3.5 sm:items-center px-[18px] py-[13px] border-b border-3 last:border-b-0 cursor-pointer hover:bg-surface-3 transition-colors"
             >
               <div className="flex-[2] min-w-0 flex items-center gap-[11px]">
                 <span className="w-[30px] h-[30px] flex-none rounded-full bg-accent-soft text-accent grid place-items-center text-[11px] font-semibold font-mono-hbs">{initials(c.nome)}</span>
                 <div className="min-w-0">
-                  <div className="text-[13.5px] font-medium truncate">{c.nome}</div>
+                  <div className="text-[13.5px] font-medium sm:truncate">{c.nome}</div>
                   <div className="text-[11.5px] text-mute-2">{c.tipo || 'Pessoa física'}{c.endereco?.cidade ? ` · ${c.endereco.cidade}` : ''}</div>
                 </div>
               </div>
-              <div className="flex-1 min-w-0 text-[12.5px] text-muted-foreground">
+
+              {/* Mobile: resumo em uma linha com legenda embutida — no desktop o cabeçalho da tabela já rotula cada coluna */}
+              <div className="flex sm:hidden flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] pl-[41px]">
+                <span className="text-mute-2">{andamento > 0 ? `${andamento} projeto${andamento > 1 ? 's' : ''}` : 'Sem projeto'}</span>
+                <span className="font-mono-hbs">Contrato {fmt(fin.totalContratado)}</span>
+                {fin.aReceber > 0 && <span className="font-mono-hbs text-destructive">Falta receber {fmt(fin.aReceber)}</span>}
+                <span className="font-mono-hbs text-success">Lucro {fmt(fin.resultadoPrevisto)}</span>
+                <span className="text-mute-2">Contato: {relativeTime(lastTouch)}</span>
+              </div>
+
+              <div className="hidden sm:block flex-1 min-w-0 text-[12.5px] text-muted-foreground">
                 {andamento > 0 ? `${andamento} projeto${andamento > 1 ? 's' : ''}` : '—'}
               </div>
-              <div className="flex-1 min-w-0 text-right font-mono-hbs text-[12.5px]">{fmt(fin.totalContratado)}</div>
-              <div className={cn('flex-1 min-w-0 text-right font-mono-hbs text-[12.5px]', fin.aReceber > 0 ? 'text-destructive' : 'text-mute-2')}>{fmt(fin.aReceber)}</div>
-              <div className="flex-1 min-w-0 text-right font-mono-hbs text-[12.5px] text-success">{fmt(fin.resultadoPrevisto)}</div>
-              <div className="flex-[.8] min-w-0 text-right text-[11.5px] text-mute-2 font-mono-hbs">{relativeTime(lastTouch)}</div>
+              <div className="hidden sm:block flex-1 min-w-0 text-right font-mono-hbs text-[12.5px]">{fmt(fin.totalContratado)}</div>
+              <div className={cn('hidden sm:block flex-1 min-w-0 text-right font-mono-hbs text-[12.5px]', fin.aReceber > 0 ? 'text-destructive' : 'text-mute-2')}>{fmt(fin.aReceber)}</div>
+              <div className="hidden sm:block flex-1 min-w-0 text-right font-mono-hbs text-[12.5px] text-success">{fmt(fin.resultadoPrevisto)}</div>
+              <div className="hidden sm:block flex-[.8] min-w-0 text-right text-[11.5px] text-mute-2 font-mono-hbs">{relativeTime(lastTouch)}</div>
             </div>
           ))
         )}

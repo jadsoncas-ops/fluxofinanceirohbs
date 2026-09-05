@@ -133,7 +133,7 @@ export default function TrabalhosPage() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="flex gap-3.5 px-[18px] py-[11px] border-b border-border bg-surface-2 text-[10.5px] tracking-[.07em] uppercase text-mute-2">
+          <div className="hidden sm:flex gap-3.5 px-[18px] py-[11px] border-b border-border bg-surface-2 text-[10.5px] tracking-[.07em] uppercase text-mute-2">
             <span className="flex-[2.4] min-w-0">Trabalho</span>
             <span className="flex-[1.3] min-w-0">Cliente</span>
             <span className="w-[112px] flex-none">Etapa</span>
@@ -147,15 +147,24 @@ export default function TrabalhosPage() {
               const etapa = t.etapa || 'Levantamento';
               const pi = prazoInfo(t.prazo, etapa);
               return (
-                <div key={t.id} onClick={() => navigate(`/trabalhos/${t.id}`)} className="flex gap-3.5 items-center px-[18px] py-3 border-b border-3 last:border-b-0 cursor-pointer hover:bg-surface-3 transition-colors">
+                <div key={t.id} onClick={() => navigate(`/trabalhos/${t.id}`)} className="flex flex-col sm:flex-row gap-1.5 sm:gap-3.5 sm:items-center px-[18px] py-3 border-b border-3 last:border-b-0 cursor-pointer hover:bg-surface-3 transition-colors">
                   <div className="flex-[2.4] min-w-0">
-                    <div className="text-[12.5px] font-medium truncate">{t.objeto}</div>
+                    <div className="text-[12.5px] font-medium sm:truncate">{t.objeto}</div>
                     {t.tipoTrabalho && <div className="text-[10.5px] uppercase tracking-[.05em] text-mute-2">{t.tipoTrabalho}</div>}
                   </div>
-                  <span className="flex-[1.3] min-w-0 text-[12.5px] text-muted-foreground truncate">{clienteNome(t.clienteId)}</span>
-                  <span className="w-[112px] flex-none text-[11px] px-2 py-[3px] rounded-[5px] bg-neutral-soft text-mute-2 font-medium">{etapa}</span>
-                  <span className={cn('w-[84px] flex-none text-[11px] font-mono-hbs', pi.color)}>{pi.label}</span>
-                  <span className="w-[92px] flex-none text-right text-[12px] font-mono-hbs text-mute-2">{typeof t.valorContrato === 'number' ? fmt(t.valorContrato) : '—'}</span>
+                  <span className="hidden sm:block flex-[1.3] min-w-0 text-[12.5px] text-muted-foreground truncate">{clienteNome(t.clienteId)}</span>
+
+                  {/* Mobile: cliente + etapa + prazo + valor numa linha só, com legenda embutida */}
+                  <div className="flex sm:hidden flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px]">
+                    <span className="text-muted-foreground">{clienteNome(t.clienteId)}</span>
+                    <span className="px-2 py-[3px] rounded-[5px] bg-neutral-soft text-mute-2 font-medium">{etapa}</span>
+                    <span className={cn('font-mono-hbs', pi.color)}>{pi.label}</span>
+                    {typeof t.valorContrato === 'number' && <span className="font-mono-hbs text-mute-2">{fmt(t.valorContrato)}</span>}
+                  </div>
+
+                  <span className="hidden sm:block w-[112px] flex-none text-[11px] px-2 py-[3px] rounded-[5px] bg-neutral-soft text-mute-2 font-medium">{etapa}</span>
+                  <span className={cn('hidden sm:block w-[84px] flex-none text-[11px] font-mono-hbs', pi.color)}>{pi.label}</span>
+                  <span className="hidden sm:block w-[92px] flex-none text-right text-[12px] font-mono-hbs text-mute-2">{typeof t.valorContrato === 'number' ? fmt(t.valorContrato) : '—'}</span>
                 </div>
               );
             })

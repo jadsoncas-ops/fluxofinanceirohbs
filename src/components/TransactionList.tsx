@@ -139,67 +139,72 @@ export function TransactionList({ transactions, tipo, onEdit, onComplete, onDele
               const vinculado = !!t.processId;
 
               return (
-                <div key={t.id} className={cn('flex items-center gap-3 px-[18px] py-[13px] border-t border-3 first:border-t-0', isLate && 'bg-destructive-soft/30')}>
-                  <span className="w-[34px] h-[34px] flex-none rounded-lg bg-surface-2 grid place-items-center text-[15px]">{getCategoryEmoji(t.categoria)}</span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[13px] font-medium truncate">{t.descricao}</span>
-                      {t.isRepasse && <span className="text-[9.5px] px-1.5 py-[1px] rounded-[4px] bg-accent-soft text-accent font-medium uppercase tracking-wide flex-none">🤝 Repasse</span>}
-                      {isLate && <span className="text-[9.5px] px-1.5 py-[1px] rounded-[4px] bg-destructive-soft text-destructive font-medium uppercase tracking-wide flex-none">Atrasado</span>}
-                    </div>
-                    <div className="text-[11px] text-mute-2 mt-0.5 truncate">
-                      {clienteNome || 'Sem cliente'}
-                      {trabalho && <> · {trabalho.objeto}</>}
-                      {' · '}{new Date(dataEfetiva(t) + 'T12:00:00').toLocaleDateString('pt-BR')}
+                <div key={t.id} className={cn('flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-[18px] py-[13px] border-t border-3 first:border-t-0', isLate && 'bg-destructive-soft/30')}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="w-[34px] h-[34px] flex-none rounded-lg bg-surface-2 grid place-items-center text-[15px]">{getCategoryEmoji(t.categoria)}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[13px] font-medium sm:truncate">{t.descricao}</span>
+                        {t.isRepasse && <span className="text-[9.5px] px-1.5 py-[1px] rounded-[4px] bg-accent-soft text-accent font-medium uppercase tracking-wide flex-none">🤝 Repasse</span>}
+                        {isLate && <span className="text-[9.5px] px-1.5 py-[1px] rounded-[4px] bg-destructive-soft text-destructive font-medium uppercase tracking-wide flex-none">Atrasado</span>}
+                      </div>
+                      <div className="text-[11px] text-mute-2 mt-0.5 sm:truncate">
+                        {clienteNome || 'Sem cliente'}
+                        {trabalho && <> · {trabalho.objeto}</>}
+                        {' · '}{new Date(dataEfetiva(t) + 'T12:00:00').toLocaleDateString('pt-BR')}
+                      </div>
                     </div>
                   </div>
-                  <span className={cn('font-mono-hbs text-[14px] flex-none', isIncome ? 'text-success' : 'text-warning')}>
-                    {isIncome ? '+' : '-'} R$ {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                  <span className={cn('text-[10px] px-2 py-[3px] rounded-[5px] font-medium flex-none flex items-center gap-1',
-                    t.status === 'Concluído' ? 'bg-success-soft text-success' : t.status === 'Parcial' ? 'bg-accent-soft text-accent' : 'bg-warning-soft text-warning')}>
-                    {t.status === 'Concluído' ? <CheckCircle2 className="w-2.5 h-2.5" /> : <Clock3 className="w-2.5 h-2.5" />}
-                    {t.status}
-                  </span>
 
-                  <div className="flex-none flex items-center gap-1">
-                    {vinculado ? (
-                      <button onClick={() => navigate(`/trabalhos/${t.processId}`)} className="h-7 px-2.5 rounded-lg border-2 text-[11px] font-medium hover:border-hover transition-colors flex items-center gap-1">
-                        Ver trabalho <ArrowRight className="w-3 h-3" />
-                      </button>
-                    ) : (
-                      <>
-                        {isPendente && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 text-mute-2" title="Adiar">
-                                <CalendarClock className="w-3.5 h-3.5" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel className="text-xs">Adiar para qual mês?</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              {getNext3MonthsOptions(t.data).map(opt => (
-                                <DropdownMenuItem key={opt.newDate} onClick={() => handlePostpone(t, opt.newDate, opt.label)} className="text-xs flex justify-between gap-3">
-                                  <span>{opt.label}</span><span className="text-mute-2 font-mono-hbs">{opt.displayDate}</span>
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                        {isPendente && (
-                          <button onClick={() => onComplete(t)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-success-soft text-mute-2 hover:text-success" title={isIncome ? 'Marcar como recebida' : 'Marcar como paga'}>
-                            <CheckCircle2 className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-2 flex-wrap pl-[46px] sm:pl-0 sm:flex-none">
+                    <span className={cn('font-mono-hbs text-[14px] flex-none', isIncome ? 'text-success' : 'text-warning')}>
+                      {isIncome ? '+' : '-'} R$ {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    <span className={cn('text-[10px] px-2 py-[3px] rounded-[5px] font-medium flex-none flex items-center gap-1',
+                      t.status === 'Concluído' ? 'bg-success-soft text-success' : t.status === 'Parcial' ? 'bg-accent-soft text-accent' : 'bg-warning-soft text-warning')}>
+                      {t.status === 'Concluído' ? <CheckCircle2 className="w-2.5 h-2.5" /> : <Clock3 className="w-2.5 h-2.5" />}
+                      {t.status}
+                    </span>
+
+                    <div className="flex-none flex items-center gap-1">
+                      {vinculado ? (
+                        <button onClick={() => navigate(`/trabalhos/${t.processId}`)} className="h-7 px-2.5 rounded-lg border-2 text-[11px] font-medium hover:border-hover transition-colors flex items-center gap-1 whitespace-nowrap">
+                          Ver trabalho <ArrowRight className="w-3 h-3" />
+                        </button>
+                      ) : (
+                        <>
+                          {isPendente && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 text-mute-2" title="Adiar">
+                                  <CalendarClock className="w-3.5 h-3.5" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel className="text-xs">Adiar para qual mês?</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                {getNext3MonthsOptions(t.data).map(opt => (
+                                  <DropdownMenuItem key={opt.newDate} onClick={() => handlePostpone(t, opt.newDate, opt.label)} className="text-xs flex justify-between gap-3">
+                                    <span>{opt.label}</span><span className="text-mute-2 font-mono-hbs">{opt.displayDate}</span>
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                          {isPendente && (
+                            <button onClick={() => onComplete(t)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-success-soft text-mute-2 hover:text-success" title={isIncome ? 'Marcar como recebida' : 'Marcar como paga'}>
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button onClick={() => onEdit(t)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 text-mute-2" title="Editar">
+                            <Pencil className="w-3.5 h-3.5" />
                           </button>
-                        )}
-                        <button onClick={() => onEdit(t)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 text-mute-2" title="Editar">
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => setDeleteTarget(t)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-destructive-soft text-mute-2 hover:text-destructive" title="Excluir">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </>
-                    )}
+                          <button onClick={() => setDeleteTarget(t)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-destructive-soft text-mute-2 hover:text-destructive" title="Excluir">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

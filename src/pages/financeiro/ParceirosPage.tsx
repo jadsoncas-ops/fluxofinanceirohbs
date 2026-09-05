@@ -89,7 +89,7 @@ export default function FinanceiroParceirosPage() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="flex gap-3.5 px-[18px] py-[11px] border-b border-border bg-surface-2 text-[10.5px] tracking-[.07em] uppercase text-mute-2">
+          <div className="hidden sm:flex gap-3.5 px-[18px] py-[11px] border-b border-border bg-surface-2 text-[10.5px] tracking-[.07em] uppercase text-mute-2">
             <span className="flex-[2] min-w-0">Parceiro</span>
             <span className="flex-1 min-w-0">Contato</span>
             <span className="flex-1 min-w-0 text-right">Repassado / Previsto</span>
@@ -98,18 +98,24 @@ export default function FinanceiroParceirosPage() {
           {partners.map(p => {
             const h = historicoPorParceiro.get(p.id);
             return (
-              <div key={p.id} className="flex gap-3.5 items-center px-[18px] py-[13px] border-t border-3">
-                <div className="flex-[2] min-w-0">
-                  <div className="text-[13px] font-medium truncate">{p.nome}</div>
-                  {p.documento && <div className="text-[11px] text-mute-2">{p.documento}</div>}
+              <div key={p.id} className="flex flex-col sm:flex-row gap-1.5 sm:gap-3.5 sm:items-center px-[18px] py-[13px] border-t border-3">
+                <div className="flex-[2] min-w-0 flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-medium sm:truncate">{p.nome}</div>
+                    {p.documento && <div className="text-[11px] text-mute-2">{p.documento}</div>}
+                  </div>
+                  <div className="flex sm:hidden flex-none gap-1 -mt-1">
+                    <button onClick={() => openEdit(p)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 transition-colors text-mute-2"><Pencil className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => handleDelete(p)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-destructive-soft transition-colors text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0 text-[12px] text-muted-foreground truncate">{p.contato || '—'}</div>
-                <div className="flex-1 min-w-0 text-right font-mono-hbs text-[12px]">
+                <div className="flex-1 min-w-0 text-[12px] text-muted-foreground sm:truncate">{p.contato || '—'}</div>
+                <div className="flex-1 min-w-0 sm:text-right font-mono-hbs text-[12px]">
                   <span className="text-success">{fmt(h?.pago || 0)}</span>
                   {h && h.previsto > 0 && <span className="text-mute-3"> / {fmt(h.previsto)}</span>}
                   {!h && <span className="text-mute-3">Sem repasses ainda</span>}
                 </div>
-                <div className="w-[70px] flex-none flex justify-end gap-1">
+                <div className="hidden sm:flex w-[70px] flex-none justify-end gap-1">
                   <button onClick={() => openEdit(p)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 transition-colors text-mute-2"><Pencil className="w-3.5 h-3.5" /></button>
                   <button onClick={() => handleDelete(p)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-destructive-soft transition-colors text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
