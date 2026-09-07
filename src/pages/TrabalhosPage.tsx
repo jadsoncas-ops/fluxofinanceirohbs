@@ -78,7 +78,7 @@ export default function TrabalhosPage() {
       </div>
 
       {view === 'kanban' ? (
-        <div className="grid gap-3.5 items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(228px, 1fr))' }}>
+        <div className="grid gap-3.5 items-start grid-cols-[repeat(auto-fit,minmax(228px,1fr))] lg:grid-cols-5">
           {COLUNAS.map(col => {
             const items = trabalhos.filter(t => (t.etapa || 'Levantamento') === col);
             return (
@@ -86,13 +86,13 @@ export default function TrabalhosPage() {
                 key={col}
                 onDragOver={e => e.preventDefault()}
                 onDrop={() => dragId && moverEtapa(dragId, col)}
-                className="bg-kanban border border-border rounded-xl p-3"
+                className="bg-kanban border border-border rounded-xl p-3 lg:flex lg:flex-col lg:max-h-[calc(100vh-230px)]"
               >
-                <div className="flex items-center justify-between px-1 pb-2.5">
+                <div className="flex items-center justify-between px-1 pb-2.5 lg:flex-none">
                   <span className="text-[12px] font-semibold">{col}</span>
                   <span className="text-[10.5px] font-mono-hbs text-mute-2">{items.length}</span>
                 </div>
-                <div className="flex flex-col gap-2.5">
+                <div className="flex flex-col gap-2.5 lg:min-h-0 lg:overflow-y-auto lg:pr-1 lg:-mr-1">
                   {items.map(t => {
                     const pi = prazoInfo(t.prazo, col);
                     const proximo = proximoPagamentoPorTrabalho.get(t.id);
