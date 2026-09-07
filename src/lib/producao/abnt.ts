@@ -1,5 +1,10 @@
-import { Unidade } from '@/lib/types';
+import { AbntData, Process, Unidade } from '@/lib/types';
 import { somaUnidade, unidadesAutonomas, areaTotalAutonomas } from './fracaoIdeal';
+
+/** Dados iniciais: usa o que já foi salvo neste Trabalho (edição), senão começa em branco (CUB). */
+export function dadosIniciaisAbnt(trabalho: Process): AbntData {
+  return trabalho.abnt || { tipoReferencia: 'cub', valor: '', referencia: '', justificativaComplemento: '' };
+}
 
 /** Quadros NBR 12721 (IV-A/IV-B) — portado verbatim do cota_saas (src/lib/documentos/abnt.ts). */
 

@@ -219,6 +219,8 @@ export interface Process {
   anuencia?: AnuenciaData;
   /** Presente apenas quando este trabalho gera uma Declaração de Descarte de Entulhos (Produção Técnica). */
   descarteEntulhos?: DescarteEntulhosData;
+  /** Presente apenas quando este trabalho gera o Quadro ABNT NBR 12721 (Produção Técnica). */
+  abnt?: AbntData;
   /** Trâmite em cartório — presente só nos trabalhos que vão a registro. */
   registro?: RegistroImobiliario;
   createdAt: number;
@@ -351,6 +353,14 @@ export interface AnuenciaData {
 export interface DescarteEntulhosData {
   cidade?: string;
   dataDocumento?: string; // YYYY-MM-DD
+}
+
+/** Quadro ABNT NBR 12721 (IV-A/IV-B) — valor de referência e justificativa adotados para o cálculo. */
+export interface AbntData {
+  tipoReferencia?: 'cub' | 'adotado';
+  valor?: string;
+  referencia?: string;
+  justificativaComplemento?: string;
 }
 
 export interface DocumentRecord {

@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Unidade, CompanyConfig } from '@/lib/types';
-import { calcularQuadroAbnt, fmtMoeda } from '@/lib/producao/abnt';
+import { toast } from 'sonner';
+import { AbntData, Unidade, CompanyConfig, Process } from '@/lib/types';
+import { updateProcess } from '@/lib/storage';
+import { calcularQuadroAbnt, dadosIniciaisAbnt, fmtMoeda } from '@/lib/producao/abnt';
 import { fmt } from '@/lib/producao/fracaoIdeal';
 import { ConjugeAssinatura } from '@/lib/producao/documentoShared';
 import { AssinaturaTitular } from './AssinaturaTitular';
@@ -14,8 +16,6 @@ function Th({ principal, secundario }: { principal: string; secundario?: string 
     </th>
   );
 }
-
-type TipoReferencia = 'cub' | 'adotado';
 
 function justificativaCub(valorNum: number, referencia: string) {
   return `O presente cálculo foi elaborado com base no Custo Unitário Básico da Construção Civil (CUB/m²)${
@@ -32,22 +32,33 @@ function justificativaEspecifico(valorNum: number, referencia: string) {
 }
 
 export function DocumentoAbnt({
-  nomeTrabalho,
+  trabalho,
   units,
   responsavel,
   art,
   proprietarios,
+  onSaved,
 }: {
-  nomeTrabalho: string;
+  trabalho: Process;
   units: Unidade[];
   responsavel: CompanyConfig;
   art: string;
   proprietarios: { nome: string; cpf?: string; conjuge?: ConjugeAssinatura; unidadesRef?: string }[];
+  onSaved?: () => void;
 }) {
-  const [tipoReferencia, setTipoReferencia] = useState<TipoReferencia>('cub');
-  const [valor, setValor] = useState('');
-  const [referencia, setReferencia] = useState('');
-  const [justificativaComplemento, setJustificativaComplemento] = useState('');
+  const [data, setData] = useState<AbntData>(() => dadosIniciaisAbnt(trabalho));
+  const { tipoReferencia = 'cub', valor = '', referencia = '', justificativaComplemento = '' } = data;
+
+  function set<K extends keyof AbntData>(key: K, value: AbntData[K]) {
+    setData(d => ({ ...d, [key]: value }));
+  }
+
+  function salvar() {
+    updateProcess({ ...trabalho, abnt: data });
+    toast.success('Dados do Quadro ABNT salvos no trabalho.');
+    onSaved?.();
+  }
+
   const valorNum = parseFloat(valor.replace(',', '.')) || 0;
 
   const { linhas, totais, somaTotal } = useMemo(() => calcularQuadroAbnt(units, valorNum), [units, valorNum]);
@@ -64,30 +75,32 @@ export function DocumentoAbnt({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <label style={{ fontSize: '11px', fontWeight: 500, color: 'var(--doc-muted)', fontFamily: 'system-ui, sans-serif' }}>Tipo de referência</label>
           <div style={{ display: 'inline-flex', width: 'fit-content', border: '1px solid var(--doc-line)', borderRadius: '8px', padding: '3px' }}>
-            <button type="button" onClick={() => setTipoReferencia('cub')} className={tipoReferenciaBtnCls(ehCub)}>CUB</button>
-            <button type="button" onClick={() => setTipoReferencia('adotado')} className={tipoReferenciaBtnCls(!ehCub)}>Valor unitário de referência específico</button>
+            <button type="button" onClick={() => set('tipoReferencia', 'cub')} className={tipoReferenciaBtnCls(ehCub)}>CUB</button>
+            <button type="button" onClick={() => set('tipoReferencia', 'adotado')} className={tipoReferenciaBtnCls(!ehCub)}>Valor unitário de referência específico</button>
           </div>
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '16px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '11px', fontWeight: 500, color: 'var(--doc-muted)', fontFamily: 'system-ui, sans-serif' }}>{rotuloValor}</label>
-            <input value={valor} onChange={e => setValor(e.target.value)} placeholder={ehCub ? 'Ex: 2150,00' : 'Ex: 860,00'} style={inputStyle} />
+            <input value={valor} onChange={e => set('valor', e.target.value)} placeholder={ehCub ? 'Ex: 2150,00' : 'Ex: 860,00'} style={inputStyle} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '11px', fontWeight: 500, color: 'var(--doc-muted)', fontFamily: 'system-ui, sans-serif' }}>{rotuloMesAno}</label>
-            <input value={referencia} onChange={e => setReferencia(e.target.value)} placeholder={ehCub ? 'Ex: agosto/2026' : 'Ex: agosto de 1988'} style={{ ...inputStyle, width: '210px' }} />
+            <input value={referencia} onChange={e => set('referencia', e.target.value)} placeholder={ehCub ? 'Ex: agosto/2026' : 'Ex: agosto de 1988'} style={{ ...inputStyle, width: '210px' }} />
           </div>
         </div>
 
         {!ehCub && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '11px', fontWeight: 500, color: 'var(--doc-muted)', fontFamily: 'system-ui, sans-serif' }}>Complemento à justificativa (some ao texto padrão abaixo, no documento)</label>
-            <textarea value={justificativaComplemento} onChange={e => setJustificativaComplemento(e.target.value)} rows={4} placeholder="Ex: Edificação construída originalmente em 1988, apresentando padrão construtivo inferior às referências atuais..." style={{ ...inputStyle, width: '100%' }} />
+            <textarea value={justificativaComplemento} onChange={e => set('justificativaComplemento', e.target.value)} rows={4} placeholder="Ex: Edificação construída originalmente em 1988, apresentando padrão construtivo inferior às referências atuais..." style={{ ...inputStyle, width: '100%' }} />
           </div>
         )}
 
-        <p style={{ fontSize: '11px', color: 'var(--doc-muted)', fontFamily: 'system-ui, sans-serif', margin: 0 }}>Preenche aqui antes de gerar — não fica salvo separadamente, é parte deste documento.</p>
+        <button type="button" onClick={salvar} style={{ alignSelf: 'flex-start', height: 32, padding: '0 12px', borderRadius: 8, background: 'var(--doc-accent, #1e293b)', color: '#fff', fontSize: 12, fontWeight: 500, fontFamily: 'system-ui, sans-serif', border: 'none', cursor: 'pointer' }}>
+          Salvar dados
+        </button>
       </div>
 
       <div className="documento-header">

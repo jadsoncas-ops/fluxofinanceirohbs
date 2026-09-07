@@ -91,6 +91,7 @@ export type Database = {
           carta_reforma: Json | null
           anuencia: Json | null
           descarte_entulhos: Json | null
+          abnt: Json | null
           registro: Json | null
           created_at: string
           updated_at: string
@@ -118,6 +119,7 @@ export type Database = {
           carta_reforma?: Json | null
           anuencia?: Json | null
           descarte_entulhos?: Json | null
+          abnt?: Json | null
           registro?: Json | null
           created_at?: string
           updated_at?: string
@@ -145,6 +147,7 @@ export type Database = {
           carta_reforma?: Json | null
           anuencia?: Json | null
           descarte_entulhos?: Json | null
+          abnt?: Json | null
           registro?: Json | null
           created_at?: string
           updated_at?: string

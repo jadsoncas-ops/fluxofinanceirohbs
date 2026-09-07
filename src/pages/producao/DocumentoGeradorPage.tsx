@@ -127,11 +127,12 @@ export default function DocumentoGeradorPage() {
           )}
           {tipo === 'abnt' && (
             <DocumentoAbnt
-              nomeTrabalho={trabalho.objeto}
+              trabalho={trabalho}
               units={trabalho.tecnico?.units || []}
               responsavel={config}
               art={trabalho.tecnico?.art || ''}
               proprietarios={proprietariosDoTrabalho(trabalho, cliente).map(p => ({ ...p, conjuge: conjugeParaAssinatura(p.cpf, clientes) }))}
+              onSaved={() => setKey(k => k + 1)}
             />
           )}
           {tipo === 'instituicao' && (
