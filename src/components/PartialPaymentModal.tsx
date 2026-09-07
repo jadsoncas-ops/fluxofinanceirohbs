@@ -52,6 +52,7 @@ interface Props {
 
 export function PartialPaymentModal({ open, onClose, onSave, transaction }: Props) {
   const [valorRecebido, setValorRecebido] = useState('');
+  const [dataConclusao, setDataConclusao] = useState('');
   const [restanteDecision, setRestanteDecision] = useState<'manter' | 'adiar'>('manter');
   const [dataRestante, setDataRestante] = useState('');
   
@@ -62,6 +63,7 @@ export function PartialPaymentModal({ open, onClose, onSave, transaction }: Prop
   useEffect(() => {
     if (transaction) {
       setValorRecebido(String(transaction.valor));
+      setDataConclusao(new Date().toISOString().slice(0, 10));
       setRestanteDecision('manter');
       setDataRestante(transaction.data);
       
@@ -114,6 +116,10 @@ export function PartialPaymentModal({ open, onClose, onSave, transaction }: Prop
       toast.error('Verifique a data para o restante.');
       return;
     }
+    if (recebido > 0 && !dataConclusao) {
+      toast.error('Informe a data em que o valor entrou.');
+      return;
+    }
     if (sumRepasses > recebido) {
       toast.error('O montante de repasses listados superou seu total recebido em tela.');
       return;
@@ -138,6 +144,7 @@ export function PartialPaymentModal({ open, onClose, onSave, transaction }: Prop
         valor: recebido,
         status: 'Concluído',
         tipo: tipoConcluido,
+        dataConclusao,
         updatedAt: Date.now(),
       });
       
@@ -179,7 +186,8 @@ export function PartialPaymentModal({ open, onClose, onSave, transaction }: Prop
                valor: rpPaid,
                status: 'Concluído',
                tipo: r.tipo === 'A Pagar' ? 'Saída' : r.tipo,
-               data: transaction!.data, 
+               data: transaction!.data,
+               dataConclusao,
                parentId: transaction!.id,
                updatedAt: Date.now(),
             });
@@ -257,16 +265,28 @@ export function PartialPaymentModal({ open, onClose, onSave, transaction }: Prop
 
           <div className="space-y-1.5 pt-1">
              <Label className="text-xs uppercase tracking-wide font-bold ml-1 text-foreground/80">Quanto Entrou de Fato?</Label>
-             <Input 
-               type="number" 
-               min="0" 
-               step="0.01" 
-               className="h-12 text-lg font-bold px-4" 
-               value={valorRecebido} 
-               onChange={e => setValorRecebido(e.target.value)} 
+             <Input
+               type="number"
+               min="0"
+               step="0.01"
+               className="h-12 text-lg font-bold px-4"
+               value={valorRecebido}
+               onChange={e => setValorRecebido(e.target.value)}
                placeholder="0,00"
              />
           </div>
+
+          {recebido > 0 && (
+             <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-1">Quando isso entrou?</Label>
+                <Input
+                  type="date"
+                  className="h-9 text-sm font-semibold"
+                  value={dataConclusao}
+                  onChange={e => setDataConclusao(e.target.value)}
+                />
+             </div>
+          )}
 
           {isParcial && (
              <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">

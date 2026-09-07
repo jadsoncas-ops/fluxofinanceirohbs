@@ -6,7 +6,7 @@ import {
   getProcesses, getClients, getTasks, getDocuments, getHistorico, getContratos, getCompanyConfig,
   updateProcess, addTask, updateTask, deleteTask, deleteProcess, deleteDocument, deleteTransaction, addTransaction, registrarEvento, addDocument,
 } from '@/lib/storage';
-import { computeTrabalhoFinancials } from '@/lib/financials';
+import { computeTrabalhoFinancials, dataEfetiva } from '@/lib/financials';
 import { TrabalhoEtapa, DocumentSituacao, Oficio, Exigencia, ExigenciaStatus } from '@/lib/types';
 import { Stepper } from '@/components/ui/Stepper';
 import { computeCartorioProgress } from '@/lib/cartorio';
@@ -714,7 +714,7 @@ export default function TrabalhoDetailPage() {
                           <span className="text-[12.5px] font-medium truncate">{t.descricao}</span>
                           {t.isRepasse && <span className="text-[9px] px-1.5 py-[1px] rounded-[4px] bg-accent-soft text-accent font-medium uppercase tracking-wide flex-none">🤝 Repasse</span>}
                         </div>
-                        <div className="text-[10.5px] text-mute-3 font-mono-hbs">{new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR')}</div>
+                        <div className="text-[10.5px] text-mute-3 font-mono-hbs">{new Date(dataEfetiva(t) + 'T12:00:00').toLocaleDateString('pt-BR')}</div>
                       </div>
                       <span className={cn('font-mono-hbs text-[12.5px]', isIncome ? 'text-success' : 'text-warning')}>{fmt(t.valor)}</span>
                       <span className={cn(

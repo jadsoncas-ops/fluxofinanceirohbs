@@ -75,9 +75,12 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
     }
 
     const tipoFinal = statusParaTipo(tipo, status);
+    // Este form não tem um passo de confirmação separado (diferente do PartialPaymentModal) —
+    // se já nasce/vira Concluído aqui, a data digitada É a data real, então vira a dataConclusao.
+    const dataConclusaoFinal = status === 'Concluído' ? (editItem?.dataConclusao || data) : undefined;
 
     if (editItem?.id) {
-      updateTransaction({ ...editItem, tipo: tipoFinal, categoria, descricao, valor: numValor, data, status, clienteId: clienteId || undefined, processId: processId || undefined, updatedAt: Date.now() });
+      updateTransaction({ ...editItem, tipo: tipoFinal, categoria, descricao, valor: numValor, data, status, dataConclusao: dataConclusaoFinal, clienteId: clienteId || undefined, processId: processId || undefined, updatedAt: Date.now() });
       toast.success('Lançamento atualizado.');
     } else {
       addTransaction({
@@ -88,6 +91,7 @@ export function TransactionForm({ open, onClose, onSave, editItem }: Props) {
         descricao,
         valor: numValor,
         status,
+        dataConclusao: dataConclusaoFinal,
         isRepasse: false,
         clienteId: clienteId || undefined,
         processId: processId || undefined,
