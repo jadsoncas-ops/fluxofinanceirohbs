@@ -17,7 +17,9 @@ function novaUnidade(): Unidade {
 
 /** Editor dos dados técnicos do trabalho (Process.tecnico) — unidades, terreno, matrícula, proprietários, atos registrais. Persiste direto via updateProcess a cada alteração. */
 export function DadosTecnicosForm({ trabalho, onChange }: { trabalho: Process; onChange: () => void }) {
-  const [aberto, setAberto] = useState(!trabalho.tecnico?.units?.length);
+  // Sempre começa aberto: fechar por padrão quando já havia dado salvo dava a impressão de que
+  // os campos preenchidos antes tinham sumido (só a linha-resumo aparecia, sem os valores).
+  const [aberto, setAberto] = useState(true);
   const [unidadeExpandida, setUnidadeExpandida] = useState<string | null>(null);
   const [divCampo, setDivCampo] = useState<CampoArea>('areaPrivativa');
   const [divTotal, setDivTotal] = useState('');

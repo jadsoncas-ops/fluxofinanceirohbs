@@ -2,6 +2,9 @@ import { RequerimentoData } from '@/lib/producao/requerimento';
 import { AssinaturaTitular } from './AssinaturaTitular';
 
 export function DocumentoRequerimento({ dados }: { dados: RequerimentoData }) {
+  const umProprietario = dados.proprietarios.length === 1;
+  const umaUnidade = dados.totalUnidades === 1;
+
   return (
     <div className="documento-folha">
       <div className="documento-header" style={{ justifyContent: 'center' }}>
@@ -20,12 +23,15 @@ export function DocumentoRequerimento({ dados }: { dados: RequerimentoData }) {
       </p>
 
       <p className="documento-p">
-        Os proprietários das unidades autônomas descritas abaixo, por este instrumento particular, manifestam sua anuência e concordância à especificação do condomínio simplificado do Edifício &quot;{dados.nomeTrabalho.toUpperCase()}&quot; sito à {dados.endereco || '(endereço a preencher)'}, cadastro municipal: {dados.inscricoes || '(a preencher)'}.
+        {umProprietario
+          ? `O proprietário d${umaUnidade ? 'a unidade autônoma descrita' : 'as unidades autônomas descritas'} abaixo, por este instrumento particular, manifesta sua anuência e concordância`
+          : 'Os proprietários das unidades autônomas descritas abaixo, por este instrumento particular, manifestam sua anuência e concordância'}
+        {' '}à especificação do condomínio simplificado do Edifício &quot;{dados.nomeTrabalho.toUpperCase()}&quot; sito à {dados.endereco || '(endereço a preencher)'}, cadastro municipal: {dados.inscricoes || '(a preencher)'}.
       </p>
 
       {dados.qualificacoes.length > 0 && (
         <>
-          <p className="documento-p" style={{ marginBottom: '0.4rem' }}><strong>QUALIFICAÇÃO DOS REQUERENTES:</strong></p>
+          <p className="documento-p" style={{ marginBottom: '0.4rem' }}><strong>QUALIFICAÇÃO {umProprietario ? 'DO REQUERENTE' : 'DOS REQUERENTES'}:</strong></p>
           {dados.qualificacoes.map((q, i) => <p key={i} className="documento-p">{q}</p>)}
         </>
       )}
@@ -38,7 +44,7 @@ export function DocumentoRequerimento({ dados }: { dados: RequerimentoData }) {
       </p>
 
       <p className="documento-p" style={{ marginBottom: '0.4rem' }}><strong>DOS REQUERIMENTOS</strong></p>
-      <p className="documento-p">Diante do exposto, requerem:</p>
+      <p className="documento-p">Diante do exposto, {umProprietario ? 'requer' : 'requerem'}:</p>
 
       {dados.pedidos.length === 0 ? (
         <p className="documento-p" style={{ marginLeft: '1.25rem', color: 'var(--doc-muted)' }}>(nenhum ato registral selecionado ainda — marque em Dados técnicos)</p>

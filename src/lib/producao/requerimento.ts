@@ -11,6 +11,9 @@ export interface RequerimentoData {
   inscricoes: string;
   qualificacoes: string[];
   proprietarios: { nome: string; cpf?: string; unidade: string; conjuge?: ConjugeAssinatura }[];
+  /** Total de unidades autônomas do trabalho — usado só pra decidir singular/plural
+   *  ("a unidade autônoma" vs "as unidades autônomas") no texto do requerimento. */
+  totalUnidades: number;
   pedidos: string[];
 }
 
@@ -81,6 +84,7 @@ export function montarRequerimento(trabalho: Process, cliente: Client | undefine
     inscricoes,
     qualificacoes: qualificacoesComConjuge(proprietariosBase, clientes),
     proprietarios,
+    totalUnidades: units.length,
     pedidos: montarPedidos(tecnico?.atosRegistraisRequerimento || [], trabalho.objeto),
   };
 }
