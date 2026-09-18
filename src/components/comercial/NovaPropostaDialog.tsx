@@ -10,7 +10,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getClients, addProposta, updateProposta, getNextPropostaCodigo, getPrecificacaoConfig } from '@/lib/storage';
 import {
-  ETAPAS_PADRAO, TEMPOS_PADRAO_INICIAIS, GRUPOS,
+  ETAPAS_PADRAO, TEMPOS_PADRAO_INICIAIS, GRUPOS, TIPOS_PROCESSO,
   calcularCustoOperacionalTotal, calcularHorasProdutivas, calcularCustoHora,
   calcularCustoEtapa, calcularTotalProtocolos, calcularPrecoFinal, formatBRL,
   EtapaServico,
@@ -40,6 +40,7 @@ export function NovaPropostaDialog({ open, onClose, onSaved, clienteIdInicial, e
   const config = useMemo(() => getPrecificacaoConfig(), [open]);
 
   const [clienteId, setClienteId] = useState(editItem?.clienteId || clienteIdInicial || '');
+  const [tipoProcesso, setTipoProcesso] = useState('');
   const [titulo, setTitulo] = useState(editItem?.titulo || '');
   const [etapas, setEtapas] = useState<EtapaServico[]>(() => etapasIniciais(editItem));
   const [protocolos, setProtocolos] = useState(editItem?.custosProtocolo || { art: false, assinatura: false });
@@ -54,6 +55,7 @@ export function NovaPropostaDialog({ open, onClose, onSaved, clienteIdInicial, e
   useEffect(() => {
     if (!open) return;
     setClienteId(editItem?.clienteId || clienteIdInicial || '');
+    setTipoProcesso('');
     setTitulo(editItem?.titulo || '');
     setEtapas(etapasIniciais(editItem));
     setProtocolos(editItem?.custosProtocolo || { art: false, assinatura: false });
@@ -85,6 +87,14 @@ export function NovaPropostaDialog({ open, onClose, onSaved, clienteIdInicial, e
 
   function toggleEtapa(id: string) {
     setEtapas(prev => prev.map(e => (e.id === id ? { ...e, ativa: !e.ativa } : e)));
+  }
+
+  function aplicarTipoProcesso(id: string) {
+    setTipoProcesso(id);
+    const tipo = TIPOS_PROCESSO.find(t => t.id === id);
+    if (!tipo) return; // "Personalizado" — só limpa a seleção, não mexe no que já estava preenchido
+    setTitulo(tipo.titulo);
+    setEtapas(prev => prev.map(e => ({ ...e, ativa: tipo.etapasSugeridas.includes(e.id) })));
   }
 
   function updateEtapa(id: string, field: 'visitas' | 'horas', value: number) {
@@ -186,9 +196,20 @@ export function NovaPropostaDialog({ open, onClose, onSaved, clienteIdInicial, e
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Título da proposta</Label>
-              <Input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Ex: Regularização de imóvel" />
+              <Label>Tipo de processo</Label>
+              <Select value={tipoProcesso} onValueChange={aplicarTipoProcesso}>
+                <SelectTrigger><SelectValue placeholder="Personalizado" /></SelectTrigger>
+                <SelectContent>
+                  {TIPOS_PROCESSO.map(t => <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-[10.5px] text-muted-foreground">Preenche título e escopo sugerido — ambos continuam editáveis depois.</p>
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Título da proposta</Label>
+            <Input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Ex: Regularização de imóvel" />
           </div>
 
           <div>

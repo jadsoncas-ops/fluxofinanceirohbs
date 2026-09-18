@@ -44,8 +44,14 @@ export const ETAPAS_PADRAO: Omit<EtapaServico, 'ativa' | 'visitas' | 'horas'>[] 
 
   // Módulo Documental
   {
+    id: 'memorial-descritivo', nome: 'Memorial Descritivo', grupo: GRUPOS[1],
+    descricao: 'Texto descritivo do imóvel, para averbação simples — sem cálculo de fração ideal (imóvel não será desmembrado em unidades autônomas).',
+    notaInterna: 'Alternativa a "Memorial Descritivo + Fração Ideal" — não marque os dois juntos.',
+  },
+  {
     id: 'fracao-ideal', nome: 'Memorial Descritivo + Fração Ideal', grupo: GRUPOS[1],
-    descricao: 'Texto descritivo do imóvel e cálculo da fração ideal, para averbação ou condomínio.',
+    descricao: 'Texto descritivo do imóvel e cálculo da fração ideal, para desmembramento em unidades autônomas (condomínio).',
+    notaInterna: 'Já inclui o memorial — use no lugar de "Memorial Descritivo" sozinho quando houver desmembramento.',
   },
 
   // Módulo Jurídico
@@ -73,6 +79,45 @@ export const ETAPAS_PADRAO: Omit<EtapaServico, 'ativa' | 'visitas' | 'horas'>[] 
   },
 ];
 
+export interface TipoProcesso {
+  id: string;
+  label: string;
+  /** Preenche o campo "Título da proposta" — continua livremente editável depois. */
+  titulo: string;
+  /** ids de ETAPAS_PADRAO marcados como ativos ao escolher este tipo — o resto é desmarcado. */
+  etapasSugeridas: string[];
+}
+
+// Atalhos pro caso mais comum de cada tipo de processo — só pré-marcam o escopo e sugerem
+// um título, nunca são persistidos: depois de escolher, título e escopo continuam 100% editáveis,
+// exatamente como já era antes disso existir.
+export const TIPOS_PROCESSO: TipoProcesso[] = [
+  {
+    id: 'licenca-construcao',
+    label: 'Licença de Construção (só Prefeitura)',
+    titulo: 'Regularização de Imóvel - Obtenção da Licença de Construção',
+    etapasSugeridas: ['levantamento', 'arq', 'situacao', 'calculos', 'pranchas', 'memorial-descritivo', 'acompanhamento'],
+  },
+  {
+    id: 'averbacao-construcao',
+    label: 'Averbação de Construção (Cartório)',
+    titulo: 'Averbação de Construção junto ao Cartório de Registro de Imóveis',
+    etapasSugeridas: ['levantamento', 'memorial-descritivo', 'certidao-tributos', 'protocolos', 'acompanhamento'],
+  },
+  {
+    id: 'desmembramento',
+    label: 'Desmembramento / Instituição de Condomínio',
+    titulo: 'Desmembramento e Instituição de Condomínio',
+    etapasSugeridas: ['levantamento', 'arq', 'situacao', 'calculos', 'pranchas', 'fracao-ideal', 'inst-convencao', 'certidao-tributos', 'protocolos', 'acompanhamento'],
+  },
+  {
+    id: 'regularizacao-total',
+    label: 'Regularização Total (Prefeitura + Cartório)',
+    titulo: 'Regularização Total do Imóvel (Prefeitura e Cartório)',
+    etapasSugeridas: ['levantamento', 'arq', 'situacao', 'calculos', 'pranchas', 'fracao-ideal', 'inst-convencao', 'certidao-tributos', 'protocolos', 'acompanhamento'],
+  },
+];
+
 export interface TemposPadrao {
   [id: string]: { v: number; h: number };
 }
@@ -83,6 +128,7 @@ export const TEMPOS_PADRAO_INICIAIS: TemposPadrao = {
   'situacao': { v: 0, h: 4 },
   'calculos': { v: 0, h: 4 },
   'pranchas': { v: 0, h: 2 },
+  'memorial-descritivo': { v: 0, h: 3 },
   'fracao-ideal': { v: 0, h: 6 },
   'inst-convencao': { v: 0, h: 12 },
   'nbr12721': { v: 0, h: 4 },
