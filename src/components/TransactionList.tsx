@@ -151,7 +151,9 @@ export function TransactionList({ transactions, tipo, onEdit, onComplete, onDele
                       <div className="text-[11px] text-mute-2 mt-0.5 sm:truncate">
                         {clienteNome || 'Sem cliente'}
                         {trabalho && <> · {trabalho.objeto}</>}
-                        {' · '}{new Date(dataEfetiva(t) + 'T12:00:00').toLocaleDateString('pt-BR')}
+                      </div>
+                      <div className="text-[10.5px] text-mute-3 font-mono-hbs mt-0.5">
+                        {new Date(dataEfetiva(t) + 'T12:00:00').toLocaleDateString('pt-BR')}
                       </div>
                     </div>
                   </div>
