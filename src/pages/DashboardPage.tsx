@@ -5,7 +5,7 @@ import { useShell } from '@/hooks/use-shell';
 import { getAccounts, getProcesses, getClients, getTasks, getPropostas, getCompromissos, getCompanyConfig, getHistorico, updateClient, updateProcess, registrarEvento } from '@/lib/storage';
 import { computeAttentionItems, AttentionItem, AttentionTipo, toggleLembreteCobranca } from '@/lib/attention';
 import { computeReserva } from '@/lib/reserva';
-import { dataEfetiva, entradasNoMes, totalAReceber } from '@/lib/financials';
+import { entradasNoMes, saidasNoMes, totalAReceber } from '@/lib/financials';
 import { linkWhatsApp } from '@/lib/mensagens';
 import { TrabalhoEtapa, Compromisso } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -110,8 +110,8 @@ export default function DashboardPage() {
 
     const cashflow = Array.from({ length: 6 }).map((_, i) => {
       const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
-      const receita = transactions.filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído' && new Date(dataEfetiva(t) + 'T12:00:00').getMonth() === d.getMonth() && new Date(dataEfetiva(t) + 'T12:00:00').getFullYear() === d.getFullYear()).reduce((s, t) => s + t.valor, 0);
-      const despesa = transactions.filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status === 'Concluído' && new Date(dataEfetiva(t) + 'T12:00:00').getMonth() === d.getMonth() && new Date(dataEfetiva(t) + 'T12:00:00').getFullYear() === d.getFullYear()).reduce((s, t) => s + t.valor, 0);
+      const receita = entradasNoMes(transactions, d.getFullYear(), d.getMonth());
+      const despesa = saidasNoMes(transactions, d.getFullYear(), d.getMonth());
       return { mes: MONTHS_SHORT[d.getMonth()], receita, despesa };
     });
 
