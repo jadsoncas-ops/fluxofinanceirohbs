@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Plus, Users, Pencil, Trash2 } from 'lucide-react';
-import { getPartners, addPartner, updatePartner, deletePartner, getTransactions } from '@/lib/storage';
+import { Plus, Users, Pencil, Trash2, ChevronDown } from 'lucide-react';
+import { getPartners, addPartner, updatePartner, deletePartner, getTransactions, getClients, getProcesses } from '@/lib/storage';
 import { Partner } from '@/lib/types';
+import { dataEfetiva } from '@/lib/financials';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 function fmt(v: number) {
@@ -19,19 +21,26 @@ export default function FinanceiroParceirosPage() {
   const [documento, setDocumento] = useState('');
   const [contato, setContato] = useState('');
   const [observacao, setObservacao] = useState('');
+  const [expandidoId, setExpandidoId] = useState<string | null>(null);
 
-  const { partners, historicoPorParceiro } = useMemo(() => {
+  const clientes = useMemo(() => getClients(), []);
+  const processos = useMemo(() => getProcesses(), []);
+
+  const { partners, historicoPorParceiro, txsPorParceiro } = useMemo(() => {
     void key;
     const partners = getPartners();
     const txs = getTransactions().filter(t => t.isRepasse && t.partnerId);
     const historicoPorParceiro = new Map<string, { pago: number; previsto: number; count: number }>();
+    const txsPorParceiro = new Map<string, typeof txs>();
     txs.forEach(t => {
       const acc = historicoPorParceiro.get(t.partnerId!) || { pago: 0, previsto: 0, count: 0 };
       if (t.status === 'Concluído') acc.pago += t.valor; else acc.previsto += t.valor;
       acc.count += 1;
       historicoPorParceiro.set(t.partnerId!, acc);
+      txsPorParceiro.set(t.partnerId!, [...(txsPorParceiro.get(t.partnerId!) || []), t]);
     });
-    return { partners, historicoPorParceiro };
+    txsPorParceiro.forEach(lista => lista.sort((a, b) => dataEfetiva(b).localeCompare(dataEfetiva(a))));
+    return { partners, historicoPorParceiro, txsPorParceiro };
   }, [key]);
 
   const refresh = () => setKey(k => k + 1);
@@ -97,28 +106,63 @@ export default function FinanceiroParceirosPage() {
           </div>
           {partners.map(p => {
             const h = historicoPorParceiro.get(p.id);
+            const expandido = expandidoId === p.id;
+            const itens = txsPorParceiro.get(p.id) || [];
             return (
-              <div key={p.id} className="flex flex-col sm:flex-row gap-1.5 sm:gap-3.5 sm:items-center px-[18px] py-[13px] border-t border-3">
-                <div className="flex-[2] min-w-0 flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-[13px] font-medium sm:truncate">{p.nome}</div>
-                    {p.documento && <div className="text-[11px] text-mute-2">{p.documento}</div>}
+              <div key={p.id} className="border-t border-3">
+                <div
+                  onClick={() => h && setExpandidoId(expandido ? null : p.id)}
+                  className={cn('flex flex-col sm:flex-row gap-1.5 sm:gap-3.5 sm:items-center px-[18px] py-[13px]', h && 'cursor-pointer hover:bg-surface-2 transition-colors', expandido && 'bg-surface-2')}
+                >
+                  <div className="flex-[2] min-w-0 flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex items-start gap-1.5">
+                      {h && <ChevronDown className={cn('w-3.5 h-3.5 mt-[3px] flex-none text-mute-3 transition-transform', expandido && 'rotate-180')} />}
+                      <div className="min-w-0">
+                        <div className="text-[13px] font-medium sm:truncate">{p.nome}</div>
+                        {p.documento && <div className="text-[11px] text-mute-2">{p.documento}</div>}
+                      </div>
+                    </div>
+                    <div className="flex sm:hidden flex-none gap-1 -mt-1">
+                      <button onClick={e => { e.stopPropagation(); openEdit(p); }} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 transition-colors text-mute-2"><Pencil className="w-3.5 h-3.5" /></button>
+                      <button onClick={e => { e.stopPropagation(); handleDelete(p); }} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-destructive-soft transition-colors text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
                   </div>
-                  <div className="flex sm:hidden flex-none gap-1 -mt-1">
-                    <button onClick={() => openEdit(p)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 transition-colors text-mute-2"><Pencil className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => handleDelete(p)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-destructive-soft transition-colors text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                  <div className="flex-1 min-w-0 text-[12px] text-muted-foreground sm:truncate">{p.contato || '—'}</div>
+                  <div className="flex-1 min-w-0 sm:text-right font-mono-hbs text-[12px]">
+                    <span className="text-success">{fmt(h?.pago || 0)}</span>
+                    {h && h.previsto > 0 && <span className="text-mute-3"> / {fmt(h.previsto)}</span>}
+                    {!h && <span className="text-mute-3">Sem repasses ainda</span>}
+                  </div>
+                  <div className="hidden sm:flex w-[70px] flex-none justify-end gap-1">
+                    <button onClick={e => { e.stopPropagation(); openEdit(p); }} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 transition-colors text-mute-2"><Pencil className="w-3.5 h-3.5" /></button>
+                    <button onClick={e => { e.stopPropagation(); handleDelete(p); }} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-destructive-soft transition-colors text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
                 </div>
-                <div className="flex-1 min-w-0 text-[12px] text-muted-foreground sm:truncate">{p.contato || '—'}</div>
-                <div className="flex-1 min-w-0 sm:text-right font-mono-hbs text-[12px]">
-                  <span className="text-success">{fmt(h?.pago || 0)}</span>
-                  {h && h.previsto > 0 && <span className="text-mute-3"> / {fmt(h.previsto)}</span>}
-                  {!h && <span className="text-mute-3">Sem repasses ainda</span>}
-                </div>
-                <div className="hidden sm:flex w-[70px] flex-none justify-end gap-1">
-                  <button onClick={() => openEdit(p)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 transition-colors text-mute-2"><Pencil className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => handleDelete(p)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-destructive-soft transition-colors text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
-                </div>
+
+                {expandido && (
+                  <div className="bg-surface-2 border-t border-3">
+                    {itens.map(t => {
+                      const clienteNome = t.clienteId ? clientes.find(c => c.id === t.clienteId)?.nome : null;
+                      const trabalho = t.processId ? processos.find(pr => pr.id === t.processId) : undefined;
+                      return (
+                        <div key={t.id} className="flex items-center justify-between gap-3 px-[18px] py-[10px] border-t border-3 first:border-t-0 pl-[38px]">
+                          <div className="min-w-0">
+                            <div className="text-[12.5px] font-medium truncate">{t.descricao}</div>
+                            <div className="text-[11px] text-mute-2 truncate">
+                              {clienteNome || 'Sem cliente'}{trabalho && ` · ${trabalho.objeto}`} · {new Date(dataEfetiva(t) + 'T12:00:00').toLocaleDateString('pt-BR')}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-none">
+                            <span className="font-mono-hbs text-[12.5px]">{fmt(t.valor)}</span>
+                            <span className={cn('text-[10px] px-2 py-[3px] rounded-[5px] font-medium', t.status === 'Concluído' ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning')}>
+                              {t.status}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
