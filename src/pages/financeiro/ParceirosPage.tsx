@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Plus, Users, Pencil, Trash2, ChevronDown } from 'lucide-react';
-import { getPartners, addPartner, updatePartner, deletePartner, getTransactions, getClients, getProcesses } from '@/lib/storage';
+import { getPartners, addPartner, updatePartner, deletePartner, getClients, getProcesses } from '@/lib/storage';
 import { Partner } from '@/lib/types';
 import { dataEfetiva } from '@/lib/financials';
+import { useShell } from '@/hooks/use-shell';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,6 +15,7 @@ function fmt(v: number) {
 }
 
 export default function FinanceiroParceirosPage() {
+  const shell = useShell();
   const [key, setKey] = useState(0);
   const [open, setOpen] = useState(false);
   const [editItem, setEditItem] = useState<Partner | null>(null);
@@ -29,7 +31,7 @@ export default function FinanceiroParceirosPage() {
   const { partners, historicoPorParceiro, txsPorParceiro } = useMemo(() => {
     void key;
     const partners = getPartners();
-    const txs = getTransactions().filter(t => t.isRepasse && t.partnerId);
+    const txs = shell.monthTransactions.filter(t => t.isRepasse && t.partnerId);
     const historicoPorParceiro = new Map<string, { pago: number; previsto: number; count: number }>();
     const txsPorParceiro = new Map<string, typeof txs>();
     txs.forEach(t => {
@@ -41,7 +43,7 @@ export default function FinanceiroParceirosPage() {
     });
     txsPorParceiro.forEach(lista => lista.sort((a, b) => dataEfetiva(b).localeCompare(dataEfetiva(a))));
     return { partners, historicoPorParceiro, txsPorParceiro };
-  }, [key]);
+  }, [key, shell.monthTransactions]);
 
   const refresh = () => setKey(k => k + 1);
 
@@ -101,7 +103,7 @@ export default function FinanceiroParceirosPage() {
           <div className="hidden sm:flex gap-3.5 px-[18px] py-[11px] border-b border-border bg-surface-2 text-[10.5px] tracking-[.07em] uppercase text-mute-2">
             <span className="flex-[2] min-w-0">Parceiro</span>
             <span className="flex-1 min-w-0">Contato</span>
-            <span className="flex-1 min-w-0 text-right">Repassado / Previsto</span>
+            <span className="flex-1 min-w-0 text-right">Repassado / Previsto no mês</span>
             <span className="w-[70px] flex-none"></span>
           </div>
           {partners.map(p => {
@@ -131,7 +133,7 @@ export default function FinanceiroParceirosPage() {
                   <div className="flex-1 min-w-0 sm:text-right font-mono-hbs text-[12px]">
                     <span className="text-success">{fmt(h?.pago || 0)}</span>
                     {h && h.previsto > 0 && <span className="text-mute-3"> / {fmt(h.previsto)}</span>}
-                    {!h && <span className="text-mute-3">Sem repasses ainda</span>}
+                    {!h && <span className="text-mute-3">Sem repasses neste mês</span>}
                   </div>
                   <div className="hidden sm:flex w-[70px] flex-none justify-end gap-1">
                     <button onClick={e => { e.stopPropagation(); openEdit(p); }} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 transition-colors text-mute-2"><Pencil className="w-3.5 h-3.5" /></button>

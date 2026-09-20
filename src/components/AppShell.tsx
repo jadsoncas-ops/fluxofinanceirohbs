@@ -199,10 +199,10 @@ export function AppShell() {
     setFormOpen(true);
   }
 
-  // Só a aba Receitas & despesas de fato filtra por esse seletor (via monthTransactions).
-  // Visão geral, Cobrança, Contas e Parceiros calculam em cima do mês atual/saldo real e sempre
+  // Receitas & despesas e Parceiros filtram de fato por esse seletor (via monthTransactions).
+  // Visão geral, Cobrança e Contas calculam em cima do mês atual/saldo real e sempre
   // ignoraram esse filtro — mostrar o seletor lá sugeria um filtro que não existia.
-  const showMonthFilter = location.pathname.startsWith('/caixa/receitas') || location.pathname.startsWith('/caixa/despesas');
+  const showMonthFilter = location.pathname.startsWith('/caixa/receitas') || location.pathname.startsWith('/caixa/despesas') || location.pathname.startsWith('/caixa/parceiros');
   const { title, meta } = useRouteMeta(location.pathname, clientCount, trabalhosAtivos);
 
   const ctx: ShellContext = {
