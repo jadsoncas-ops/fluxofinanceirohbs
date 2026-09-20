@@ -73,9 +73,12 @@ export default function FinanceiroVisaoGeralPage() {
       .map(t => ({ ...t, atrasado: t.data < todayStr, clienteNome: nomeCliente(t.clienteId) }));
     const despesasPrevisto = pendentes.filter(isExpense).sort((a, b) => a.data.localeCompare(b.data))
       .map(t => ({ ...t, atrasado: t.data < todayStr, clienteNome: nomeCliente(t.clienteId) }));
-    const receitasRealizado = realizadas.filter(isIncome).sort((a, b) => dataEfetiva(b).localeCompare(dataEfetiva(a)))
+    // Mesmo filtro de mês que entradasMes/saidasMes já usam — sem isso, a lista de "Realizado"
+    // somava o histórico inteiro da empresa enquanto os cards de KPI acima mostravam só o mês
+    // atual, e os dois nunca batiam.
+    const receitasRealizado = realizadas.filter(t => isIncome(t) && dataEfetiva(t).slice(0, 7) === monthStr).sort((a, b) => dataEfetiva(b).localeCompare(dataEfetiva(a)))
       .map(t => ({ ...t, data: dataEfetiva(t), atrasado: false, clienteNome: nomeCliente(t.clienteId) }));
-    const despesasRealizado = realizadas.filter(isExpense).sort((a, b) => dataEfetiva(b).localeCompare(dataEfetiva(a)))
+    const despesasRealizado = realizadas.filter(t => isExpense(t) && dataEfetiva(t).slice(0, 7) === monthStr).sort((a, b) => dataEfetiva(b).localeCompare(dataEfetiva(a)))
       .map(t => ({ ...t, data: dataEfetiva(t), atrasado: false, clienteNome: nomeCliente(t.clienteId) }));
 
     // Lucro previsto por trabalho = a receber (só o que já está lançado) − repasse pendente daquele
@@ -260,11 +263,11 @@ function ColunaFinanceira({ titulo, cls, previsto, realizado }: { titulo: string
       )}
 
       <div className="px-[18px] pt-[13px] pb-2 flex items-center justify-between border-t border-3">
-        <span className="text-[11px] uppercase tracking-[.07em] text-mute-2">Realizado</span>
+        <span className="text-[11px] uppercase tracking-[.07em] text-mute-2">Realizado no mês</span>
         <span className={cn('font-mono-hbs text-[12px]', cls)}><ValorMonetario value={fmt(totalRealizado)} /></span>
       </div>
       {realizado.length === 0 ? (
-        <div className="px-[18px] pb-4 text-xs text-muted-foreground">Nada realizado ainda.</div>
+        <div className="px-[18px] pb-4 text-xs text-muted-foreground">Nada realizado neste mês.</div>
       ) : (
         <div className="max-h-[280px] overflow-y-auto">
           {realizado.map(t => (
