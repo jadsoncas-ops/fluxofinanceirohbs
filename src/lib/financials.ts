@@ -8,6 +8,56 @@ export function dataEfetiva(t: Transaction): string {
   return t.dataConclusao || t.data;
 }
 
+// ── KPIs financeiros compartilhados (Visão Geral + Dashboard) ──────────────
+// Extraídos porque as duas telas recalculavam a mesma coisa de formas
+// sutilmente diferentes (ex.: a Visão Geral sempre travada no mês atual, a
+// Dashboard permitindo paginar pra meses anteriores no card "Faturamento") —
+// daí entradasNoMes/saidasNoMes recebem ano/mês como parâmetro em vez de
+// assumir "agora": a Visão Geral sempre chama com o mês atual, a Dashboard
+// chama com o mês que o usuário estiver navegando. Nenhum comportamento
+// visível muda — é só a mesma lógica de antes, movida pra um lugar só.
+
+/** Soma das entradas Concluídas cujo mês/ano efetivo (dataEfetiva) bate com o
+ *  informado. */
+export function entradasNoMes(transactions: Transaction[], ano: number, mes: number): number {
+  return transactions
+    .filter(t => t.status === 'Concluído' && (t.tipo === 'Entrada' || t.tipo === 'A Receber'))
+    .filter(t => {
+      const d = new Date(dataEfetiva(t) + 'T12:00:00');
+      return d.getMonth() === mes && d.getFullYear() === ano;
+    })
+    .reduce((s, t) => s + t.valor, 0);
+}
+
+/** Soma das saídas Concluídas cujo mês/ano efetivo (dataEfetiva) bate com o
+ *  informado. */
+export function saidasNoMes(transactions: Transaction[], ano: number, mes: number): number {
+  return transactions
+    .filter(t => t.status === 'Concluído' && (t.tipo === 'Saída' || t.tipo === 'A Pagar'))
+    .filter(t => {
+      const d = new Date(dataEfetiva(t) + 'T12:00:00');
+      return d.getMonth() === mes && d.getFullYear() === ano;
+    })
+    .reduce((s, t) => s + t.valor, 0);
+}
+
+/** Total ainda não recebido (todo status diferente de Concluído), sem filtro
+ *  de mês — mesmo critério que já alimentava "A receber" na Visão Geral e o
+ *  card de mesmo nome na Dashboard. */
+export function totalAReceber(transactions: Transaction[]): number {
+  return transactions
+    .filter(t => t.status !== 'Concluído' && (t.tipo === 'Entrada' || t.tipo === 'A Receber'))
+    .reduce((s, t) => s + t.valor, 0);
+}
+
+/** Total ainda não pago (todo status diferente de Concluído), sem filtro de
+ *  mês — mesmo critério que já alimentava "A pagar" na Visão Geral. */
+export function totalAPagar(transactions: Transaction[]): number {
+  return transactions
+    .filter(t => t.status !== 'Concluído' && (t.tipo === 'Saída' || t.tipo === 'A Pagar'))
+    .reduce((s, t) => s + t.valor, 0);
+}
+
 export interface ClientFinancials {
   totalContratado: number;
   recebido: number;

@@ -4,7 +4,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { AlertTriangle, Info } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
 import { getClients, getAccounts, getProcesses } from '@/lib/storage';
-import { computeTrabalhoFinancials, dataEfetiva } from '@/lib/financials';
+import { computeTrabalhoFinancials, dataEfetiva, entradasNoMes, saidasNoMes, totalAReceber, totalAPagar } from '@/lib/financials';
 import { ValorMonetario } from '@/components/ValorMonetario';
 import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -41,12 +41,12 @@ export default function FinanceiroVisaoGeralPage() {
     const saldoRealizado = realizadas.reduce((s, t) => s + (isIncome(t) ? t.valor : -t.valor), 0);
     const saldoAtual = contasSaldo || saldoRealizado;
 
-    const entradasMes = realizadas.filter(t => isIncome(t) && dataEfetiva(t).slice(0, 7) === monthStr).reduce((s, t) => s + t.valor, 0);
-    const saidasMes = realizadas.filter(t => isExpense(t) && dataEfetiva(t).slice(0, 7) === monthStr).reduce((s, t) => s + t.valor, 0);
+    const entradasMes = entradasNoMes(allTransactions, today.getFullYear(), today.getMonth());
+    const saidasMes = saidasNoMes(allTransactions, today.getFullYear(), today.getMonth());
 
     const pendentes = allTransactions.filter(t => t.status !== 'Concluído');
-    const aReceber = pendentes.filter(isIncome).reduce((s, t) => s + t.valor, 0);
-    const aPagar = pendentes.filter(isExpense).reduce((s, t) => s + t.valor, 0);
+    const aReceber = totalAReceber(allTransactions);
+    const aPagar = totalAPagar(allTransactions);
     const saldoProjetado = saldoAtual + aReceber - aPagar;
 
     // Projeção de saldo no horizonte selecionado (usada no gráfico)

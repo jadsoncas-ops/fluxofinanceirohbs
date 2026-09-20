@@ -5,7 +5,7 @@ import { useShell } from '@/hooks/use-shell';
 import { getAccounts, getProcesses, getClients, getTasks, getPropostas, getCompromissos, getCompanyConfig, getHistorico, updateClient, updateProcess, registrarEvento } from '@/lib/storage';
 import { computeAttentionItems, AttentionItem, AttentionTipo, toggleLembreteCobranca } from '@/lib/attention';
 import { computeReserva } from '@/lib/reserva';
-import { dataEfetiva } from '@/lib/financials';
+import { dataEfetiva, entradasNoMes, totalAReceber } from '@/lib/financials';
 import { linkWhatsApp } from '@/lib/mensagens';
 import { TrabalhoEtapa, Compromisso } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -89,12 +89,9 @@ export default function DashboardPage() {
 
     const saldoDisponivel = accounts.filter(a => a.ativo).reduce((s, a) => s + a.saldo, 0);
     const aReceberTx = transactions.filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído');
-    const aReceber = aReceberTx.reduce((s, t) => s + t.valor, 0);
+    const aReceber = totalAReceber(transactions);
     const aReceberAtrasado = aReceberTx.filter(t => t.data < today).reduce((s, t) => s + t.valor, 0);
-    const receitaMes = transactions
-      .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
-      .filter(t => { const d = new Date(dataEfetiva(t) + 'T12:00:00'); return d.getMonth() === refMes && d.getFullYear() === refAno; })
-      .reduce((s, t) => s + t.valor, 0);
+    const receitaMes = entradasNoMes(transactions, refAno, refMes);
 
     const trabalhosAtivos = processes.filter(p => !p.isArchived && (p.etapa || 'Levantamento') !== 'Concluído');
     const parados14d = trabalhosAtivos.filter(p => Date.now() - p.updatedAt > 14 * 86400000).length;
@@ -165,10 +162,7 @@ export default function DashboardPage() {
     const semanaAtrasMs = Date.now() - 7 * 86400000;
     const trabalhosNovosSemana = trabalhosAtivos.filter(p => p.createdAt >= semanaAtrasMs).length;
     const mesAnteriorRef = new Date(refAno, refMes - 1, 1);
-    const faturamentoMesAnterior = transactions
-      .filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status === 'Concluído')
-      .filter(t => { const d = new Date(dataEfetiva(t) + 'T12:00:00'); return d.getMonth() === mesAnteriorRef.getMonth() && d.getFullYear() === mesAnteriorRef.getFullYear(); })
-      .reduce((s, t) => s + t.valor, 0);
+    const faturamentoMesAnterior = entradasNoMes(transactions, mesAnteriorRef.getFullYear(), mesAnteriorRef.getMonth());
     const faturamentoDeltaPct = faturamentoMesAnterior > 0 ? Math.round(((receitaMes - faturamentoMesAnterior) / faturamentoMesAnterior) * 1000) / 10 : null;
     const inicioMesMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
     const clientesNovosMes = clients.filter(c => (c.createdAt || 0) >= inicioMesMs).length;
