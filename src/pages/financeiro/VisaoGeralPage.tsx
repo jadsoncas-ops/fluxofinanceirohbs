@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Info } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
 import { getClients, getAccounts, getProcesses } from '@/lib/storage';
 import { computeTrabalhoFinancials, dataEfetiva } from '@/lib/financials';
 import { ValorMonetario } from '@/components/ValorMonetario';
+import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 const HORIZONS = [
@@ -104,11 +105,13 @@ export default function FinanceiroVisaoGeralPage() {
     };
   }, [allTransactions, horizon]);
 
+  const infoMesReal = 'Conta pela data real em que o dinheiro entrou/saiu — sempre o mês atual, independente do mês selecionado em Receitas & Despesas. Um lançamento pago fora do mês do vencimento pode fazer os dois números diferirem.';
+
   const kpiCards = [
     { label: 'Saldo atual', value: kpis.saldoAtual, cls: kpis.saldoAtual >= 0 ? 'text-foreground' : 'text-destructive' },
-    { label: 'Entradas do mês', value: kpis.entradasMes, cls: 'text-success' },
-    { label: 'Saídas do mês', value: kpis.saidasMes, cls: 'text-destructive' },
-    { label: 'Resultado líquido do mês', value: kpis.resultadoLiquidoMes, cls: kpis.resultadoLiquidoMes >= 0 ? 'text-success' : 'text-destructive' },
+    { label: 'Entradas do mês', value: kpis.entradasMes, cls: 'text-success', info: infoMesReal },
+    { label: 'Saídas do mês', value: kpis.saidasMes, cls: 'text-destructive', info: infoMesReal },
+    { label: 'Resultado líquido do mês', value: kpis.resultadoLiquidoMes, cls: kpis.resultadoLiquidoMes >= 0 ? 'text-success' : 'text-destructive', info: infoMesReal },
     { label: 'A receber', value: kpis.aReceber, cls: 'text-accent' },
     { label: 'A pagar', value: kpis.aPagar, cls: 'text-warning' },
     { label: 'Saldo projetado', value: kpis.saldoProjetado, cls: kpis.saldoProjetado >= 0 ? 'text-foreground' : 'text-destructive' },
@@ -120,7 +123,17 @@ export default function FinanceiroVisaoGeralPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border border border-border rounded-xl overflow-hidden">
         {kpiCards.map(k => (
           <div key={k.label} className="bg-card px-[16px] py-[14px] min-w-0">
-            <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2 truncate">{k.label}</div>
+            <div className="flex items-center gap-1 min-w-0">
+              <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2 truncate">{k.label}</div>
+              {k.info && (
+                <UiTooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <Info className="w-3 h-3 text-mute-3 flex-none cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[260px] text-[11.5px]">{k.info}</TooltipContent>
+                </UiTooltip>
+              )}
+            </div>
             <div className={cn('font-mono-hbs text-[19px] mt-1.5 truncate', k.cls)}><ValorMonetario value={fmt(k.value)} /></div>
           </div>
         ))}

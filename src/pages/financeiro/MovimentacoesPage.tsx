@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Info } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
 import { TransactionList } from '@/components/TransactionList';
 import { ValorMonetario } from '@/components/ValorMonetario';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { getClients, getProcesses } from '@/lib/storage';
 import { dataEfetiva } from '@/lib/financials';
 import { cn } from '@/lib/utils';
@@ -48,19 +49,39 @@ export default function FinanceiroMovimentacoesPage() {
     setAbaAberta(prev => (prev === aba ? null : aba));
   }
 
+  const infoCompetencia = 'Conta pelo vencimento (competência) do mês selecionado acima — pode diferir da Visão Geral, que usa a data real em que o dinheiro entrou/saiu, sempre no mês atual.';
+
   return (
     <div className="space-y-[18px]">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-border border border-border rounded-xl overflow-hidden">
         <button type="button" onClick={() => toggleAba('recebido')} className={cn('bg-card px-[16px] py-[14px] min-w-0 text-left hover:bg-surface-2 transition-colors', abaAberta === 'recebido' && 'bg-surface-2')}>
-          <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2 truncate">Recebido no mês</div>
+          <div className="flex items-center gap-1 min-w-0">
+            <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2 truncate">Recebido no mês</div>
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild><Info className="w-3 h-3 text-mute-3 flex-none cursor-help" /></TooltipTrigger>
+              <TooltipContent className="max-w-[260px] text-[11.5px]">{infoCompetencia}</TooltipContent>
+            </Tooltip>
+          </div>
           <div className="font-mono-hbs text-[19px] mt-1.5 truncate text-success"><ValorMonetario value={fmt(recebido)} /></div>
         </button>
         <button type="button" onClick={() => toggleAba('pago')} className={cn('bg-card px-[16px] py-[14px] min-w-0 text-left hover:bg-surface-2 transition-colors', abaAberta === 'pago' && 'bg-surface-2')}>
-          <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2 truncate">Pago no mês</div>
+          <div className="flex items-center gap-1 min-w-0">
+            <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2 truncate">Pago no mês</div>
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild><Info className="w-3 h-3 text-mute-3 flex-none cursor-help" /></TooltipTrigger>
+              <TooltipContent className="max-w-[260px] text-[11.5px]">{infoCompetencia}</TooltipContent>
+            </Tooltip>
+          </div>
           <div className="font-mono-hbs text-[19px] mt-1.5 truncate text-destructive"><ValorMonetario value={fmt(pago)} /></div>
         </button>
         <button type="button" onClick={() => toggleAba('resultado')} className={cn('bg-card px-[16px] py-[14px] min-w-0 text-left hover:bg-surface-2 transition-colors', abaAberta === 'resultado' && 'bg-surface-2')}>
-          <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2 truncate">Resultado do mês</div>
+          <div className="flex items-center gap-1 min-w-0">
+            <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2 truncate">Resultado do mês</div>
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild><Info className="w-3 h-3 text-mute-3 flex-none cursor-help" /></TooltipTrigger>
+              <TooltipContent className="max-w-[260px] text-[11.5px]">{infoCompetencia}</TooltipContent>
+            </Tooltip>
+          </div>
           <div className={cn('font-mono-hbs text-[19px] mt-1.5 truncate', resultado >= 0 ? 'text-success' : 'text-destructive')}><ValorMonetario value={fmt(resultado)} /></div>
         </button>
       </div>
