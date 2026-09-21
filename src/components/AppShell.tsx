@@ -397,7 +397,7 @@ function NovoDropdown({ onNewClient, onNewTrabalho, onNewProposta, onNewDocument
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className="flex-none h-[34px] px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] font-medium whitespace-nowrap transition-colors hover:bg-primary-hover flex items-center gap-1.5">
-          + Novo <ChevronDown className="w-3 h-3 opacity-70" />
+          + Criar <ChevronDown className="w-3 h-3 opacity-70" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[254px]">
