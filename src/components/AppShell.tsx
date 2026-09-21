@@ -51,7 +51,7 @@ function useRouteMeta(pathname: string, clientCount: number, trabalhosAtivos: nu
   if (pathname.startsWith('/producao')) return { title: 'Produção Técnica', meta: null };
   if (pathname.startsWith('/comercial')) return { title: 'Comercial', meta: null };
   if (pathname.startsWith('/caixa/visao-geral')) return { title: 'Fluxo de Caixa', meta: 'Visão geral' };
-  if (pathname.startsWith('/caixa/receitas')) return { title: 'Fluxo de Caixa', meta: 'Receitas & despesas' };
+  if (pathname.startsWith('/caixa/receitas')) return { title: 'Fluxo de Caixa', meta: 'Movimentações' };
   if (pathname.startsWith('/caixa/contas')) return { title: 'Fluxo de Caixa', meta: 'Contas' };
   if (pathname.startsWith('/relatorios')) return { title: 'Relatórios', meta: null };
   if (pathname.match(/^\/avaliacoes\/[^/]+/)) return { title: 'Avaliações', meta: null };
@@ -199,7 +199,7 @@ export function AppShell() {
     setFormOpen(true);
   }
 
-  // Receitas & despesas e Parceiros filtram de fato por esse seletor (via monthTransactions).
+  // Movimentações e Parceiros filtram de fato por esse seletor (via monthTransactions).
   // Visão geral, Cobrança e Contas calculam em cima do mês atual/saldo real e sempre
   // ignoraram esse filtro — mostrar o seletor lá sugeria um filtro que não existia.
   const showMonthFilter = location.pathname.startsWith('/caixa/receitas') || location.pathname.startsWith('/caixa/despesas') || location.pathname.startsWith('/caixa/parceiros');
