@@ -122,13 +122,13 @@ export function DetalheLancamentoDialog({ transaction, onClose }: Props) {
               <div className="text-[11.5px] font-semibold mb-2">Histórico financeiro</div>
               <div className="bg-surface-2 rounded-lg p-3 space-y-1.5 text-[12px]">
                 <div className="flex items-center justify-between"><span className="text-mute-2">Valor original</span><span className="font-mono-hbs">{fmt(valorOriginal)}</span></div>
-                <div className="flex items-center justify-between"><span className="text-mute-2">Recebido</span><span className="font-mono-hbs text-success">{fmt(recebidoGrupo)}</span></div>
+                <div className="flex items-center justify-between"><span className="text-mute-2">{income ? 'Recebido' : 'Pago'}</span><span className="font-mono-hbs text-success">{fmt(recebidoGrupo)}</span></div>
                 {restanteGrupo > 0 && <div className="flex items-center justify-between"><span className="text-mute-2">Restante</span><span className="font-mono-hbs text-warning">{fmt(restanteGrupo)}</span></div>}
               </div>
               <div className="mt-2 space-y-1">
                 {grupoCompleto.map(t => (
                   <div key={t.id} className="flex items-center justify-between text-[11.5px] px-1">
-                    <span className="text-mute-2">{t.status === 'Concluído' ? 'Recebido' : 'Vencimento'} · {fmtData(dataEfetiva(t))}</span>
+                    <span className="text-mute-2">{t.status === 'Concluído' ? (income ? 'Recebido' : 'Pago') : 'Vencimento'} · {fmtData(dataEfetiva(t))}</span>
                     <span className="font-mono-hbs">{fmt(t.valor)}</span>
                   </div>
                 ))}
