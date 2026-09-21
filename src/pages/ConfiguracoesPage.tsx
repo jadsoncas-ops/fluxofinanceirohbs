@@ -7,6 +7,7 @@ import { importarDadosLocaisParaSupabase } from '@/lib/localImport';
 import { calcularCustoOperacionalTotal, calcularHorasProdutivas, calcularCustoHora, formatBRL } from '@/lib/comercial/precificacao';
 import { CustoItem } from '@/lib/comercial/precificacao';
 import { Input } from '@/components/ui/input';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -59,6 +60,9 @@ export default function ConfiguracoesPage() {
   const [preco, setPreco] = useState(() => getPrecificacaoConfig());
   const [showImportacaoUnica, setShowImportacaoUnica] = useState(false);
   const [importando, setImportando] = useState(false);
+  const [confirmarImportacaoUnica, setConfirmarImportacaoUnica] = useState(false);
+  const [confirmarLimparLancamentos, setConfirmarLimparLancamentos] = useState(false);
+  const [backupPendente, setBackupPendente] = useState<string | null>(null);
 
   useEffect(() => {
     const temDadoLocal = !!localStorage.getItem('hbs_clients') || !!localStorage.getItem('hbs_transactions');
@@ -68,8 +72,12 @@ export default function ConfiguracoesPage() {
     // opção, porque o upsert por id é seguro de rodar de novo (completa o que faltou, não duplica).
   }, []);
 
-  async function handleImportacaoUnica() {
-    if (!confirm('Importar os dados deste navegador (clientes, trabalhos, financeiro, etc.) para o Supabase? Pode rodar mais de uma vez com segurança — o que já foi importado não duplica.')) return;
+  function handleImportacaoUnica() {
+    setConfirmarImportacaoUnica(true);
+  }
+
+  async function confirmarImportacaoUnicaAgora() {
+    setConfirmarImportacaoUnica(false);
     setImportando(true);
     try {
       const resumo = await importarDadosLocaisParaSupabase();
@@ -148,29 +156,39 @@ export default function ConfiguracoesPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        await importBackup(reader.result as string);
-        toast.success('Backup importado com sucesso.');
-        // Recarrega a página em vez de só atualizar o cache local: o backup pode não conter
-        // trabalhos/lançamentos que já existiam no Supabase, e um simples refresh do cache local
-        // (sem novo fetch) faria eles sumirem da tela até a próxima navegação.
-        window.location.reload();
-      } catch (err) {
-        console.error('[importar backup] falha:', err);
-        toast.error('Ficheiro inválido. Verifique o formato JSON.');
-      }
+    reader.onload = () => {
+      setBackupPendente(reader.result as string);
     };
     reader.readAsText(file);
     if (fileRef.current) fileRef.current.value = '';
   }
 
-  function handleClear() {
-    if (confirm('Tem certeza que deseja apagar TODOS os lançamentos? Esta ação não pode ser desfeita. Seus clientes serão mantidos.')) {
-      clearAllTransactions();
-      toast.success('Todos os lançamentos foram apagados.');
-      shell.refresh();
+  async function confirmarImportarBackup() {
+    if (!backupPendente) return;
+    try {
+      await importBackup(backupPendente);
+      toast.success('Backup importado com sucesso.');
+      // Recarrega a página em vez de só atualizar o cache local: o backup pode não conter
+      // trabalhos/lançamentos que já existiam no Supabase, e um simples refresh do cache local
+      // (sem novo fetch) faria eles sumirem da tela até a próxima navegação.
+      window.location.reload();
+    } catch (err) {
+      console.error('[importar backup] falha:', err);
+      toast.error('Ficheiro inválido. Verifique o formato JSON.');
+    } finally {
+      setBackupPendente(null);
     }
+  }
+
+  function handleClear() {
+    setConfirmarLimparLancamentos(true);
+  }
+
+  function confirmarLimparLancamentosAgora() {
+    clearAllTransactions();
+    toast.success('Todos os lançamentos foram apagados.');
+    setConfirmarLimparLancamentos(false);
+    shell.refresh();
   }
 
   return (
@@ -302,6 +320,51 @@ export default function ConfiguracoesPage() {
           <p>Versão: 1.1.0</p>
         </div>
       </section>
+
+      <AlertDialog open={confirmarImportacaoUnica} onOpenChange={setConfirmarImportacaoUnica}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Importar dados para o Supabase</AlertDialogTitle>
+            <AlertDialogDescription>
+              Importar os dados deste navegador (clientes, trabalhos, financeiro, etc.) para o Supabase? Pode rodar mais de uma vez com segurança — o que já foi importado não duplica.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarImportacaoUnicaAgora}>Importar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!backupPendente} onOpenChange={v => !v && setBackupPendente(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restaurar backup</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso substitui os dados atuais deste aparelho pelos dados do arquivo de backup selecionado. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarImportarBackup} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Restaurar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmarLimparLancamentos} onOpenChange={setConfirmarLimparLancamentos}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Limpar lançamentos</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja apagar TODOS os lançamentos? Esta ação não pode ser desfeita. Seus clientes serão mantidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarLimparLancamentosAgora} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Apagar tudo</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
