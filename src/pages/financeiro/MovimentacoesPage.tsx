@@ -380,7 +380,7 @@ function CartaoParcelado({ grupo, expandido, onToggle, onAbrirDetalhe, onRegistr
         <div className="bg-surface-2 px-[16px] py-[12px] space-y-1.5 border-t border-3">
           {grupo.itens.map(t => (
             <div key={t.id} onClick={() => onAbrirDetalhe(t)} className="flex items-center justify-between gap-2 text-[11.5px] py-1 cursor-pointer hover:opacity-70">
-              <span className="text-mute-2">{t.status === 'Concluído' ? `Recebido em ${new Date(dataEfetiva(t) + 'T12:00:00').toLocaleDateString('pt-BR')}` : `Vencimento ${new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR')}`}</span>
+              <span className="text-mute-2">{t.status === 'Concluído' ? `${income ? 'Recebido' : 'Pago'} em ${new Date(dataEfetiva(t) + 'T12:00:00').toLocaleDateString('pt-BR')}` : `Vencimento ${new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR')}`}</span>
               <span className="font-mono-hbs">{fmt(t.valor)}</span>
             </div>
           ))}
