@@ -1,12 +1,16 @@
 import { useMemo, useState } from 'react';
 import { Plus, Users, Pencil, Trash2, ChevronDown } from 'lucide-react';
 import { getPartners, addPartner, updatePartner, deletePartner, getClients, getProcesses } from '@/lib/storage';
-import { Partner } from '@/lib/types';
+import { Partner, Transaction } from '@/lib/types';
 import { dataEfetiva } from '@/lib/financials';
 import { useShell } from '@/hooks/use-shell';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { KpiCard } from '@/components/KpiCard';
+import { StatusBadge } from '@/components/StatusBadge';
+import { DetalheLancamentoDialog } from '@/components/financeiro/DetalheLancamentoDialog';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -14,21 +18,29 @@ function fmt(v: number) {
   return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+/** Parceiros — quem recebe repasse (isRepasse) vinculado a um Trabalho. Repassado/Previsto
+ *  somados a partir de shell.monthTransactions (mesmo seletor de período do cabeçalho do
+ *  Shell, já visível acima desta página — showMonthFilter em AppShell.tsx inclui
+ *  /caixa/parceiros). Fase 4F: só apresentação — mesmos cálculos, mesmo drilldown por parceiro,
+ *  agora com KpiCard/StatusBadge/AlertDialog do design system, e cada repasse do drilldown abre
+ *  o DetalheLancamentoDialog já usado no resto do Financeiro em vez de ficar sem ação. */
 export default function FinanceiroParceirosPage() {
   const shell = useShell();
   const [key, setKey] = useState(0);
   const [open, setOpen] = useState(false);
   const [editItem, setEditItem] = useState<Partner | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Partner | null>(null);
   const [nome, setNome] = useState('');
   const [documento, setDocumento] = useState('');
   const [contato, setContato] = useState('');
   const [observacao, setObservacao] = useState('');
   const [expandidoId, setExpandidoId] = useState<string | null>(null);
+  const [detalhe, setDetalhe] = useState<Transaction | null>(null);
 
   const clientes = useMemo(() => getClients(), []);
   const processos = useMemo(() => getProcesses(), []);
 
-  const { partners, historicoPorParceiro, txsPorParceiro } = useMemo(() => {
+  const { partners, historicoPorParceiro, txsPorParceiro, totais } = useMemo(() => {
     void key;
     const partners = getPartners();
     const txs = shell.monthTransactions.filter(t => t.isRepasse && t.partnerId);
@@ -42,7 +54,9 @@ export default function FinanceiroParceirosPage() {
       txsPorParceiro.set(t.partnerId!, [...(txsPorParceiro.get(t.partnerId!) || []), t]);
     });
     txsPorParceiro.forEach(lista => lista.sort((a, b) => dataEfetiva(b).localeCompare(dataEfetiva(a))));
-    return { partners, historicoPorParceiro, txsPorParceiro };
+    let pago = 0, previsto = 0;
+    historicoPorParceiro.forEach(h => { pago += h.pago; previsto += h.previsto; });
+    return { partners, historicoPorParceiro, txsPorParceiro, totais: { pago, previsto } };
   }, [key, shell.monthTransactions]);
 
   const refresh = () => setKey(k => k + 1);
@@ -72,12 +86,12 @@ export default function FinanceiroParceirosPage() {
     refresh();
   }
 
-  function handleDelete(p: Partner) {
-    if (confirm(`Remover o parceiro "${p.nome}"? O histórico de repasses já feitos não é afetado.`)) {
-      deletePartner(p.id);
-      toast.success('Parceiro removido.');
-      refresh();
-    }
+  function handleConfirmDelete() {
+    if (!deleteTarget) return;
+    deletePartner(deleteTarget.id);
+    toast.success('Parceiro removido.');
+    setDeleteTarget(null);
+    refresh();
   }
 
   return (
@@ -92,8 +106,13 @@ export default function FinanceiroParceirosPage() {
         </button>
       </div>
 
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-border border border-border rounded-xl overflow-hidden">
+        <KpiCard label="Repassado no período" value={fmt(totais.pago)} size="hero" tone="success" />
+        <KpiCard label="Previsto no período" value={fmt(totais.previsto)} size="hero" tone="warning" />
+      </div>
+
       {partners.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl py-16 text-center">
+        <div className="bg-card border border-dash border-2 rounded-xl py-16 text-center">
           <Users className="w-8 h-8 mx-auto text-mute-3 mb-3" strokeWidth={1.5} />
           <p className="text-sm font-medium">Nenhum parceiro cadastrado ainda.</p>
           <p className="text-xs text-muted-foreground mt-1">Cadastre para controlar repasses vinculados a um Trabalho.</p>
@@ -103,7 +122,7 @@ export default function FinanceiroParceirosPage() {
           <div className="hidden sm:flex gap-3.5 px-[18px] py-[11px] border-b border-border bg-surface-2 text-[10.5px] tracking-[.07em] uppercase text-mute-2">
             <span className="flex-[2] min-w-0">Parceiro</span>
             <span className="flex-1 min-w-0">Contato</span>
-            <span className="flex-1 min-w-0 text-right">Repassado / Previsto no mês</span>
+            <span className="flex-1 min-w-0 text-right">Repassado / Previsto no período</span>
             <span className="w-[70px] flex-none"></span>
           </div>
           {partners.map(p => {
@@ -126,18 +145,23 @@ export default function FinanceiroParceirosPage() {
                     </div>
                     <div className="flex sm:hidden flex-none gap-1 -mt-1">
                       <button onClick={e => { e.stopPropagation(); openEdit(p); }} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 transition-colors text-mute-2"><Pencil className="w-3.5 h-3.5" /></button>
-                      <button onClick={e => { e.stopPropagation(); handleDelete(p); }} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-destructive-soft transition-colors text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={e => { e.stopPropagation(); setDeleteTarget(p); }} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-destructive-soft transition-colors text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </div>
                   <div className="flex-1 min-w-0 text-[12px] text-muted-foreground sm:truncate">{p.contato || '—'}</div>
                   <div className="flex-1 min-w-0 sm:text-right font-mono-hbs text-[12px]">
-                    <span className="text-success">{fmt(h?.pago || 0)}</span>
-                    {h && h.previsto > 0 && <span className="text-mute-3"> / {fmt(h.previsto)}</span>}
-                    {!h && <span className="text-mute-3">Sem repasses neste mês</span>}
+                    {h ? (
+                      <>
+                        <span className="text-success">{fmt(h.pago)}</span>
+                        {h.previsto > 0 && <span className="text-mute-3"> / {fmt(h.previsto)}</span>}
+                      </>
+                    ) : (
+                      <span className="text-mute-3 font-sans">Sem repasses no período</span>
+                    )}
                   </div>
                   <div className="hidden sm:flex w-[70px] flex-none justify-end gap-1">
                     <button onClick={e => { e.stopPropagation(); openEdit(p); }} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 transition-colors text-mute-2"><Pencil className="w-3.5 h-3.5" /></button>
-                    <button onClick={e => { e.stopPropagation(); handleDelete(p); }} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-destructive-soft transition-colors text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <button onClick={e => { e.stopPropagation(); setDeleteTarget(p); }} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-destructive-soft transition-colors text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
                 </div>
 
@@ -147,7 +171,11 @@ export default function FinanceiroParceirosPage() {
                       const clienteNome = t.clienteId ? clientes.find(c => c.id === t.clienteId)?.nome : null;
                       const trabalho = t.processId ? processos.find(pr => pr.id === t.processId) : undefined;
                       return (
-                        <div key={t.id} className="flex items-center justify-between gap-3 px-[18px] py-[10px] border-t border-3 first:border-t-0 pl-[38px]">
+                        <button
+                          key={t.id}
+                          onClick={e => { e.stopPropagation(); setDetalhe(t); }}
+                          className="flex items-center justify-between gap-3 px-[18px] py-[10px] border-t border-3 first:border-t-0 pl-[38px] w-full text-left hover:bg-surface-3/60 transition-colors"
+                        >
                           <div className="min-w-0">
                             <div className="text-[12.5px] font-medium truncate">{t.descricao}</div>
                             <div className="text-[11px] text-mute-2 truncate">
@@ -156,11 +184,9 @@ export default function FinanceiroParceirosPage() {
                           </div>
                           <div className="flex items-center gap-2 flex-none">
                             <span className="font-mono-hbs text-[12.5px]">{fmt(t.valor)}</span>
-                            <span className={cn('text-[10px] px-2 py-[3px] rounded-[5px] font-medium', t.status === 'Concluído' ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning')}>
-                              {t.status}
-                            </span>
+                            <StatusBadge tone={t.status === 'Concluído' ? 'success' : 'warning'}>{t.status}</StatusBadge>
                           </div>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -186,6 +212,23 @@ export default function FinanceiroParceirosPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={v => !v && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover parceiro</AlertDialogTitle>
+            <AlertDialogDescription>Remover o parceiro "{deleteTarget?.nome}"? O histórico de repasses já feitos não é afetado.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <Trash2 className="w-4 h-4 mr-1.5" /> Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <DetalheLancamentoDialog transaction={detalhe} onClose={() => setDetalhe(null)} />
     </div>
   );
 }

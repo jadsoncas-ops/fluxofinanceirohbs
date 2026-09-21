@@ -1,11 +1,14 @@
 import { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Wallet, Pencil, Trash2, Landmark, PiggyBank } from 'lucide-react';
+import { Plus, Pencil, Trash2, Landmark, PiggyBank } from 'lucide-react';
 import { getAccounts, addAccount, updateAccount, deleteAccount, getCompanyConfig, saveCompanyConfig } from '@/lib/storage';
 import { Account, AccountType } from '@/lib/types';
+import { KpiCard } from '@/components/KpiCard';
+import { StatusBadge } from '@/components/StatusBadge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -15,10 +18,15 @@ function fmt(v: number) {
   return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+/** Contas — saldo mantido manualmente pelo usuário, sem conciliação/vínculo automático com
+ *  lançamentos (Account.saldo em lib/types.ts). Fase 4F: só apresentação — mesmos dados,
+ *  mesmas ações (criar/editar/excluir/marcar reserva), agora com KpiCard/StatusBadge/AlertDialog
+ *  do design system HBS 2.0 em vez de markup próprio. */
 export default function FinanceiroContasPage() {
   const [key, setKey] = useState(0);
   const [open, setOpen] = useState(false);
   const [editItem, setEditItem] = useState<Account | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Account | null>(null);
   const [nome, setNome] = useState('');
   const [tipo, setTipo] = useState<AccountType>('Conta Corrente');
   const [saldo, setSaldo] = useState('');
@@ -61,12 +69,12 @@ export default function FinanceiroContasPage() {
     refresh();
   }
 
-  function handleDelete(a: Account) {
-    if (confirm(`Remover a conta "${a.nome}"? O histórico de lançamentos não é afetado.`)) {
-      deleteAccount(a.id);
-      toast.success('Conta removida.');
-      refresh();
-    }
+  function handleConfirmDelete() {
+    if (!deleteTarget) return;
+    deleteAccount(deleteTarget.id);
+    toast.success('Conta removida.');
+    setDeleteTarget(null);
+    refresh();
   }
 
   return (
@@ -81,16 +89,10 @@ export default function FinanceiroContasPage() {
         </button>
       </div>
 
-      <div className="bg-primary text-primary-foreground rounded-xl p-[18px] flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-white/10 grid place-items-center"><Wallet className="w-4.5 h-4.5" /></div>
-          <span className="text-[12.5px] font-medium uppercase tracking-[.05em] text-white/70">Dinheiro disponível (contas ativas)</span>
-        </div>
-        <span className="font-mono-hbs text-[22px]">{fmt(total)}</span>
-      </div>
+      <KpiCard label="Dinheiro disponível (contas ativas)" value={fmt(total)} size="hero" />
 
       {accounts.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl py-16 text-center">
+        <div className="bg-card border border-dash border-2 rounded-xl py-16 text-center">
           <Landmark className="w-8 h-8 mx-auto text-mute-3 mb-3" strokeWidth={1.5} />
           <p className="text-sm font-medium">Nenhuma conta cadastrada.</p>
           <p className="text-xs text-muted-foreground mt-1">Cadastre suas contas bancárias e caixa para ver quanto dinheiro sua empresa tem disponível de verdade.</p>
@@ -103,15 +105,16 @@ export default function FinanceiroContasPage() {
               <div key={a.id} className={cn('bg-card border rounded-xl p-[15px_18px]', ehReserva ? 'border-accent' : 'border-border', !a.ativo && 'opacity-50')}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-[13px] font-medium truncate">{a.nome}</span>
-                      {!a.ativo && <span className="text-[9.5px] uppercase font-medium bg-neutral-soft text-mute-2 px-1.5 py-[1px] rounded-[4px]">Inativa</span>}
+                      {!a.ativo && <StatusBadge tone="neutral">Inativa</StatusBadge>}
+                      {ehReserva && <StatusBadge tone="accent">Reserva</StatusBadge>}
                     </div>
                     <div className="text-[11px] text-mute-2 uppercase tracking-[.05em] mt-0.5">{a.tipo}</div>
                   </div>
                   <div className="flex gap-0.5 flex-none">
                     <button onClick={() => openEdit(a)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 transition-colors text-mute-2"><Pencil className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => handleDelete(a)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-destructive-soft transition-colors text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => setDeleteTarget(a)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-destructive-soft transition-colors text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
                 </div>
                 <div className="font-mono-hbs text-[19px] mt-2.5">{fmt(a.saldo)}</div>
@@ -122,7 +125,7 @@ export default function FinanceiroContasPage() {
                     ehReserva ? 'border-transparent text-accent' : 'border-border text-mute-2 hover:text-foreground transition-colors'
                   )}
                 >
-                  <PiggyBank className="w-3 h-3" /> {ehReserva ? 'Conta reserva da empresa' : 'Marcar como conta reserva'}
+                  <PiggyBank className="w-3 h-3" /> {ehReserva ? 'Remover como conta reserva' : 'Marcar como conta reserva'}
                 </button>
               </div>
             );
@@ -153,6 +156,21 @@ export default function FinanceiroContasPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={v => !v && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover conta</AlertDialogTitle>
+            <AlertDialogDescription>Remover a conta "{deleteTarget?.nome}"? O histórico de lançamentos não é afetado.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <Trash2 className="w-4 h-4 mr-1.5" /> Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
