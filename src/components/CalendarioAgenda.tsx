@@ -136,9 +136,9 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
     <section className="bg-card border border-border rounded-xl overflow-hidden flex flex-col min-h-[520px]">
       <div className="px-[16px] py-[10px] border-b border-3 flex items-center justify-between gap-2 flex-wrap flex-none">
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center rounded-lg bg-surface-3 p-0.5">
-            <button onClick={() => setModo('semana')} className={cn('px-2.5 h-6 rounded-md text-[11px] font-medium transition-colors', modo === 'semana' ? 'bg-card shadow-sm' : 'text-mute-2')}>Semana</button>
-            <button onClick={() => setModo('mes')} className={cn('px-2.5 h-6 rounded-md text-[11px] font-medium transition-colors', modo === 'mes' ? 'bg-card shadow-sm' : 'text-mute-2')}>Mês</button>
+          <div className="flex gap-1 bg-surface-2 p-1 rounded-xl border border-3">
+            <button onClick={() => setModo('semana')} className={cn('px-2.5 h-6 rounded-lg text-[11px] font-medium transition-colors', modo === 'semana' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>Semana</button>
+            <button onClick={() => setModo('mes')} className={cn('px-2.5 h-6 rounded-lg text-[11px] font-medium transition-colors', modo === 'mes' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>Mês</button>
           </div>
           <div className="text-[10.5px] text-mute-2 font-mono-hbs">{modo === 'semana' ? rotuloSemana : `${MESES[mes.getMonth()]} ${mes.getFullYear()}`}</div>
         </div>

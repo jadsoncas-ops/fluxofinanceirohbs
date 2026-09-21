@@ -8,6 +8,8 @@ import { Task, TaskStatus, TaskPriority, Client, Process } from '@/lib/types';
 import { getTasks, addTask, updateTask, deleteTask, getClients, getProcesses } from '@/lib/storage';
 import { toast } from 'sonner';
 import { Plus, CheckCircle2, Clock3, AlertTriangle, Trash2, Pencil, CalendarDays, Briefcase, Circle, PlayCircle } from 'lucide-react';
+import { KpiCard, type KpiTone } from '@/components/KpiCard';
+import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
 import { cn } from '@/lib/utils';
 
 type FilterTab = 'todas' | 'hoje' | 'atrasadas' | 'semana' | 'concluidas';
@@ -19,6 +21,8 @@ const FILTROS: { key: FilterTab; label: string }[] = [
   { key: 'semana', label: 'Semana' },
   { key: 'concluidas', label: 'Concluídas' },
 ];
+
+const PRIORIDADE_TONE: Record<TaskPriority, BadgeTone> = { Alta: 'destructive', Média: 'warning', Baixa: 'neutral' };
 
 interface Props {
   initialTask?: Partial<Task> | null;
@@ -232,19 +236,12 @@ export function TasksPage({ initialTask, onConsumed }: Props) {
       {/* Stats — também funcionam como filtro, mesmo padrão da KPI strip do Início */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border border border-border rounded-xl overflow-hidden">
         {[
-          { key: 'hoje' as const, label: 'Hoje', value: counts.hoje, hintColor: undefined },
-          { key: 'atrasadas' as const, label: 'Atrasadas', value: counts.atrasadas, hintColor: counts.atrasadas > 0 ? 'text-destructive' : undefined },
-          { key: 'semana' as const, label: 'Semana', value: counts.semana, hintColor: counts.semana > 0 ? 'text-warning' : undefined },
-          { key: 'todas' as const, label: 'Abertas', value: counts.todas, hintColor: undefined },
+          { key: 'hoje' as const, label: 'Hoje', value: counts.hoje, tone: 'default' as KpiTone },
+          { key: 'atrasadas' as const, label: 'Atrasadas', value: counts.atrasadas, tone: (counts.atrasadas > 0 ? 'destructive' : 'default') as KpiTone },
+          { key: 'semana' as const, label: 'Semana', value: counts.semana, tone: (counts.semana > 0 ? 'warning' : 'default') as KpiTone },
+          { key: 'todas' as const, label: 'Abertas', value: counts.todas, tone: 'default' as KpiTone },
         ].map(s => (
-          <button
-            key={s.key}
-            onClick={() => setFilter(s.key)}
-            className={cn('bg-card px-3 pt-2.5 pb-2.5 text-left hover:bg-surface-3 transition-colors', filter === s.key && 'bg-surface-3')}
-          >
-            <div className="text-[9.5px] tracking-[.06em] uppercase text-mute-2 font-medium">{s.label}</div>
-            <div className={cn('font-mono-hbs text-[20px] font-medium -tracking-[.03em] mt-1', s.hintColor)}>{s.value}</div>
-          </button>
+          <KpiCard key={s.key} label={s.label} value={String(s.value)} tone={s.tone} onClick={() => setFilter(s.key)} active={filter === s.key} />
         ))}
       </div>
 
@@ -287,29 +284,20 @@ export function TasksPage({ initialTask, onConsumed }: Props) {
                   <p className={cn('text-[13px] font-medium leading-tight break-words', t.status === 'Concluída' && 'line-through text-muted-foreground')}>{t.titulo}</p>
                   {t.descricao && <p className="text-[11px] text-muted-foreground mt-1 leading-snug line-clamp-2 break-words">{t.descricao}</p>}
                   <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                    <span className={cn(
-                      'text-[10px] px-1.5 py-[2px] rounded-[4px] font-medium',
-                      t.prioridade === 'Alta' ? 'bg-destructive-soft text-destructive' : t.prioridade === 'Média' ? 'bg-warning-soft text-warning' : 'bg-neutral-soft text-mute-2'
-                    )}>
-                      {t.prioridade}
-                    </span>
+                    <StatusBadge tone={PRIORIDADE_TONE[t.prioridade]}>{t.prioridade}</StatusBadge>
                     {t.prazo && (
-                      <span className={cn(
-                        'text-[10px] px-1.5 py-[2px] rounded-[4px] font-medium flex items-center gap-1',
-                        isLate ? 'bg-destructive-soft text-destructive' : isToday ? 'bg-accent-soft text-accent' : 'bg-neutral-soft text-mute-2'
-                      )}>
-                        {isLate ? <AlertTriangle className="w-2.5 h-2.5" /> : <CalendarDays className="w-2.5 h-2.5" />}
+                      <StatusBadge tone={isLate ? 'destructive' : isToday ? 'accent' : 'neutral'} icon={isLate ? AlertTriangle : CalendarDays}>
                         {new Date(t.prazo + 'T12:00:00').toLocaleDateString('pt-BR')}
                         {isLate && ' · atrasada'}
                         {isToday && ' · hoje'}
-                      </span>
+                      </StatusBadge>
                     )}
                     {procName && (
-                      <span className="text-[10px] px-1.5 py-[2px] rounded-[4px] font-medium bg-accent-soft text-accent flex items-center gap-1 max-w-[220px]">
-                        <Briefcase className="w-2.5 h-2.5 shrink-0" /> <span className="truncate">{procName}</span>
-                      </span>
+                      <StatusBadge tone="accent" icon={Briefcase} className="max-w-[220px]">
+                        <span className="truncate">{procName}</span>
+                      </StatusBadge>
                     )}
-                    {cliName && <span className="text-[10px] px-1.5 py-[2px] rounded-[4px] font-medium bg-neutral-soft text-mute-2">{cliName}</span>}
+                    {cliName && <StatusBadge tone="neutral">{cliName}</StatusBadge>}
                   </div>
                 </div>
                 <div className="flex-none flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

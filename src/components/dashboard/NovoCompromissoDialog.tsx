@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,6 +30,7 @@ export function NovoCompromissoDialog({ open, onClose, compromisso, dataInicial 
   const [comQuem, setComQuem] = useState('');
   const [clienteId, setClienteId] = useState('');
   const [cor, setCor] = useState('roxo');
+  const [confirmarExclusao, setConfirmarExclusao] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -68,14 +70,19 @@ export function NovoCompromissoDialog({ open, onClose, compromisso, dataInicial 
   }
 
   function handleDelete() {
+    setConfirmarExclusao(true);
+  }
+
+  function confirmarExclusaoCompromisso() {
     if (!compromisso) return;
-    if (!confirm('Excluir este compromisso?')) return;
     deleteCompromisso(compromisso.id);
     toast.success('Compromisso excluído.');
+    setConfirmarExclusao(false);
     onClose();
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader><DialogTitle>{editando ? 'Editar compromisso' : 'Novo compromisso'}</DialogTitle></DialogHeader>
@@ -141,5 +148,19 @@ export function NovoCompromissoDialog({ open, onClose, compromisso, dataInicial 
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={confirmarExclusao} onOpenChange={setConfirmarExclusao}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Excluir compromisso</AlertDialogTitle>
+          <AlertDialogDescription>Excluir "{compromisso?.titulo}"? Esta ação não pode ser desfeita.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction onClick={confirmarExclusaoCompromisso} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
