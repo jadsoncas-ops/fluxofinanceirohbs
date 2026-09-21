@@ -405,7 +405,9 @@ export default function AvaliacaoDetailPage() {
         </div>
       </div>
 
-      <DocumentoAvaliacao avaliacao={data} />
+      <div className="overflow-x-auto print:overflow-visible">
+        <DocumentoAvaliacao avaliacao={data} />
+      </div>
     </div>
   );
 }

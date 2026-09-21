@@ -122,46 +122,51 @@ export default function DocumentoGeradorPage() {
             </div>
           )}
 
-          {tipo === 'memorial' && (
-            <DocumentoMemorial dados={montarMemorial(trabalho, cliente, config, clientes)} trabalho={trabalho} onSaved={() => setKey(k => k + 1)} />
-          )}
-          {tipo === 'abnt' && (
-            <DocumentoAbnt
-              trabalho={trabalho}
-              units={trabalho.tecnico?.units || []}
-              responsavel={config}
-              art={trabalho.tecnico?.art || ''}
-              proprietarios={proprietariosDoTrabalho(trabalho, cliente).map(p => ({ ...p, conjuge: conjugeParaAssinatura(p.cpf, clientes) }))}
-              onSaved={() => setKey(k => k + 1)}
-            />
-          )}
-          {tipo === 'instituicao' && (
-            <DocumentoInstituicao dados={montarInstituicao(trabalho, cliente, clientes)} />
-          )}
-          {tipo === 'convencao' && (
-            <DocumentoConvencao dados={montarConvencao(trabalho, cliente, clientes)} />
-          )}
-          {tipo === 'instituicao_simplificada' && (
-            <DocumentoInstituicaoSimplificada dados={montarInstituicaoSimplificada(trabalho, cliente, clientes)} trabalho={trabalho} onSaved={() => setKey(k => k + 1)} />
-          )}
-          {tipo === 'laudo' && (
-            <DocumentoLaudo trabalho={trabalho} cliente={cliente} config={config} />
-          )}
-          {tipo === 'requerimento' && (
-            <DocumentoRequerimento dados={montarRequerimento(trabalho, cliente, clientes)} />
-          )}
-          {tipo === 'procuracao' && (
-            <DocumentoProcuracao trabalho={trabalho} cliente={cliente} onSaved={() => setKey(k => k + 1)} />
-          )}
-          {tipo === 'carta_reforma' && (
-            <DocumentoCartaReforma trabalho={trabalho} config={config} onSaved={() => setKey(k => k + 1)} />
-          )}
-          {tipo === 'declaracao_anuencia' && (
-            <DocumentoAnuencia trabalho={trabalho} cliente={cliente} onSaved={() => setKey(k => k + 1)} />
-          )}
-          {tipo === 'descarte_entulhos' && (
-            <DocumentoDescarteEntulhos trabalho={trabalho} config={config} onSaved={() => setKey(k => k + 1)} />
-          )}
+          {/* overflow-x-auto contém a rolagem do preview de impressão (largura fixa, .documento-folha,
+              pra espelhar a página impressa) dentro do próprio card — sem isso a página inteira rola
+              de lado no mobile. Não afeta a formatação de impressão/PDF em si. */}
+          <div className="overflow-x-auto print:overflow-visible">
+            {tipo === 'memorial' && (
+              <DocumentoMemorial dados={montarMemorial(trabalho, cliente, config, clientes)} trabalho={trabalho} onSaved={() => setKey(k => k + 1)} />
+            )}
+            {tipo === 'abnt' && (
+              <DocumentoAbnt
+                trabalho={trabalho}
+                units={trabalho.tecnico?.units || []}
+                responsavel={config}
+                art={trabalho.tecnico?.art || ''}
+                proprietarios={proprietariosDoTrabalho(trabalho, cliente).map(p => ({ ...p, conjuge: conjugeParaAssinatura(p.cpf, clientes) }))}
+                onSaved={() => setKey(k => k + 1)}
+              />
+            )}
+            {tipo === 'instituicao' && (
+              <DocumentoInstituicao dados={montarInstituicao(trabalho, cliente, clientes)} />
+            )}
+            {tipo === 'convencao' && (
+              <DocumentoConvencao dados={montarConvencao(trabalho, cliente, clientes)} />
+            )}
+            {tipo === 'instituicao_simplificada' && (
+              <DocumentoInstituicaoSimplificada dados={montarInstituicaoSimplificada(trabalho, cliente, clientes)} trabalho={trabalho} onSaved={() => setKey(k => k + 1)} />
+            )}
+            {tipo === 'laudo' && (
+              <DocumentoLaudo trabalho={trabalho} cliente={cliente} config={config} />
+            )}
+            {tipo === 'requerimento' && (
+              <DocumentoRequerimento dados={montarRequerimento(trabalho, cliente, clientes)} />
+            )}
+            {tipo === 'procuracao' && (
+              <DocumentoProcuracao trabalho={trabalho} cliente={cliente} onSaved={() => setKey(k => k + 1)} />
+            )}
+            {tipo === 'carta_reforma' && (
+              <DocumentoCartaReforma trabalho={trabalho} config={config} onSaved={() => setKey(k => k + 1)} />
+            )}
+            {tipo === 'declaracao_anuencia' && (
+              <DocumentoAnuencia trabalho={trabalho} cliente={cliente} onSaved={() => setKey(k => k + 1)} />
+            )}
+            {tipo === 'descarte_entulhos' && (
+              <DocumentoDescarteEntulhos trabalho={trabalho} config={config} onSaved={() => setKey(k => k + 1)} />
+            )}
+          </div>
         </>
       )}
     </div>

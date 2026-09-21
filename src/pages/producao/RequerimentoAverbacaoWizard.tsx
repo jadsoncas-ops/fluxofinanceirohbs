@@ -339,7 +339,11 @@ export function RequerimentoAverbacaoWizard({ trabalho, cliente }: Props) {
         </div>
       </div>
 
-      {step === 4 && <DocumentoRequerimentoAverbacao dados={documentoPreview} />}
+      {step === 4 && (
+        <div className="overflow-x-auto print:overflow-visible">
+          <DocumentoRequerimentoAverbacao dados={documentoPreview} />
+        </div>
+      )}
     </div>
   );
 }
