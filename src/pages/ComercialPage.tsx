@@ -7,20 +7,21 @@ import { Proposta, PropostaStatus, ContratoStatus } from '@/lib/types';
 import { NovaPropostaDialog } from '@/components/comercial/NovaPropostaDialog';
 import { PropostaDetailDialog } from '@/components/comercial/PropostaDetailDialog';
 import { ValorMonetario } from '@/components/ValorMonetario';
+import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
 import { cn } from '@/lib/utils';
 
-const statusBadge: Record<PropostaStatus, string> = {
-  Rascunho: 'bg-neutral-soft text-mute-2',
-  Enviada: 'bg-accent-soft text-accent',
-  'Em aprovação': 'bg-warning-soft text-warning',
-  Aprovada: 'bg-success-soft text-success',
-  Perdida: 'bg-destructive-soft text-destructive',
+const PROPOSTA_TONE: Record<PropostaStatus, BadgeTone> = {
+  Rascunho: 'neutral',
+  Enviada: 'accent',
+  'Em aprovação': 'warning',
+  Aprovada: 'success',
+  Perdida: 'destructive',
 };
 
-const contratoBadge: Record<ContratoStatus, string> = {
-  Ativo: 'bg-accent-soft text-accent',
-  Concluído: 'bg-success-soft text-success',
-  Cancelado: 'bg-destructive-soft text-destructive',
+const CONTRATO_TONE: Record<ContratoStatus, BadgeTone> = {
+  Ativo: 'accent',
+  Concluído: 'success',
+  Cancelado: 'destructive',
 };
 
 function diasDesde(ts: number) {
@@ -121,9 +122,9 @@ export default function ComercialPage() {
                   <div className="text-[12.5px] font-medium truncate">{p.codigo} · {p.titulo}</div>
                   <div className="text-[11px] text-mute-2 mt-0.5">{clienteNome(p.clienteId)} · <ValorMonetario value={formatBRL(p.resultado.precoVenda)} /></div>
                 </div>
-                <span className={cn('flex-none text-[11px] px-2 py-[3px] rounded-[5px] font-medium', statusBadge[p.status])}>
+                <StatusBadge tone={PROPOSTA_TONE[p.status]} className="flex-none">
                   {p.status === 'Enviada' && p.enviadaEm ? `Sem resposta ${diasDesde(p.enviadaEm)}d` : p.status}
-                </span>
+                </StatusBadge>
               </div>
             ))
           )}
@@ -164,7 +165,7 @@ export default function ComercialPage() {
                 <div className="text-[12.5px] font-medium truncate">{c.codigo} · {clienteNome(c.clienteId)}</div>
                 <div className="text-[11px] text-mute-2 mt-0.5 font-mono-hbs"><ValorMonetario value={formatBRL(c.valor)} /> · {new Date(c.createdAt).toLocaleDateString('pt-BR')}</div>
               </div>
-              <span className={cn('flex-none text-[11px] px-2 py-[3px] rounded-[5px] font-medium', contratoBadge[c.status])}>{c.status}</span>
+              <StatusBadge tone={CONTRATO_TONE[c.status]} className="flex-none">{c.status}</StatusBadge>
               <button onClick={() => setPropostaAberta(c.propostaId)} className="flex-none text-[11.5px] font-medium text-muted-foreground hover:text-accent transition-colors flex items-center gap-1">
                 <Pencil className="w-3 h-3" /> Editar
               </button>

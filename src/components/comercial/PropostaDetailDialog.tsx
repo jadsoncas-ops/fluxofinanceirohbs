@@ -12,7 +12,7 @@ import { formatBRL } from '@/lib/comercial/precificacao';
 import { NovoTrabalhoDialog } from './NovoTrabalhoDialog';
 import { NovaPropostaDialog } from './NovaPropostaDialog';
 import { EditarContratoDialog } from './EditarContratoDialog';
-import { cn } from '@/lib/utils';
+import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
 
 interface Props {
   propostaId: string | null;
@@ -20,12 +20,12 @@ interface Props {
   onChanged: () => void;
 }
 
-const statusBadge: Record<PropostaStatus, string> = {
-  Rascunho: 'bg-neutral-soft text-mute-2',
-  Enviada: 'bg-accent-soft text-accent',
-  'Em aprovação': 'bg-warning-soft text-warning',
-  Aprovada: 'bg-success-soft text-success',
-  Perdida: 'bg-destructive-soft text-destructive',
+const PROPOSTA_TONE: Record<PropostaStatus, BadgeTone> = {
+  Rascunho: 'neutral',
+  Enviada: 'accent',
+  'Em aprovação': 'warning',
+  Aprovada: 'success',
+  Perdida: 'destructive',
 };
 
 export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) {
@@ -88,7 +88,7 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
           <DialogHeader>
             <div className="flex items-center gap-2.5">
               <DialogTitle>{proposta.codigo} · {proposta.titulo}</DialogTitle>
-              <span className={cn('text-[11px] px-2 py-[3px] rounded-[5px] font-medium', statusBadge[proposta.status])}>{proposta.status}</span>
+              <StatusBadge tone={PROPOSTA_TONE[proposta.status]}>{proposta.status}</StatusBadge>
             </div>
           </DialogHeader>
 
@@ -149,7 +149,7 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
 
             {contrato ? (
               <div className="rounded-xl border border-border p-4 space-y-2.5">
-                <div className="text-[13px] font-semibold flex items-center gap-2">Contrato {contrato.codigo} <span className="text-[11px] px-2 py-[2px] rounded-[5px] bg-success-soft text-success font-medium">{contrato.status}</span></div>
+                <div className="text-[13px] font-semibold flex items-center gap-2">Contrato {contrato.codigo} <StatusBadge tone="success">{contrato.status}</StatusBadge></div>
                 <div className="flex items-center justify-between">
                   <div className="text-[12px] text-muted-foreground">Valor: <span className="font-mono-hbs text-foreground">{formatBRL(contrato.valor)}</span></div>
                   <button onClick={() => setEditContratoOpen(true)} className="text-[11.5px] font-medium text-accent flex items-center gap-1"><Pencil className="w-3 h-3" /> Editar</button>
