@@ -17,7 +17,10 @@ const TONE_TEXT: Record<KpiTone, string> = {
 const SIZE_STYLE = {
   hero: { pad: 'px-[20px] py-[18px]', label: 'text-[11px]', value: 'text-[30px] mt-1.5' },
   default: { pad: 'px-[16px] py-[18px]', label: 'text-[10.5px]', value: 'text-[17px] mt-1.5' },
-  compact: { pad: 'px-[14px] py-[11px]', label: 'text-[10px]', value: 'text-[14px] mt-1' },
+  // Responsivo: telas que empilham em 1 coluna (grid-cols-1 sm:...) nunca precisariam disso, mas
+  // quem usa grid fixo (ex.: grid-cols-3 sem breakpoint) depende do valor encolher em mobile pra
+  // não truncar — mesmo ajuste que "default"/"hero" não precisam porque têm mais espaço.
+  compact: { pad: 'px-[8px] sm:px-[14px] py-[11px]', label: 'text-[10px]', value: 'text-[12.5px] sm:text-[14px] mt-1' },
 } as const;
 
 interface Props {

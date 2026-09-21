@@ -9,6 +9,7 @@ import { useShell } from '@/hooks/use-shell';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ValorMonetario } from '@/components/ValorMonetario';
+import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -19,11 +20,11 @@ function fmtData(d: string) {
   return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR');
 }
 
-const STATUS_STYLE: Record<string, string> = {
-  Recebido: 'bg-success-soft text-success',
-  Pago: 'bg-success-soft text-success',
-  'A receber': 'bg-warning-soft text-warning',
-  'A pagar': 'bg-warning-soft text-warning',
+const STATUS_TONE: Record<string, BadgeTone> = {
+  Recebido: 'success',
+  Pago: 'success',
+  'A receber': 'warning',
+  'A pagar': 'warning',
 };
 
 interface Props {
@@ -83,14 +84,18 @@ export function DetalheLancamentoDialog({ transaction, onClose }: Props) {
           <div className="text-[14px] font-medium -mt-2">{transaction.descricao}</div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={cn('text-[11px] px-2 py-[3px] rounded-[5px] font-medium', STATUS_STYLE[statusLabel(transaction)])}>{statusLabel(transaction)}</span>
-            {transaction.isRepasse && <span className="text-[11px] px-2 py-[3px] rounded-[5px] font-medium bg-accent-soft text-accent">🤝 Repasse</span>}
+            <StatusBadge tone={STATUS_TONE[statusLabel(transaction)] || 'neutral'} size="md">{statusLabel(transaction)}</StatusBadge>
+            {transaction.isRepasse && <StatusBadge tone="accent" size="md">🤝 Repasse</StatusBadge>}
           </div>
 
           <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-[12.5px] pt-1 border-t border-3">
             <div>
-              <div className="text-[10.5px] uppercase tracking-[.06em] text-mute-2">Data</div>
-              <div className="mt-0.5">{fmtData(dataEfetiva(transaction))}</div>
+              <div className="text-[10.5px] uppercase tracking-[.06em] text-mute-2">Vencimento</div>
+              <div className="mt-0.5">{fmtData(transaction.data)}</div>
+            </div>
+            <div>
+              <div className="text-[10.5px] uppercase tracking-[.06em] text-mute-2">Data efetiva</div>
+              <div className="mt-0.5">{transaction.dataConclusao ? fmtData(dataEfetiva(transaction)) : '—'}</div>
             </div>
             <div>
               <div className="text-[10.5px] uppercase tracking-[.06em] text-mute-2">Categoria</div>

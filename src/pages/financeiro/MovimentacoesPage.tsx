@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
-import { Plus, Info, SlidersHorizontal, ChevronDown, ArrowUpCircle, ArrowDownCircle, CalendarClock, CheckCircle2, Pencil, Trash2, ArrowRight } from 'lucide-react';
+import { Plus, SlidersHorizontal, ChevronDown, ArrowUpCircle, ArrowDownCircle, CalendarClock, CheckCircle2, Pencil, Trash2, ArrowRight } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
 import { getClients, getProcesses, deleteTransaction, updateTransaction } from '@/lib/storage';
 import { dataEfetiva } from '@/lib/financials';
 import { isIncome, statusLabel, agruparLancamentos, LancamentoGrupo } from '@/lib/lancamentos';
 import { DetalheLancamentoDialog } from '@/components/financeiro/DetalheLancamentoDialog';
 import { ValorMonetario } from '@/components/ValorMonetario';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { KpiCard } from '@/components/KpiCard';
+import { StatusBadge } from '@/components/StatusBadge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -159,26 +160,15 @@ export default function FinanceiroMovimentacoesPage() {
         </DropdownMenu>
       </div>
 
-      {/* Resumo do período */}
+      {/* Resumo do período — clicar em Entradas/Saídas filtra a lista abaixo pelo mesmo tipo */}
       <div className="grid grid-cols-3 gap-px bg-border border border-border rounded-xl overflow-hidden">
-        <button type="button" onClick={() => limparFiltroTipo('entradas')} className={cn('bg-card px-[8px] sm:px-[14px] py-[12px] min-w-0 text-left hover:bg-surface-2 transition-colors', filtroTipo === 'entradas' && 'bg-surface-2')}>
-          <div className="flex items-center gap-1 min-w-0">
-            <div className="text-[10px] uppercase tracking-[.07em] text-mute-2 truncate">Entradas</div>
-            <Tooltip delayDuration={200}>
-              <TooltipTrigger asChild><Info className="w-3 h-3 text-mute-3 flex-none cursor-help" /></TooltipTrigger>
-              <TooltipContent className="max-w-[260px] text-[11.5px]">Recebido no período selecionado acima (competência) — pode diferir da Visão Geral, que usa sempre o mês atual real.</TooltipContent>
-            </Tooltip>
-          </div>
-          <div className="font-mono-hbs text-[12.5px] sm:text-[16px] mt-1 truncate text-success"><ValorMonetario value={fmt(entradas)} /></div>
-        </button>
-        <button type="button" onClick={() => limparFiltroTipo('saidas')} className={cn('bg-card px-[8px] sm:px-[14px] py-[12px] min-w-0 text-left hover:bg-surface-2 transition-colors', filtroTipo === 'saidas' && 'bg-surface-2')}>
-          <div className="text-[10px] uppercase tracking-[.07em] text-mute-2 truncate">Saídas</div>
-          <div className="font-mono-hbs text-[12.5px] sm:text-[16px] mt-1 truncate text-destructive"><ValorMonetario value={fmt(saidas)} /></div>
-        </button>
-        <div className="bg-card px-[8px] sm:px-[14px] py-[12px] min-w-0">
-          <div className="text-[10px] uppercase tracking-[.07em] text-mute-2 truncate">Resultado</div>
-          <div className={cn('font-mono-hbs text-[12.5px] sm:text-[16px] mt-1 truncate', resultado >= 0 ? 'text-success' : 'text-destructive')}><ValorMonetario value={fmt(resultado)} /></div>
-        </div>
+        <KpiCard
+          label="Entradas" value={fmt(entradas)} size="compact" tone="success"
+          active={filtroTipo === 'entradas'} onClick={() => limparFiltroTipo('entradas')}
+          info="Recebido no período selecionado acima (competência) — pode diferir da Visão Geral, que usa sempre o mês atual real."
+        />
+        <KpiCard label="Saídas" value={fmt(saidas)} size="compact" tone="destructive" active={filtroTipo === 'saidas'} onClick={() => limparFiltroTipo('saidas')} />
+        <KpiCard label="Resultado" value={fmt(resultado)} size="compact" tone={resultado >= 0 ? 'success' : 'destructive'} />
       </div>
 
       {/* Busca + Filtros */}
@@ -302,8 +292,11 @@ function LinhaMovimentacao({ tx, clienteNome, trabalho, onAbrirDetalhe, onVerTra
           </span>
         </div>
         <div className="text-[11px] text-mute-2 truncate mt-0.5">{clienteNome || 'Sem cliente'}{trabalho && ` · ${trabalho.objeto}`}</div>
-        <div className="text-[11px] text-mute-3 mt-0.5 flex items-center gap-1">
-          {atrasado ? <span className="text-destructive font-medium">Atrasado</span> : statusLabel(tx)} · {new Date(dataEfetiva(tx) + 'T12:00:00').toLocaleDateString('pt-BR')}
+        <div className="flex items-center gap-1.5 mt-1">
+          <StatusBadge tone={atrasado ? 'destructive' : tx.status === 'Concluído' ? 'success' : 'warning'}>
+            {atrasado ? 'Atrasado' : statusLabel(tx)}
+          </StatusBadge>
+          <span className="text-[11px] text-mute-3">{new Date(dataEfetiva(tx) + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
         </div>
       </div>
 
@@ -373,8 +366,11 @@ function CartaoParcelado({ grupo, expandido, onToggle, onAbrirDetalhe, onRegistr
               {income ? '+ ' : '− '}<ValorMonetario value={fmt(grupo.valorRestante > 0 ? grupo.valorRestante : grupo.valorTotal)} />
             </span>
           </div>
-          <div className="text-[11px] text-mute-2 mt-0.5">
-            Recebido {fmt(grupo.valorRecebido)} de {fmt(grupo.valorTotal)}{grupo.valorRestante > 0 && ` · restam ${fmt(grupo.valorRestante)}`}
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            <StatusBadge tone={grupo.valorRestante > 0 ? 'accent' : 'success'}>{grupo.valorRestante > 0 ? 'Parcial' : (income ? 'Recebido' : 'Pago')}</StatusBadge>
+            <span className="text-[11px] text-mute-2">
+              {income ? 'Recebido' : 'Pago'} {fmt(grupo.valorRecebido)} de {fmt(grupo.valorTotal)}{grupo.valorRestante > 0 && ` · restam ${fmt(grupo.valorRestante)}`}
+            </span>
           </div>
         </div>
         <ChevronDown className={cn('w-3.5 h-3.5 text-mute-3 flex-none mt-[3px] transition-transform', expandido && 'rotate-180')} />
