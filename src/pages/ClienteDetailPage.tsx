@@ -15,15 +15,17 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { KpiCard } from '@/components/KpiCard';
+import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-const propostaBadge: Record<string, string> = {
-  Rascunho: 'bg-neutral-soft text-mute-2',
-  Enviada: 'bg-accent-soft text-accent',
-  'Em aprovação': 'bg-warning-soft text-warning',
-  Aprovada: 'bg-success-soft text-success',
-  Perdida: 'bg-destructive-soft text-destructive',
+const PROPOSTA_TONE: Record<string, BadgeTone> = {
+  Rascunho: 'neutral',
+  Enviada: 'accent',
+  'Em aprovação': 'warning',
+  Aprovada: 'success',
+  Perdida: 'destructive',
 };
 
 function initials(nome: string) {
@@ -35,12 +37,17 @@ function fmt(v: number) {
   return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-const etapaBadge: Record<string, string> = {
-  'Aguardando cliente': 'bg-warning-soft text-warning',
-  Levantamento: 'bg-neutral-soft text-mute-2',
-  Tramitando: 'bg-accent-soft text-accent',
-  Devolutiva: 'bg-destructive-soft text-destructive',
-  Concluído: 'bg-success-soft text-success',
+const ETAPA_TONE: Record<string, BadgeTone> = {
+  'Aguardando cliente': 'warning',
+  Levantamento: 'neutral',
+  Tramitando: 'accent',
+  Devolutiva: 'destructive',
+  Concluído: 'success',
+};
+
+const DOC_TONE: Record<string, BadgeTone> = {
+  Pendente: 'warning',
+  Vigente: 'success',
 };
 
 export default function ClienteDetailPage() {
@@ -233,11 +240,11 @@ export default function ClienteDetailPage() {
 
       {/* Resumo */}
       <div className="grid gap-px bg-border border border-border rounded-xl overflow-hidden" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-        <div className="bg-card px-4 py-3"><div className="text-[10px] uppercase tracking-[.06em] text-mute-2">Trabalhos ativos</div><div className="font-mono-hbs text-[17px] mt-1">{trabalhosAtivos}</div></div>
-        <div className="bg-card px-4 py-3"><div className="text-[10px] uppercase tracking-[.06em] text-mute-2">Propostas aprovadas</div><div className="font-mono-hbs text-[17px] mt-1">{propostasAprovadas}</div></div>
-        <div className="bg-card px-4 py-3"><div className="text-[10px] uppercase tracking-[.06em] text-mute-2">Contratado</div><div className="font-mono-hbs text-[17px] mt-1">{fmt(financials?.totalContratado || 0)}</div></div>
-        <div className="bg-card px-4 py-3"><div className="text-[10px] uppercase tracking-[.06em] text-mute-2">Recebido</div><div className="font-mono-hbs text-[17px] mt-1 text-success">{fmt(financials?.recebido || 0)}</div></div>
-        <div className="bg-card px-4 py-3"><div className="text-[10px] uppercase tracking-[.06em] text-mute-2">Docs pendentes</div><div className={cn('font-mono-hbs text-[17px] mt-1', docsPendentes > 0 && 'text-warning')}>{docsPendentes}</div></div>
+        <KpiCard label="Trabalhos ativos" value={String(trabalhosAtivos)} />
+        <KpiCard label="Prop. aprovadas" value={String(propostasAprovadas)} />
+        <KpiCard label="Contratado" value={fmt(financials?.totalContratado || 0)} />
+        <KpiCard label="Recebido" value={fmt(financials?.recebido || 0)} tone="success" />
+        <KpiCard label="Docs pendentes" value={String(docsPendentes)} tone={docsPendentes > 0 ? 'warning' : 'default'} />
       </div>
 
       <div className="grid gap-[18px] items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))' }}>
@@ -327,7 +334,7 @@ export default function ClienteDetailPage() {
                   <div className="text-[12.5px] font-medium truncate">{p.objeto || '(sem descrição)'}{p.isArchived && ' · arquivado'}</div>
                   <div className="text-[11px] text-mute-2 font-mono-hbs mt-0.5">{typeof p.valorContrato === 'number' && p.valorContrato > 0 ? fmt(p.valorContrato) : 'sem valor definido'}</div>
                 </div>
-                <span className={cn('flex-none text-[11px] px-2 py-[3px] rounded-[5px] font-medium', etapaBadge[p.etapa || 'Levantamento'])}>{p.etapa || 'Levantamento'}</span>
+                <StatusBadge tone={ETAPA_TONE[p.etapa || 'Levantamento']}>{p.etapa || 'Levantamento'}</StatusBadge>
               </div>
             ))
           )}
@@ -369,7 +376,7 @@ export default function ClienteDetailPage() {
                     <div className="text-[12.5px] font-medium truncate">{p.codigo} · {p.titulo}</div>
                     <div className="text-[11px] text-mute-2 font-mono-hbs mt-0.5">{formatBRL(p.resultado.precoVenda)}</div>
                   </div>
-                  <span className={cn('flex-none text-[11px] px-2 py-[3px] rounded-[5px] font-medium', propostaBadge[p.status])}>{p.status}</span>
+                  <StatusBadge tone={PROPOSTA_TONE[p.status]}>{p.status}</StatusBadge>
                 </div>
               ))}
               {contratos.map(c => (
@@ -398,7 +405,7 @@ export default function ClienteDetailPage() {
               <div key={d.id} className="flex items-center gap-[11px] px-[18px] py-[10px] border-t border-3">
                 <span className="text-[11px] font-mono-hbs text-mute-2 w-[30px] flex-none">{(d.nome.match(/\.([a-zA-Z0-9]{2,4})$/)?.[1] || '—').toUpperCase()}</span>
                 <span className="text-[12.5px] flex-1 min-w-0 truncate">{d.nome}</span>
-                <span className={cn('text-[11px]', d.situacao === 'Pendente' ? 'text-warning' : d.situacao === 'Vigente' ? 'text-success' : 'text-mute-2')}>{d.situacao}</span>
+                <StatusBadge tone={DOC_TONE[d.situacao] || 'neutral'}>{d.situacao}</StatusBadge>
               </div>
             ))
           )}
