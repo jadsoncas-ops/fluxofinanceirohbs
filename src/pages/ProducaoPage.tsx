@@ -6,22 +6,24 @@ import { DocumentRecord, DocumentSituacao, TipoDocumentoTecnico } from '@/lib/ty
 import { DOCUMENT_REGISTRY } from '@/lib/producao/registry';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 type Aba = 'Em produção' | 'Recentes' | 'Concluídos' | 'Modelos';
 const ABAS: Aba[] = ['Em produção', 'Recentes', 'Concluídos', 'Modelos'];
 
-const badgeStyle: Record<DocumentSituacao, string> = {
-  Vigente: 'bg-success-soft text-success',
-  Pendente: 'bg-warning-soft text-warning',
-  Entregue: 'bg-accent-soft text-accent',
-  Modelo: 'bg-neutral-soft text-mute-2',
-  'Em produção': 'bg-warning-soft text-warning',
-  'Em revisão': 'bg-warning-soft text-warning',
-  Rascunho: 'bg-neutral-soft text-mute-2',
-  Desatualizado: 'bg-destructive-soft text-destructive',
-  Concluído: 'bg-success-soft text-success',
+const SITUACAO_TONE: Record<DocumentSituacao, BadgeTone> = {
+  Vigente: 'success',
+  Pendente: 'warning',
+  Entregue: 'accent',
+  Modelo: 'neutral',
+  'Em produção': 'warning',
+  'Em revisão': 'warning',
+  Rascunho: 'neutral',
+  Desatualizado: 'destructive',
+  Concluído: 'success',
 };
 
 function extOf(nome: string) {
@@ -34,6 +36,7 @@ export default function ProducaoPage() {
   const [escolhendoTipo, setEscolhendoTipo] = useState<TipoDocumentoTecnico | null>(null);
   const [buscaTrabalho, setBuscaTrabalho] = useState('');
   const [key, setKey] = useState(0);
+  const [documentoParaExcluir, setDocumentoParaExcluir] = useState<{ id: string; nome: string } | null>(null);
   const navigate = useNavigate();
 
   const { documentos, clients, processes } = useMemo(() => {
@@ -43,11 +46,15 @@ export default function ProducaoPage() {
 
   function removerDocumento(e: React.MouseEvent, id: string, nome: string) {
     e.stopPropagation();
-    if (confirm(`Remover "${nome}"?`)) {
-      deleteDocument(id);
-      toast.success('Documento removido.');
-      setKey(k => k + 1);
-    }
+    setDocumentoParaExcluir({ id, nome });
+  }
+
+  function confirmarExclusaoDocumento() {
+    if (!documentoParaExcluir) return;
+    deleteDocument(documentoParaExcluir.id);
+    toast.success('Documento removido.');
+    setDocumentoParaExcluir(null);
+    setKey(k => k + 1);
   }
 
   const vinculoNome = (d: DocumentRecord) => {
@@ -115,19 +122,21 @@ export default function ProducaoPage() {
       </section>
 
       <section className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="flex gap-1 px-3 pt-3 border-b border-border">
-          {ABAS.map(a => (
-            <button
-              key={a}
-              onClick={() => setAba(a)}
-              className={cn(
-                'px-3 py-2 text-[13px] font-medium border-b-2 -mb-px transition-colors',
-                aba === a ? 'text-foreground border-foreground' : 'text-muted-foreground border-transparent hover:text-foreground'
-              )}
-            >
-              {a} <span className="font-mono-hbs text-[11px] text-mute-3">({contagem(a)})</span>
-            </button>
-          ))}
+        <div className="p-3 border-b border-border">
+          <div className="flex gap-1 bg-surface-2 p-1 rounded-xl border border-3 w-fit">
+            {ABAS.map(a => (
+              <button
+                key={a}
+                onClick={() => setAba(a)}
+                className={cn(
+                  'px-3 py-[6px] rounded-lg text-[12px] font-medium transition-colors',
+                  aba === a ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {a} <span className={cn('font-mono-hbs text-[11px]', aba === a ? 'text-primary-foreground/70' : 'text-mute-3')}>({contagem(a)})</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {filtrados.length === 0 ? (
@@ -149,7 +158,7 @@ export default function ProducaoPage() {
                 <div className="text-[11px] text-mute-2">{vinculoNome(d)}</div>
               </div>
               <span className="text-[11px] font-mono-hbs text-mute-2 flex-none">{new Date(d.updatedAt).toLocaleDateString('pt-BR')}</span>
-              <span className={cn('flex-none text-[11px] px-2 py-[3px] rounded-[5px] font-medium', badgeStyle[d.situacao])}>{d.situacao}</span>
+              <StatusBadge tone={SITUACAO_TONE[d.situacao]}>{d.situacao}</StatusBadge>
               <button onClick={e => removerDocumento(e, d.id, d.nome)} className="opacity-0 group-hover:opacity-100 transition-opacity text-mute-3 hover:text-destructive flex-none">
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -191,6 +200,21 @@ export default function ProducaoPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!documentoParaExcluir} onOpenChange={v => !v && setDocumentoParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover documento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remover "{documentoParaExcluir?.nome}"? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarExclusaoDocumento} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remover</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
