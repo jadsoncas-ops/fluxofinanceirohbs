@@ -9,6 +9,8 @@ import {
 import { computeTrabalhoFinancials, dataEfetiva } from '@/lib/financials';
 import { TrabalhoEtapa, DocumentSituacao, Oficio, Exigencia, ExigenciaStatus } from '@/lib/types';
 import { Stepper } from '@/components/ui/Stepper';
+import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
+import { KpiCard, type KpiTone } from '@/components/KpiCard';
 import { computeCartorioProgress } from '@/lib/cartorio';
 import { DOCUMENT_REGISTRY } from '@/lib/producao/registry';
 import { montarMensagemBoasVindas, linkWhatsApp } from '@/lib/mensagens';
@@ -25,12 +27,16 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { cn } from '@/lib/utils';
 
 const ETAPAS: TrabalhoEtapa[] = ['Aguardando cliente', 'Levantamento', 'Tramitando', 'Devolutiva', 'Concluído'];
-const ETAPA_BADGE: Record<TrabalhoEtapa, string> = {
-  'Aguardando cliente': 'bg-warning-soft text-warning',
-  Levantamento: 'bg-neutral-soft text-mute-2',
-  Tramitando: 'bg-accent-soft text-accent',
-  Devolutiva: 'bg-destructive-soft text-destructive',
-  Concluído: 'bg-success-soft text-success',
+// Mesmo padrão de tom por etapa já usado em ClienteDetailPage.tsx e TrabalhosPage.tsx — reaproveitado
+// aqui tal como está, sem virar util compartilhado ainda.
+const ETAPA_TONE: Record<TrabalhoEtapa, BadgeTone> = {
+  'Aguardando cliente': 'warning', Levantamento: 'neutral', Tramitando: 'accent', Devolutiva: 'destructive', Concluído: 'success',
+};
+const DOC_TONE: Record<string, BadgeTone> = {
+  Vigente: 'success', Entregue: 'success', Concluído: 'success',
+  Pendente: 'warning', 'Em produção': 'warning', 'Em revisão': 'warning',
+  Rascunho: 'neutral', Modelo: 'neutral',
+  Desatualizado: 'destructive',
 };
 
 function fmt(v: number) {
@@ -51,6 +57,8 @@ export default function TrabalhoDetailPage() {
   const [recebimentoOpen, setRecebimentoOpen] = useState(false);
   const [recebimentoValorInicial, setRecebimentoValorInicial] = useState<number | undefined>(undefined);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [lancamentoParaExcluir, setLancamentoParaExcluir] = useState<{ id: string; descricao: string } | null>(null);
+  const [documentoParaExcluir, setDocumentoParaExcluir] = useState<{ id: string; nome: string } | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editandoContratado, setEditandoContratado] = useState(false);
   const [contratadoInput, setContratadoInput] = useState('');
@@ -289,11 +297,15 @@ export default function TrabalhoDetailPage() {
   }
 
   function removerLancamento(id: string, descricao: string) {
-    if (confirm(`Excluir o lançamento "${descricao}"? Esta ação não pode ser desfeita.`)) {
-      deleteTransaction(id);
-      toast.success('Lançamento excluído.');
-      shell.refresh();
-    }
+    setLancamentoParaExcluir({ id, descricao });
+  }
+
+  function confirmarExclusaoLancamento() {
+    if (!lancamentoParaExcluir) return;
+    deleteTransaction(lancamentoParaExcluir.id);
+    toast.success('Lançamento excluído.');
+    setLancamentoParaExcluir(null);
+    shell.refresh();
   }
 
   // Vincula um documento externo (link do Drive etc.) sem passar pelo gerador
@@ -319,11 +331,15 @@ export default function TrabalhoDetailPage() {
   }
 
   function removerDocumento(id: string, nome: string) {
-    if (confirm(`Remover "${nome}"? Isso não afeta o Trabalho, só o registro do documento.`)) {
-      deleteDocument(id);
-      toast.success('Documento removido.');
-      setKey(k => k + 1);
-    }
+    setDocumentoParaExcluir({ id, nome });
+  }
+
+  function confirmarExclusaoDocumento() {
+    if (!documentoParaExcluir) return;
+    deleteDocument(documentoParaExcluir.id);
+    toast.success('Documento removido.');
+    setDocumentoParaExcluir(null);
+    setKey(k => k + 1);
   }
 
   function adicionarTarefa() {
@@ -339,6 +355,8 @@ export default function TrabalhoDetailPage() {
 
   const tarefasConcluidas = tasks.filter(t => t.status === 'Concluída').length;
   const prazoInfo = trabalho.prazo ? Math.round((new Date(trabalho.prazo + 'T12:00:00').getTime() - Date.now()) / 86400000) : null;
+  const prazoLabel = etapaAtual === 'Concluído' ? 'Entregue' : prazoInfo === null ? '—' : prazoInfo < 0 ? `${Math.abs(prazoInfo)}d atraso` : `${prazoInfo} dias`;
+  const prazoTone: KpiTone = etapaAtual === 'Concluído' ? 'success' : prazoInfo !== null && prazoInfo < 0 ? 'destructive' : prazoInfo !== null && prazoInfo <= 7 ? 'warning' : 'default';
 
   function handleDeleteTrabalho() {
     documentos.forEach(d => deleteDocument(d.id));
@@ -388,8 +406,10 @@ export default function TrabalhoDetailPage() {
           <div className="flex items-center gap-2 flex-none">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className={cn('text-[11.5px] px-2.5 py-[5px] rounded-md font-medium flex items-center gap-1 hover:opacity-80 transition-opacity', ETAPA_BADGE[etapaAtual])}>
-                  {etapaAtual} <ChevronDown className="w-3 h-3" />
+                <button className="hover:opacity-80 transition-opacity">
+                  <StatusBadge tone={ETAPA_TONE[etapaAtual]} size="md">
+                    {etapaAtual} <ChevronDown className="w-3 h-3" />
+                  </StatusBadge>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -407,32 +427,14 @@ export default function TrabalhoDetailPage() {
 
       {/* Stats */}
       <div className="grid gap-px bg-border border border-border rounded-xl overflow-hidden" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(212px, 1fr))' }}>
-        <div className="bg-card px-[18px] py-[15px]">
-          <div className="text-[11px] uppercase tracking-[.07em] text-mute-2">Valor do trabalho</div>
-          <div className="font-mono-hbs text-[20px] mt-1.5">{fmt(fin.contratado)}</div>
-          <div className="text-[11.5px] text-muted-foreground mt-1">{fmt(fin.recebido)} recebidos</div>
-        </div>
-        <div className="bg-card px-[18px] py-[15px]">
-          <div className="text-[11px] uppercase tracking-[.07em] text-mute-2">Prazo</div>
-          {etapaAtual === 'Concluído' ? (
-            <div className="font-mono-hbs text-[20px] mt-1.5 text-success">Entregue</div>
-          ) : (
-            <div className={cn('font-mono-hbs text-[20px] mt-1.5', prazoInfo !== null && prazoInfo < 0 && 'text-destructive', prazoInfo !== null && prazoInfo >= 0 && prazoInfo <= 7 && 'text-warning')}>
-              {prazoInfo === null ? '—' : prazoInfo < 0 ? `${Math.abs(prazoInfo)}d atraso` : `${prazoInfo} dias`}
-            </div>
-          )}
-          <div className="text-[11.5px] text-muted-foreground mt-1">{trabalho.prazo ? `Entrega ${new Date(trabalho.prazo + 'T12:00:00').toLocaleDateString('pt-BR')}` : 'Sem prazo definido'}</div>
-        </div>
-        <div className="bg-card px-[18px] py-[15px]">
-          <div className="text-[11px] uppercase tracking-[.07em] text-mute-2">Documentação</div>
-          <div className="font-mono-hbs text-[20px] mt-1.5">{documentos.filter(d => d.situacao === 'Concluído' || d.situacao === 'Vigente' || d.situacao === 'Entregue').length} / {documentos.length}</div>
-          <div className="text-[11.5px] text-muted-foreground mt-1">{documentos.filter(d => d.situacao === 'Pendente' || d.situacao === 'Em produção').length} pendentes</div>
-        </div>
-        <div className="bg-card px-[18px] py-[15px]">
-          <div className="text-[11px] uppercase tracking-[.07em] text-mute-2">Tarefas</div>
-          <div className="font-mono-hbs text-[20px] mt-1.5">{tarefasConcluidas} / {tasks.length}</div>
-          <div className="text-[11.5px] text-muted-foreground mt-1 truncate">{tasks.find(t => t.status !== 'Concluída')?.titulo || 'Tudo em dia'}</div>
-        </div>
+        <KpiCard label="Valor do trabalho" value={fmt(fin.contratado)} subtext={`${fmt(fin.recebido)} recebidos`} />
+        <KpiCard label="Prazo" value={prazoLabel} tone={prazoTone} subtext={trabalho.prazo ? `Entrega ${new Date(trabalho.prazo + 'T12:00:00').toLocaleDateString('pt-BR')}` : 'Sem prazo definido'} />
+        <KpiCard
+          label="Documentação"
+          value={`${documentos.filter(d => d.situacao === 'Concluído' || d.situacao === 'Vigente' || d.situacao === 'Entregue').length} / ${documentos.length}`}
+          subtext={`${documentos.filter(d => d.situacao === 'Pendente' || d.situacao === 'Em produção').length} pendentes`}
+        />
+        <KpiCard label="Tarefas" value={`${tarefasConcluidas} / ${tasks.length}`} subtext={tasks.find(t => t.status !== 'Concluída')?.titulo || 'Tudo em dia'} />
       </div>
 
       {/* Cartório */}
@@ -594,7 +596,7 @@ export default function TrabalhoDetailPage() {
                     </button>
                     <div className="text-[10.5px] text-mute-3 font-mono-hbs">{d.versao ? `v${d.versao} · ` : ''}atualizado {new Date(d.updatedAt).toLocaleDateString('pt-BR')}</div>
                   </div>
-                  <span className="text-[11px] text-mute-2">{d.situacao}</span>
+                  <StatusBadge tone={DOC_TONE[d.situacao] || 'neutral'}>{d.situacao}</StatusBadge>
                   <button onClick={() => removerDocumento(d.id, d.nome)} className="opacity-0 group-hover:opacity-100 transition-opacity text-mute-3 hover:text-destructive flex-none">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -607,8 +609,8 @@ export default function TrabalhoDetailPage() {
           <section className="bg-card border border-border rounded-xl p-[17px_18px]">
             <div className="text-[13.5px] font-semibold">Financeiro do trabalho</div>
 
-            <div className="flex gap-[22px] mt-3.5 flex-wrap items-start">
-              <div>
+            <div className="flex gap-[14px] mt-3.5 flex-wrap items-start">
+              <div className="px-[8px] sm:px-[14px] py-[11px]">
                 <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">Contratado</div>
                 {editandoContratado ? (
                   <div className="flex items-center gap-1.5 mt-1">
@@ -629,10 +631,10 @@ export default function TrabalhoDetailPage() {
                   </button>
                 )}
               </div>
-              <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">Recebido</div><div className="font-mono-hbs text-[18px] mt-1 text-success">{fmt(fin.recebido)}</div></div>
-              <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">A receber</div><div className="font-mono-hbs text-[18px] mt-1 text-destructive">{fmt(fin.aReceber)}</div></div>
-              <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">Lucro líquido até agora</div><div className="font-mono-hbs text-[18px] mt-1">{fmt(fin.resultadoRealizado)}</div></div>
-              <div><div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2">Lucro líquido previsto</div><div className="font-mono-hbs text-[18px] mt-1 text-accent">{fmt(fin.resultadoPrevisto)}</div></div>
+              <KpiCard label="Recebido" value={fmt(fin.recebido)} tone="success" size="compact" className="min-w-[110px]" />
+              <KpiCard label="A receber" value={fmt(fin.aReceber)} tone={fin.aReceber > 0 ? 'destructive' : 'default'} size="compact" className="min-w-[110px]" />
+              <KpiCard label="Lucro líquido até agora" value={fmt(fin.resultadoRealizado)} size="compact" className="min-w-[110px]" />
+              <KpiCard label="Lucro líquido previsto" value={fmt(fin.resultadoPrevisto)} tone="accent" size="compact" className="min-w-[110px]" />
             </div>
             <div className="text-[11px] text-mute-2 mt-1.5">Já descontando repasses a parceiros — é o que efetivamente fica com a HBS neste trabalho.</div>
 
@@ -717,13 +719,12 @@ export default function TrabalhoDetailPage() {
                         <div className="text-[10.5px] text-mute-3 font-mono-hbs">{new Date(dataEfetiva(t) + 'T12:00:00').toLocaleDateString('pt-BR')}</div>
                       </div>
                       <span className={cn('font-mono-hbs text-[12.5px]', isIncome ? 'text-success' : 'text-warning')}>{fmt(t.valor)}</span>
-                      <span className={cn(
-                        'text-[10px] px-1.5 py-[2px] rounded-[4px] font-medium flex items-center gap-1 flex-none',
-                        t.status === 'Concluído' ? 'bg-success-soft text-success' : isAtrasado ? 'bg-destructive-soft text-destructive' : 'bg-warning-soft text-warning'
-                      )}>
-                        {t.status === 'Concluído' ? <CheckCircle2 className="w-2.5 h-2.5" /> : <Clock3 className="w-2.5 h-2.5" />}
+                      <StatusBadge
+                        tone={t.status === 'Concluído' ? 'success' : isAtrasado ? 'destructive' : 'warning'}
+                        icon={t.status === 'Concluído' ? CheckCircle2 : Clock3}
+                      >
                         {t.status === 'Concluído' ? (isIncome ? 'Recebida' : 'Paga') : isAtrasado ? 'Atrasada' : 'Prevista'}
-                      </span>
+                      </StatusBadge>
                       <div className="flex-none flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         {isPendente && (
                           <button onClick={() => shell.openCompleteTransaction(t)} className="h-6 w-6 grid place-items-center rounded-md hover:bg-success-soft text-mute-2 hover:text-success" title={isIncome ? 'Marcar como recebida' : 'Marcar como paga'}>
@@ -932,6 +933,36 @@ export default function TrabalhoDetailPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteTrabalho} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!lancamentoParaExcluir} onOpenChange={v => !v && setLancamentoParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir lançamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Excluir o lançamento "{lancamentoParaExcluir?.descricao}"? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarExclusaoLancamento} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!documentoParaExcluir} onOpenChange={v => !v && setDocumentoParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover documento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remover "{documentoParaExcluir?.nome}"? Isso não afeta o Trabalho, só o registro do documento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarExclusaoDocumento} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remover</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
