@@ -3,10 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { AlertTriangle, CheckCircle2, Plus, ArrowDownCircle, ArrowUpCircle, ArrowRight } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
-import { getClients, getAccounts, getProcesses } from '@/lib/storage';
+import { getClients, getAccounts, getProcesses, getPartners } from '@/lib/storage';
 import { computeTrabalhoFinancials, dataEfetiva, entradasNoMes, saidasNoMes, totalAReceber, totalAPagar } from '@/lib/financials';
+import { agruparLancamentos, isIncome, LancamentoGrupo } from '@/lib/lancamentos';
 import { ValorMonetario } from '@/components/ValorMonetario';
+import { KpiCard } from '@/components/KpiCard';
+import { StatusBadge } from '@/components/StatusBadge';
+import { DetalheLancamentoDialog } from '@/components/financeiro/DetalheLancamentoDialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Transaction } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 const HORIZONS = [
@@ -25,10 +30,11 @@ export default function FinanceiroVisaoGeralPage() {
   const { allTransactions, openNewTransaction, openNovoRecebimento } = useShell();
   const navigate = useNavigate();
   const [horizon, setHorizon] = useState<(typeof HORIZONS)[number]>(HORIZONS[2]);
+  const [detalhe, setDetalhe] = useState<Transaction | null>(null);
 
   const {
-    kpis, points, negativeAlert, clientes, lucroTrabalhos, lucroLiquidoRealizadoTotal,
-    ultimas, status,
+    kpis, points, negativeAlert, clientesMap, partnersMap, lucroTrabalhos, lucroLiquidoRealizadoTotal,
+    ultimas, status, proximosRecebimentos, proximosPagamentos,
   } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -36,10 +42,11 @@ export default function FinanceiroVisaoGeralPage() {
     const em7 = new Date(today); em7.setDate(em7.getDate() + 7);
     const em7Str = em7.toISOString().slice(0, 10);
     const clientes = getClients();
+    const clientesMap = new Map(clientes.map(c => [c.id, c]));
+    const partnersMap = new Map(getPartners().map(p => [p.id, p]));
     const contasSaldo = getAccounts().filter(a => a.ativo).reduce((s, a) => s + a.saldo, 0);
 
-    const isIncome = (t: typeof allTransactions[number]) => t.tipo === 'Entrada' || t.tipo === 'A Receber';
-    const isExpense = (t: typeof allTransactions[number]) => t.tipo === 'Saída' || t.tipo === 'A Pagar';
+    const isExpense = (t: Transaction) => !isIncome(t);
 
     const realizadas = allTransactions.filter(t => t.status === 'Concluído');
     const saldoRealizado = realizadas.reduce((s, t) => s + (isIncome(t) ? t.valor : -t.valor), 0);
@@ -65,6 +72,14 @@ export default function FinanceiroVisaoGeralPage() {
     else if (pagarProximo > 0) status = { tone: 'warning', text: `${fmt(pagarProximo)} em pagamentos vencem nos próximos 7 dias.` };
     else status = { tone: 'success', text: 'Seu caixa está em dia — nada vencido ou vencendo esta semana.' };
 
+    // Próximos recebimentos/pagamentos — mesmo agrupamento de parcelamento já usado em A Receber/
+    // A Pagar (agruparLancamentos), só os 3 mais urgentes de cada lado, sem duplicar a lista
+    // completa que já vive em /caixa/cobranca e /caixa/apagar.
+    const gruposPendentes = agruparLancamentos(allTransactions).filter(g => g.valorRestante > 0);
+    const porVencimento = (a: LancamentoGrupo, b: LancamentoGrupo) => (a.proximoVencimento || '9999').localeCompare(b.proximoVencimento || '9999');
+    const proximosRecebimentos = gruposPendentes.filter(g => isIncome(g.itens[0])).sort(porVencimento).slice(0, 3);
+    const proximosPagamentos = gruposPendentes.filter(g => !isIncome(g.itens[0])).sort(porVencimento).slice(0, 3);
+
     // Projeção de saldo no horizonte selecionado (usada no gráfico)
     const horizonEnd = new Date(today);
     horizonEnd.setDate(horizonEnd.getDate() + horizon.days);
@@ -83,7 +98,7 @@ export default function FinanceiroVisaoGeralPage() {
       if (running < 0 && !negativeAlert) negativeAlert = { date: `${day}/${m}`, saldo: running };
     });
 
-    const nomeCliente = (id?: string | null) => clientes.find(c => c.id === id)?.nome || 'Sem cliente';
+    const nomeCliente = (id?: string | null) => clientesMap.get(id || '')?.nome || 'Sem cliente';
 
     // Últimas movimentações — só as mais recentes já concluídas, pela data real (dataEfetiva), pra
     // dar um resumo rápido do que aconteceu. O extrato completo com previsto/realizado por
@@ -115,7 +130,8 @@ export default function FinanceiroVisaoGeralPage() {
 
     return {
       kpis: { saldoAtual, entradasMes, saidasMes, resultadoLiquidoMes, aReceber, aPagar, saldoProjetado },
-      points, negativeAlert, clientes, lucroTrabalhos, lucroLiquidoRealizadoTotal, ultimas, status,
+      points, negativeAlert, clientesMap, partnersMap, lucroTrabalhos, lucroLiquidoRealizadoTotal, ultimas, status,
+      proximosRecebimentos, proximosPagamentos,
     };
   }, [allTransactions, horizon]);
 
@@ -152,50 +168,44 @@ export default function FinanceiroVisaoGeralPage() {
 
       {/* KPIs primários — Saldo disponível com destaque visual maior que os outros 3 */}
       <div className="grid grid-cols-1 sm:grid-cols-[1.5fr_1fr_1fr_1fr] gap-px bg-border border border-border rounded-xl overflow-hidden">
-        <div className="bg-card px-[20px] py-[18px] min-w-0">
-          <div className="text-[11px] uppercase tracking-[.07em] text-mute-2">Saldo disponível</div>
-          <div className={cn('font-mono-hbs text-[30px] mt-1.5 truncate', kpis.saldoAtual >= 0 ? 'text-foreground' : 'text-destructive')}>
-            <ValorMonetario value={fmt(kpis.saldoAtual)} />
-          </div>
-        </div>
-        <div className="bg-card px-[16px] py-[18px] min-w-0 flex flex-col justify-center">
-          <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2 truncate">Entradas do mês</div>
-          <div className="font-mono-hbs text-[17px] mt-1.5 truncate text-success"><ValorMonetario value={fmt(kpis.entradasMes)} /></div>
-        </div>
-        <div className="bg-card px-[16px] py-[18px] min-w-0 flex flex-col justify-center">
-          <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2 truncate">Saídas do mês</div>
-          <div className="font-mono-hbs text-[17px] mt-1.5 truncate text-destructive"><ValorMonetario value={fmt(kpis.saidasMes)} /></div>
-        </div>
-        <div className="bg-card px-[16px] py-[18px] min-w-0 flex flex-col justify-center">
-          <div className="text-[10.5px] uppercase tracking-[.07em] text-mute-2 truncate">Resultado do mês</div>
-          <div className={cn('font-mono-hbs text-[17px] mt-1.5 truncate', kpis.resultadoLiquidoMes >= 0 ? 'text-success' : 'text-destructive')}>
-            <ValorMonetario value={fmt(kpis.resultadoLiquidoMes)} />
-          </div>
-        </div>
+        <KpiCard label="Saldo disponível" value={fmt(kpis.saldoAtual)} size="hero" tone={kpis.saldoAtual < 0 ? 'destructive' : 'default'} />
+        <KpiCard label="Entradas do mês" value={fmt(kpis.entradasMes)} tone="success" />
+        <KpiCard label="Saídas do mês" value={fmt(kpis.saidasMes)} tone="destructive" />
+        <KpiCard label="Resultado do mês" value={fmt(kpis.resultadoLiquidoMes)} tone={kpis.resultadoLiquidoMes >= 0 ? 'success' : 'destructive'} />
       </div>
 
       {/* KPIs secundários — visualmente subordinados aos 4 de cima */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-border border border-border rounded-xl overflow-hidden">
-        <button onClick={() => navigate('/caixa/cobranca')} className="bg-surface-2 px-[14px] py-[11px] min-w-0 text-left hover:bg-surface-3 transition-colors">
-          <div className="text-[10px] uppercase tracking-[.07em] text-mute-2 truncate">A receber</div>
-          <div className="font-mono-hbs text-[14px] mt-1 truncate text-accent"><ValorMonetario value={fmt(kpis.aReceber)} /></div>
-        </button>
-        <button onClick={() => navigate('/caixa/despesas')} className="bg-surface-2 px-[14px] py-[11px] min-w-0 text-left hover:bg-surface-3 transition-colors">
-          <div className="text-[10px] uppercase tracking-[.07em] text-mute-2 truncate">A pagar</div>
-          <div className="font-mono-hbs text-[14px] mt-1 truncate text-warning"><ValorMonetario value={fmt(kpis.aPagar)} /></div>
-        </button>
-        <div className="bg-surface-2 px-[14px] py-[11px] min-w-0">
-          <div className="text-[10px] uppercase tracking-[.07em] text-mute-2 truncate">Saldo projetado</div>
-          <div className={cn('font-mono-hbs text-[14px] mt-1 truncate', kpis.saldoProjetado >= 0 ? 'text-foreground' : 'text-destructive')}>
-            <ValorMonetario value={fmt(kpis.saldoProjetado)} />
-          </div>
-        </div>
+        <KpiCard label="A receber" value={fmt(kpis.aReceber)} size="compact" tone="accent" active onClick={() => navigate('/caixa/cobranca')} />
+        <KpiCard label="A pagar" value={fmt(kpis.aPagar)} size="compact" tone="warning" active onClick={() => navigate('/caixa/apagar')} />
+        <KpiCard label="Saldo projetado" value={fmt(kpis.saldoProjetado)} size="compact" tone={kpis.saldoProjetado < 0 ? 'destructive' : 'default'} active />
       </div>
 
       {/* Status do caixa em 1 linha */}
       <div className={cn('border rounded-xl p-[13px_18px] flex items-center gap-3', statusStyle.wrap)}>
         <StatusIcon className={cn('w-4.5 h-4.5 flex-none', statusStyle.icon_)} />
         <p className={cn('text-[12.5px]', statusStyle.text)}>{status.text}</p>
+      </div>
+
+      {/* Próximos recebimentos / pagamentos — só os 3 mais urgentes de cada lado; a lista
+          completa com todos os buckets vive em A Receber/A Pagar. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-[18px]">
+        <BlocoProximos
+          titulo="Próximos recebimentos"
+          grupos={proximosRecebimentos}
+          nomeLinha={g => clientesMap.get(g.itens[0].clienteId || '')?.nome || 'Cliente'}
+          verTodosLabel="Ver A Receber"
+          onVerTodos={() => navigate('/caixa/cobranca')}
+          onAbrirDetalhe={g => setDetalhe(g.itens.find(t => t.status !== 'Concluído') || g.itens[0])}
+        />
+        <BlocoProximos
+          titulo="Próximos pagamentos"
+          grupos={proximosPagamentos}
+          nomeLinha={g => partnersMap.get(g.itens[0].partnerId || '')?.nome || clientesMap.get(g.itens[0].clienteId || '')?.nome || 'Beneficiário'}
+          verTodosLabel="Ver A Pagar"
+          onVerTodos={() => navigate('/caixa/apagar')}
+          onAbrirDetalhe={g => setDetalhe(g.itens.find(t => t.status !== 'Concluído') || g.itens[0])}
+        />
       </div>
 
       {negativeAlert && (
@@ -207,25 +217,9 @@ export default function FinanceiroVisaoGeralPage() {
         </div>
       )}
 
-      {/* Ações rápidas */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <button onClick={() => openNovoRecebimento()} className="flex items-center gap-1.5 px-3 py-[8px] rounded-xl border border-border bg-card text-[12px] font-medium hover:bg-surface-3 transition-colors">
-          <ArrowDownCircle className="w-3.5 h-3.5 text-success" /> Nova entrada
-        </button>
-        <button onClick={() => openNewTransaction({ tipo: 'Saída' })} className="flex items-center gap-1.5 px-3 py-[8px] rounded-xl border border-border bg-card text-[12px] font-medium hover:bg-surface-3 transition-colors">
-          <ArrowUpCircle className="w-3.5 h-3.5 text-destructive" /> Nova saída
-        </button>
-        <button onClick={() => navigate('/caixa/cobranca')} className="flex items-center gap-1.5 px-3 py-[8px] rounded-xl border border-border bg-card text-[12px] font-medium hover:bg-surface-3 transition-colors">
-          Receber
-        </button>
-        <button onClick={() => navigate('/caixa/despesas')} className="flex items-center gap-1.5 px-3 py-[8px] rounded-xl border border-border bg-card text-[12px] font-medium hover:bg-surface-3 transition-colors">
-          Pagar
-        </button>
-      </div>
-
       <section className="bg-card border border-border rounded-xl p-[17px_18px]">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="text-[13.5px] font-semibold">Projeção de saldo</div>
+          <div className="text-[13.5px] font-semibold">Fluxo de caixa projetado</div>
           <div className="flex gap-1 bg-surface-2 p-1 rounded-xl border border-3">
             {HORIZONS.map(h => (
               <button
@@ -273,7 +267,7 @@ export default function FinanceiroVisaoGeralPage() {
           <div className="px-[18px] py-4 text-xs text-muted-foreground">Nenhuma movimentação concluída ainda.</div>
         ) : (
           ultimas.map(t => (
-            <div key={t.id} className="flex items-center gap-3 px-[18px] py-[10px] border-b border-3 last:border-b-0">
+            <div key={t.id} onClick={() => setDetalhe(t)} className="flex items-center gap-3 px-[18px] py-[10px] border-b border-3 last:border-b-0 cursor-pointer hover:bg-surface-3 transition-colors">
               <div className="flex-1 min-w-0">
                 <div className="text-[12.5px] font-medium truncate">{t.descricao}</div>
                 <div className="text-[11px] text-mute-2 truncate">{t.clienteNome} · {new Date(t.dataReal + 'T12:00:00').toLocaleDateString('pt-BR')}</div>
@@ -316,6 +310,54 @@ export default function FinanceiroVisaoGeralPage() {
           ))}
         </section>
       )}
+
+      <DetalheLancamentoDialog transaction={detalhe} onClose={() => setDetalhe(null)} />
     </div>
+  );
+}
+
+function BlocoProximos({ titulo, grupos, nomeLinha, verTodosLabel, onVerTodos, onAbrirDetalhe }: {
+  titulo: string;
+  grupos: LancamentoGrupo[];
+  nomeLinha: (g: LancamentoGrupo) => string;
+  verTodosLabel: string;
+  onVerTodos: () => void;
+  onAbrirDetalhe: (g: LancamentoGrupo) => void;
+}) {
+  const hoje = new Date().toISOString().slice(0, 10);
+  return (
+    <section className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="px-[18px] py-[15px] border-b border-3 flex items-center justify-between">
+        <div className="text-[13.5px] font-semibold">{titulo}</div>
+        <button onClick={onVerTodos} className="flex items-center gap-1 text-[11.5px] text-primary font-semibold">
+          {verTodosLabel} <ArrowRight className="w-3 h-3" />
+        </button>
+      </div>
+      {grupos.length === 0 ? (
+        <div className="px-[18px] py-4 text-xs text-muted-foreground">Nada pendente.</div>
+      ) : (
+        grupos.map(g => {
+          const v = g.proximoVencimento;
+          const vencido = v ? v < hoje : false;
+          const hojeVenc = v === hoje;
+          return (
+            <div key={g.chave} onClick={() => onAbrirDetalhe(g)} className="flex items-center gap-3 px-[18px] py-[10px] border-b border-3 last:border-b-0 cursor-pointer hover:bg-surface-3 transition-colors">
+              <div className="flex-1 min-w-0">
+                <div className="text-[12.5px] font-medium truncate">{nomeLinha(g)}</div>
+                <div className="text-[11px] text-mute-2 truncate">{g.itens[0].descricao.replace(/\s*\(Restante\)\s*$/i, '')}</div>
+              </div>
+              <div className="text-right flex-none">
+                <div className="font-mono-hbs text-[13px]"><ValorMonetario value={fmt(g.valorRestante)} /></div>
+                {v && (
+                  <StatusBadge tone={vencido ? 'destructive' : hojeVenc ? 'warning' : 'neutral'} uppercase size="sm" className="mt-1">
+                    {vencido ? 'Vencido' : hojeVenc ? 'Hoje' : new Date(v + 'T12:00:00').toLocaleDateString('pt-BR')}
+                  </StatusBadge>
+                )}
+              </div>
+            </div>
+          );
+        })
+      )}
+    </section>
   );
 }
