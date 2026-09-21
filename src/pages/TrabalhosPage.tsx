@@ -4,22 +4,38 @@ import { Plus } from 'lucide-react';
 import { getProcesses, getClients, getTransactions, updateProcess, registrarEvento } from '@/lib/storage';
 import { Process, TrabalhoEtapa } from '@/lib/types';
 import { NovoTrabalhoDiretoDialog } from '@/components/trabalhos/NovoTrabalhoDiretoDialog';
+import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 const COLUNAS: TrabalhoEtapa[] = ['Aguardando cliente', 'Levantamento', 'Tramitando', 'Devolutiva', 'Concluído'];
 
+// Mesmo padrão de tom por etapa já usado em ClienteDetailPage.tsx (Fase Clientes) — reaproveitado
+// aqui tal como está, sem virar um util compartilhado ainda. Se essa duplicação (2 arquivos até
+// agora) crescer, uma fase futura de Design System/limpeza pode extrair um único ETAPA_TONE.
+const ETAPA_TONE: Record<string, BadgeTone> = {
+  'Aguardando cliente': 'warning',
+  Levantamento: 'neutral',
+  Tramitando: 'accent',
+  Devolutiva: 'destructive',
+  Concluído: 'success',
+};
+const TONE_TEXT_CLASS: Record<BadgeTone, string> = {
+  destructive: 'text-destructive', warning: 'text-warning', success: 'text-success', neutral: 'text-mute-2', accent: 'text-accent',
+};
+
 function fmt(v: number) {
   return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
-function prazoInfo(prazo?: string, etapa?: TrabalhoEtapa): { label: string; color: string } {
-  if (etapa === 'Concluído') return { label: 'entregue', color: 'text-success' };
-  if (!prazo) return { label: '—', color: 'text-mute-2' };
+function prazoInfo(prazo?: string, etapa?: TrabalhoEtapa): { label: string; tone: BadgeTone } {
+  if (etapa === 'Concluído') return { label: 'Entregue', tone: 'success' };
+  if (!prazo) return { label: '—', tone: 'neutral' };
   const dias = Math.round((new Date(prazo + 'T12:00:00').getTime() - Date.now()) / 86400000);
-  if (dias < 0) return { label: `vencido há ${Math.abs(dias)}d`, color: 'text-destructive' };
-  if (dias <= 7) return { label: `${dias}d`, color: 'text-warning' };
-  return { label: new Date(prazo + 'T12:00:00').toLocaleDateString('pt-BR'), color: 'text-mute-2' };
+  if (dias < 0) return { label: `Vencido há ${Math.abs(dias)}d`, tone: 'destructive' };
+  if (dias <= 7) return { label: `${dias}d`, tone: 'warning' };
+  return { label: new Date(prazo + 'T12:00:00').toLocaleDateString('pt-BR'), tone: 'neutral' };
 }
 
 export default function TrabalhosPage() {
@@ -27,6 +43,7 @@ export default function TrabalhosPage() {
   const [key, setKey] = useState(0);
   const [novoOpen, setNovoOpen] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const navigate = useNavigate();
 
   const { trabalhos, clients, ativos, aguardando, proximoPagamentoPorTrabalho } = useMemo(() => {
@@ -53,6 +70,22 @@ export default function TrabalhosPage() {
 
   const clienteNome = (id: string) => clients.find(c => c.id === id)?.nome || 'Cliente';
 
+  // Busca simples client-side — cliente/objeto/tipo de trabalho, mesmo padrão de ClientsList.
+  // Aplicada antes de Kanban/Lista lerem os dados, então os dois modos sempre mostram o mesmo
+  // conjunto filtrado.
+  const trabalhosFiltrados = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return trabalhos;
+    return trabalhos.filter(t =>
+      t.objeto.toLowerCase().includes(q) ||
+      (t.tipoTrabalho || '').toLowerCase().includes(q) ||
+      clienteNome(t.clienteId).toLowerCase().includes(q)
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trabalhos, clients, search]);
+
+  const semResultado = search.trim().length > 0 && trabalhosFiltrados.length === 0;
+
   function moverEtapa(id: string, etapa: TrabalhoEtapa) {
     const t = trabalhos.find(x => x.id === id);
     if (!t || (t.etapa || 'Levantamento') === etapa) return;
@@ -66,9 +99,9 @@ export default function TrabalhosPage() {
     <div className="space-y-[18px] pb-10 animate-hbs-in">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex bg-card border-2 rounded-lg overflow-hidden">
-            <button onClick={() => setView('kanban')} className={cn('px-3.5 py-2 text-[12.5px]', view === 'kanban' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>Kanban</button>
-            <button onClick={() => setView('lista')} className={cn('px-3.5 py-2 text-[12.5px]', view === 'lista' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>Lista</button>
+          <div className="flex gap-1 bg-surface-2 p-1 rounded-xl border border-3">
+            <button onClick={() => setView('kanban')} className={cn('px-3 py-[6px] rounded-lg text-[12px] font-medium transition-colors', view === 'kanban' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>Kanban</button>
+            <button onClick={() => setView('lista')} className={cn('px-3 py-[6px] rounded-lg text-[12px] font-medium transition-colors', view === 'lista' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>Lista</button>
           </div>
           <span className="text-[12px] text-mute-2 font-mono-hbs">{ativos} ativos · {aguardando} aguardando cliente</span>
         </div>
@@ -77,10 +110,22 @@ export default function TrabalhosPage() {
         </button>
       </div>
 
-      {view === 'kanban' ? (
+      <Input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Buscar por cliente, objeto ou tipo de trabalho..."
+        className="h-9 text-[13px] border-2 max-w-md"
+      />
+
+      {semResultado ? (
+        <div className="bg-card border border-dash border-2 rounded-xl py-16 text-center">
+          <p className="text-sm font-semibold">Nenhum trabalho encontrado</p>
+          <p className="text-xs text-muted-foreground mt-1.5">Tente buscar por outro cliente, objeto ou tipo de trabalho.</p>
+        </div>
+      ) : view === 'kanban' ? (
         <div className="grid gap-3.5 items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(228px, 1fr))' }}>
           {COLUNAS.map(col => {
-            const items = trabalhos.filter(t => (t.etapa || 'Levantamento') === col);
+            const items = trabalhosFiltrados.filter(t => (t.etapa || 'Levantamento') === col);
             return (
               <div
                 key={col}
@@ -109,7 +154,7 @@ export default function TrabalhosPage() {
                         <div className="text-[12.5px] font-medium leading-[1.35]">{t.objeto}</div>
                         <div className="text-[11px] text-mute-2 mt-1">{clienteNome(t.clienteId)}</div>
                         <div className="flex items-center justify-between mt-2.5">
-                          <span className={cn('text-[10.5px] font-mono-hbs', pi.color)}>{pi.label}</span>
+                          <StatusBadge tone={pi.tone}>{pi.label}</StatusBadge>
                           {typeof t.valorContrato === 'number' && <span className="text-[11px] font-mono-hbs text-mute-2">{fmt(t.valorContrato)}</span>}
                         </div>
                         {proximo && (
@@ -123,8 +168,8 @@ export default function TrabalhosPage() {
                       </div>
                     );
                   })}
-                  {items.length === 0 && col === 'Concluído' && (
-                    <div className="border border-dash border-2 rounded-[9px] py-4 px-3 text-center text-[11.5px] text-mute-2 leading-[1.4]">Nada concluído neste mês.</div>
+                  {items.length === 0 && (
+                    <div className="border border-dash border-2 rounded-[9px] py-4 px-3 text-center text-[11.5px] text-mute-2 leading-[1.4]">Nenhum trabalho nesta etapa.</div>
                   )}
                 </div>
               </div>
@@ -141,9 +186,11 @@ export default function TrabalhosPage() {
             <span className="w-[92px] flex-none text-right">Valor</span>
           </div>
           {trabalhos.length === 0 ? (
-            <div className="py-14 text-center text-sm text-muted-foreground">Nenhum trabalho cadastrado ainda.</div>
+            <div className="py-14 text-center">
+              <p className="text-sm text-muted-foreground">Nenhum trabalho cadastrado ainda.</p>
+            </div>
           ) : (
-            trabalhos.map(t => {
+            trabalhosFiltrados.map(t => {
               const etapa = t.etapa || 'Levantamento';
               const pi = prazoInfo(t.prazo, etapa);
               return (
@@ -155,15 +202,15 @@ export default function TrabalhosPage() {
                   <span className="hidden sm:block flex-[1.3] min-w-0 text-[12.5px] text-muted-foreground truncate">{clienteNome(t.clienteId)}</span>
 
                   {/* Mobile: cliente + etapa + prazo + valor numa linha só, com legenda embutida */}
-                  <div className="flex sm:hidden flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px]">
+                  <div className="flex sm:hidden flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[11px]">
                     <span className="text-muted-foreground">{clienteNome(t.clienteId)}</span>
-                    <span className="px-2 py-[3px] rounded-[5px] bg-neutral-soft text-mute-2 font-medium">{etapa}</span>
-                    <span className={cn('font-mono-hbs', pi.color)}>{pi.label}</span>
+                    <StatusBadge tone={ETAPA_TONE[etapa]}>{etapa}</StatusBadge>
+                    <span className={cn('font-mono-hbs', TONE_TEXT_CLASS[pi.tone])}>{pi.label}</span>
                     {typeof t.valorContrato === 'number' && <span className="font-mono-hbs text-mute-2">{fmt(t.valorContrato)}</span>}
                   </div>
 
-                  <span className="hidden sm:block w-[112px] flex-none text-[11px] px-2 py-[3px] rounded-[5px] bg-neutral-soft text-mute-2 font-medium">{etapa}</span>
-                  <span className={cn('hidden sm:block w-[84px] flex-none text-[11px] font-mono-hbs', pi.color)}>{pi.label}</span>
+                  <span className="hidden sm:block w-[112px] flex-none"><StatusBadge tone={ETAPA_TONE[etapa]}>{etapa}</StatusBadge></span>
+                  <span className={cn('hidden sm:block w-[84px] flex-none text-[11px] font-mono-hbs', TONE_TEXT_CLASS[pi.tone])}>{pi.label}</span>
                   <span className="hidden sm:block w-[92px] flex-none text-right text-[12px] font-mono-hbs text-mute-2">{typeof t.valorContrato === 'number' ? fmt(t.valorContrato) : '—'}</span>
                 </div>
               );
