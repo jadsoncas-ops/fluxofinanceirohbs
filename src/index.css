@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -161,11 +161,15 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Instrument Sans', system-ui, -apple-system, sans-serif;
+    font-family: 'Public Sans', system-ui, -apple-system, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     height: 100vh;
     height: 100dvh;
     overflow: hidden;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Space Grotesk', 'Public Sans', system-ui, -apple-system, sans-serif;
   }
 }
 
@@ -179,7 +183,10 @@
 @keyframes hbsShimmer { 0% { background-position: -200px 0; } 100% { background-position: 240px 0; } }
 
 @layer utilities {
-  .font-mono-hbs { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  /* Space Grotesk para todo valor numérico do app (valores monetários, contadores, datas
+     compactas) — antes era IBM Plex Mono. Trocar aqui, no único lugar que define a classe, já
+     aplica a tipografia nova em todo o app sem editar cada tela. */
+  .font-mono-hbs { font-family: 'Space Grotesk', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
   .text-mute-2 { color: hsl(var(--muted-foreground-2)); }
   .text-mute-3 { color: hsl(var(--muted-foreground-3)); }
   .bg-destructive-soft { background-color: hsl(var(--destructive-soft)); }

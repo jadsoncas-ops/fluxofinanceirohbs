@@ -14,6 +14,7 @@ import ClienteDetailPage from "./pages/ClienteDetailPage";
 import TrabalhosPage from "./pages/TrabalhosPage";
 import TrabalhoDetailPage from "./pages/TrabalhoDetailPage";
 import TarefasPage from "./pages/TarefasPage";
+import AgendaPage from "./pages/AgendaPage";
 import ConfiguracoesPage from "./pages/ConfiguracoesPage";
 import MaisPage from "./pages/MaisPage";
 import ProducaoPage from "./pages/ProducaoPage";
@@ -30,6 +31,7 @@ import CaixaMovimentacoesPage from "./pages/financeiro/MovimentacoesPage";
 import CaixaContasPage from "./pages/financeiro/ContasPage";
 import CaixaParceirosPage from "./pages/financeiro/ParceirosPage";
 import CaixaCobrancaPage from "./pages/financeiro/CobrancaPage";
+import CaixaAPagarPage from "./pages/financeiro/APagarPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -64,6 +66,7 @@ const App = () => (
             <Route path="/avaliacoes/:avaliacaoId" element={<AvaliacaoDetailPage />} />
             <Route path="/cartorio" element={<CartorioPage />} />
             <Route path="/tarefas" element={<TarefasPage />} />
+            <Route path="/agenda" element={<AgendaPage />} />
             <Route path="/configuracoes" element={<ConfiguracoesPage />} />
             <Route path="/mais" element={<MaisPage />} />
 
@@ -71,6 +74,7 @@ const App = () => (
               <Route index element={<Navigate to="/caixa/visao-geral" replace />} />
               <Route path="visao-geral" element={<CaixaVisaoGeralPage />} />
               <Route path="cobranca" element={<CaixaCobrancaPage />} />
+              <Route path="apagar" element={<CaixaAPagarPage />} />
               <Route path="fluxo-de-caixa" element={<Navigate to="/caixa/visao-geral" replace />} />
               <Route path="receitas" element={<CaixaMovimentacoesPage />} />
               <Route path="despesas" element={<Navigate to="/caixa/receitas" replace />} />

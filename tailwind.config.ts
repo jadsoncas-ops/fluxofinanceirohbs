@@ -90,7 +90,8 @@ export default {
         dash: "hsl(var(--border-dash))",
       },
       fontFamily: {
-        sans: ["'Instrument Sans'", "system-ui", "-apple-system", "sans-serif"],
+        sans: ["'Public Sans'", "system-ui", "-apple-system", "sans-serif"],
+        heading: ["'Space Grotesk'", "'Public Sans'", "system-ui", "-apple-system", "sans-serif"],
         mono: ["'IBM Plex Mono'", "ui-monospace", "monospace"],
       },
       borderRadius: {

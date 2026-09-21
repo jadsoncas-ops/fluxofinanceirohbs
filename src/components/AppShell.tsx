@@ -17,6 +17,7 @@ import { Transaction, Task, TransactionType } from '@/lib/types';
 import { Search, X, LogOut, Eye, EyeOff } from 'lucide-react';
 import { signOut } from '@/lib/auth';
 import { useValoresOcultos, toggleValoresOcultos } from '@/lib/privacidade';
+import { findNavItem } from '@/lib/navigation';
 import hbsLogo from '@/assets/hbs-logo.png';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -50,14 +51,18 @@ function useRouteMeta(pathname: string, clientCount: number, trabalhosAtivos: nu
   if (pathname.startsWith('/trabalhos')) return { title: 'Trabalhos', meta: `${trabalhosAtivos} ativo${trabalhosAtivos !== 1 ? 's' : ''}` };
   if (pathname.startsWith('/producao')) return { title: 'Produção Técnica', meta: null };
   if (pathname.startsWith('/comercial')) return { title: 'Comercial', meta: null };
-  if (pathname.startsWith('/caixa/visao-geral')) return { title: 'Fluxo de Caixa', meta: 'Visão geral' };
-  if (pathname.startsWith('/caixa/cobranca')) return { title: 'Fluxo de Caixa', meta: 'A Receber' };
-  if (pathname.startsWith('/caixa/receitas')) return { title: 'Fluxo de Caixa', meta: 'Movimentações' };
-  if (pathname.startsWith('/caixa/contas')) return { title: 'Fluxo de Caixa', meta: 'Contas' };
+  // As 6 sub-páginas do Financeiro agora são itens de sidebar próprios (sem aba horizontal
+  // interna) — o título já reflete a página exata, "Financeiro" no meta dá o contexto do grupo.
+  if (pathname.startsWith('/caixa')) {
+    const item = findNavItem(pathname);
+    return { title: item?.label || 'Fluxo de Caixa', meta: 'Financeiro' };
+  }
   if (pathname.startsWith('/relatorios')) return { title: 'Relatórios', meta: null };
   if (pathname.match(/^\/avaliacoes\/[^/]+/)) return { title: 'Avaliações', meta: null };
   if (pathname.startsWith('/avaliacoes')) return { title: 'Avaliações', meta: 'Aluguel — Prefeitura/CIUB' };
+  if (pathname.startsWith('/agenda')) return { title: 'Agenda', meta: null };
   if (pathname.startsWith('/tarefas')) return { title: 'Tarefas & agenda', meta: null };
+  if (pathname.startsWith('/cartorio')) return { title: 'Cartório & Registros', meta: null };
   if (pathname.startsWith('/configuracoes')) return { title: 'Configurações', meta: 'HBS Engenharia' };
   return { title: 'HBS Engineering', meta: null };
 }

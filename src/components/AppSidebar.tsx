@@ -1,15 +1,13 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import {
-  Compass, Users, Layers, FileStack, Handshake, Landmark, BarChart3, Settings as SettingsIcon,
-  ChevronLeft, ChevronRight, Command, LogOut, Scale, ListTodo, ScrollText,
-} from 'lucide-react';
+import { Command, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { signOut } from '@/lib/auth';
+import { NAV_GROUPS, NAV_BOTTOM, type NavItem } from '@/lib/navigation';
 
 function initials(nome: string) {
   const parts = nome.trim().split(/\s+/);
@@ -20,19 +18,6 @@ interface Props {
   onOpenCommand: () => void;
   badges?: Partial<Record<string, number>>;
 }
-
-const items = [
-  { to: '/', label: 'Início', icon: Compass, exact: true },
-  { to: '/clientes', label: 'Clientes', icon: Users },
-  { to: '/trabalhos', label: 'Trabalhos', icon: Layers, badgeKey: 'trabalhosAtencao' },
-  { to: '/tarefas', label: 'Tarefas & Agenda', icon: ListTodo },
-  { to: '/producao', label: 'Produção Técnica', icon: FileStack, badgeKey: 'producaoEmAndamento' },
-  { to: '/comercial', label: 'Comercial', icon: Handshake },
-  { to: '/caixa', label: 'Fluxo de Caixa', icon: Landmark, badgeKey: 'caixaAtrasado' },
-  { to: '/relatorios', label: 'Relatórios', icon: BarChart3 },
-  { to: '/avaliacoes', label: 'Avaliações', icon: Scale },
-  { to: '/cartorio', label: 'Cartório & Registros', icon: ScrollText, badgeKey: 'cartorioAtencao' },
-];
 
 export function AppSidebar({ onOpenCommand, badges = {} }: Props) {
   const location = useLocation();
@@ -53,12 +38,11 @@ export function AppSidebar({ onOpenCommand, badges = {} }: Props) {
     });
   }
 
-  function isActive(item: (typeof items)[number]) {
-    if (item.exact) return location.pathname === '/';
-    return location.pathname.startsWith(item.to);
+  function isActive(item: NavItem) {
+    return item.exact ? location.pathname === item.to : location.pathname.startsWith(item.to);
   }
 
-  const NavItem = ({ item }: { item: (typeof items)[number] }) => {
+  const NavItemLink = ({ item }: { item: NavItem }) => {
     const badge = item.badgeKey ? badges[item.badgeKey] : undefined;
     const link = (
       <NavLink
@@ -117,19 +101,23 @@ export function AppSidebar({ onOpenCommand, badges = {} }: Props) {
           </button>
         </div>
 
-        <nav className="flex-1 px-2.5 py-1 flex flex-col gap-0.5 overflow-y-auto">
-          {items.map(item => <NavItem key={item.to} item={item} />)}
+        <nav className="flex-1 px-2.5 py-1 flex flex-col gap-3 overflow-y-auto">
+          {NAV_GROUPS.map((group, gi) => (
+            <div key={group.label || gi}>
+              {group.label && !collapsed && (
+                <div className="text-[10px] font-semibold tracking-[.1em] text-white/35 px-2.5 pb-1">{group.label}</div>
+              )}
+              <div className="flex flex-col gap-0.5">
+                {group.items.map(item => <NavItemLink key={item.to} item={item} />)}
+              </div>
+            </div>
+          ))}
         </nav>
 
         <div className="flex-none p-2.5 border-t border-white/[.09] flex flex-col gap-0.5">
-          <NavLink
-            to="/configuracoes"
-            className="flex items-center gap-[11px] w-full h-9 px-2.5 rounded-[8px] text-white/60 transition-colors hover:bg-white/[.08] hover:text-white"
-            activeClassName="!bg-white/10 !text-white"
-          >
-            <SettingsIcon className="w-[17px] h-[17px] shrink-0" strokeWidth={1.6} />
-            {!collapsed && <span className="text-[13.5px] font-medium">Configurações</span>}
-          </NavLink>
+          <div className="flex flex-col gap-0.5 mb-0.5">
+            {NAV_BOTTOM.map(item => <NavItemLink key={item.to} item={item} />)}
+          </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
