@@ -1,27 +1,32 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import {
-  MessageCircle, Check, ChevronLeft, Wallet, AlertTriangle, CheckCircle2, ArrowRight,
+  MessageCircle, Check, ChevronLeft, Wallet, AlertTriangle, CheckCircle2, ArrowRight, ArrowDownCircle, ArrowUpCircle,
   Layers, FileStack, Handshake, Landmark, Users, ScrollText, CalendarDays, PiggyBank, type LucideIcon,
 } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
-import { getAccounts, getProcesses, getClients, getTasks, getPropostas, getCompromissos, getCompanyConfig, getHistorico, updateClient, updateProcess, registrarEvento } from '@/lib/storage';
+import { getAccounts, getProcesses, getClients, getPartners, getTasks, getPropostas, getCompromissos, getCompanyConfig, getHistorico, updateClient, updateProcess, registrarEvento } from '@/lib/storage';
 import { computeAttentionItems, AttentionItem, AttentionTipo, toggleLembreteCobranca } from '@/lib/attention';
 import { computeReserva } from '@/lib/reserva';
-import { entradasNoMes, saidasNoMes, totalAReceber, totalAPagar } from '@/lib/financials';
+import { entradasNoMes, saidasNoMes, totalAReceber, totalAPagar, dataEfetiva } from '@/lib/financials';
+import { isIncome } from '@/lib/lancamentos';
 import { linkWhatsApp } from '@/lib/mensagens';
-import { TrabalhoEtapa, HistoricoModulo } from '@/lib/types';
+import { TrabalhoEtapa, HistoricoModulo, Transaction } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { KpiCard } from '@/components/KpiCard';
+import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
+import { DetalheLancamentoDialog } from '@/components/financeiro/DetalheLancamentoDialog';
 import { toast } from 'sonner';
 
 const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 const WEEKDAYS_LONG = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
 const STAGE_ORDER: TrabalhoEtapa[] = ['Aguardando cliente', 'Levantamento', 'Tramitando', 'Devolutiva', 'Concluído'];
 const STAGE_LABEL_CURTO: Record<TrabalhoEtapa, string> = { 'Aguardando cliente': 'aguardando cliente', Levantamento: 'levantamento', Tramitando: 'tramitando', Devolutiva: 'devolutiva', Concluído: 'concluído' };
+const CHART_PERIODS = [3, 6, 12] as const;
 
 const MODULO_ICON: Record<HistoricoModulo, { icon: LucideIcon; tone: string }> = {
   Financeiro: { icon: Landmark, tone: 'text-success' },
@@ -34,6 +39,9 @@ const MODULO_ICON: Record<HistoricoModulo, { icon: LucideIcon; tone: string }> =
 
 function fmtMoney(v: number) {
   return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+function fmtMoneyFull(v: number) {
+  return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 function saudacao() {
   const h = new Date().getHours();
@@ -57,14 +65,24 @@ function tempoRelativo(ts: number) {
 function dataCurta(d: string) {
   return `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 }
+function plural(n: number, sing: string, plur: string) {
+  return n === 1 ? sing : plur;
+}
 
 const TIPO_LABEL: Record<AttentionTipo, string> = { Cobranca: 'Cobrança', Cartorio: 'Cartório', Orgao: 'Órgão', Pendencia: 'Pendência' };
 const TIPO_TAG: Record<AttentionTipo, string> = { Cobranca: 'bg-destructive-soft text-destructive', Cartorio: 'bg-accent-soft text-accent', Orgao: 'bg-warning-soft text-warning', Pendencia: 'bg-neutral-soft text-mute-2' };
+const TRABALHO_STATUS_TONE: Record<string, BadgeTone> = { Atrasado: 'destructive', Atenção: 'warning', 'Em andamento': 'accent' };
 
-/** Dashboard — cockpit gerencial (HBS 2.0, Fase 3). Resume o financeiro (mesma fonte de verdade
- *  de src/lib/financials.ts que já alimenta a Visão Geral — nenhum cálculo próprio aqui), o que
+/** Dashboard — cockpit gerencial (HBS 2.0). Resume o financeiro (mesma fonte de verdade de
+ *  src/lib/financials.ts que já alimenta a Visão Geral — nenhum cálculo próprio aqui), o que
  *  precisa de atenção (attention.ts) e o que está acontecendo nos trabalhos/agenda. O calendário
- *  completo mora só em /agenda agora — aqui é só um resumo compacto com link. */
+ *  completo mora só em /agenda agora — aqui é só um resumo compacto com link.
+ *
+ *  Reabertura "referência visual": a composição (ordem/proporção dos blocos) segue a referência
+ *  HBS 2.0 anexada (KPIs → KPIs secundários+atenção compacta → Atenção+Fluxo lado a lado →
+ *  Trabalhos+Movimentações+Agenda → secundárias). Os blocos que a referência não tem (Fila
+ *  completa, Saúde do escritório, Trabalhos por etapa, Reserva) continuam existindo — só
+ *  reposicionados como informação secundária, sem perder nenhuma funcionalidade. */
 export default function DashboardPage() {
   const shell = useShell();
   const navigate = useNavigate();
@@ -76,27 +94,40 @@ export default function DashboardPage() {
   const [telefoneDdd, setTelefoneDdd] = useState('');
   const [telefoneNumero, setTelefoneNumero] = useState('');
   const [selecionados, setSelecionados] = useState<string[]>([]);
+  const [chartMeses, setChartMeses] = useState<(typeof CHART_PERIODS)[number]>(6);
+  const [detalheTx, setDetalheTx] = useState<Transaction | null>(null);
 
   const {
     attention, cashflow, etapasResumo, saudeEscritorio, reserva,
     statusGeral, kpisHero, kpisSecundarios, atencaoTop, hojeAgenda, proximosDias, trabalhosAtencao, atividadeRecente,
+    movimentacoesRecentes,
   } = useMemo(() => {
     const accounts = getAccounts();
     const processes = getProcesses();
     const clients = getClients();
+    const partners = getPartners();
     const tasks = getTasks();
     const compromissos = getCompromissos();
     const today = new Date().toISOString().slice(0, 10);
+    const em7Str = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
     const now = new Date();
     const reserva = computeReserva(accounts, getCompanyConfig().contaReservaId);
 
     const saldoDisponivel = accounts.filter(a => a.ativo).reduce((s, a) => s + a.saldo, 0);
     const aReceberTx = transactions.filter(t => (t.tipo === 'Entrada' || t.tipo === 'A Receber') && t.status !== 'Concluído');
+    const aPagarTx = transactions.filter(t => (t.tipo === 'Saída' || t.tipo === 'A Pagar') && t.status !== 'Concluído');
     const aReceber = totalAReceber(transactions);
     const aPagar = totalAPagar(transactions);
     const aReceberAtrasado = aReceberTx.filter(t => t.data < today).reduce((s, t) => s + t.valor, 0);
     // Mesma fórmula da Visão Geral (saldoAtual + aReceber - aPagar) — não recalcula diferente.
     const saldoProjetadoScalar = saldoDisponivel + aReceber - aPagar;
+
+    // Contagens pro subtexto dos KPIs (mesma classificação vencido/próximos-7-dias já usada em
+    // A Receber/A Pagar — não é regra nova, só conta quantos itens caem em cada balde).
+    const aReceberVencidosN = aReceberTx.filter(t => t.data < today).length;
+    const aReceberProx7N = aReceberTx.filter(t => t.data >= today && t.data <= em7Str).length;
+    const aPagarVencidosN = aPagarTx.filter(t => t.data < today).length;
+    const aPagarProx7N = aPagarTx.filter(t => t.data >= today && t.data <= em7Str).length;
 
     const entradasMes = entradasNoMes(transactions, now.getFullYear(), now.getMonth());
     const saidasMes = saidasNoMes(transactions, now.getFullYear(), now.getMonth());
@@ -108,15 +139,17 @@ export default function DashboardPage() {
     const registrosComRegistro = processes.filter(p => !p.isArchived && p.registro);
     const prazosSete = registrosComRegistro.filter(p => {
       const r = p.registro!;
-      const exigenciaProxima = (r.exigencias || []).some(e => e.status === 'Aberta' && e.prazo && e.prazo <= new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10));
+      const exigenciaProxima = (r.exigencias || []).some(e => e.status === 'Aberta' && e.prazo && e.prazo <= em7Str);
       const prenotacaoProxima = r.dataPrenotacao && !r.matricula && (r.prazoPrenotacaoDias ?? 30) - Math.round((Date.now() - new Date(r.dataPrenotacao + 'T12:00:00').getTime()) / 86400000) <= 7;
       return exigenciaProxima || prenotacaoProxima;
     }).length;
 
     const attention = computeAttentionItems(transactions, clients, tasks, processes, getPropostas());
 
-    const cashflow = Array.from({ length: 6 }).map((_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+    // Fluxo de caixa — mesmas funções da Visão Geral (entradasNoMes/saidasNoMes), só variando
+    // quantos meses olhar pra trás (seletor 3/6/12 meses); nenhuma lógica financeira nova.
+    const cashflow = Array.from({ length: chartMeses }).map((_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (chartMeses - 1) + i, 1);
       const receita = entradasNoMes(transactions, d.getFullYear(), d.getMonth());
       const despesa = saidasNoMes(transactions, d.getFullYear(), d.getMonth());
       return { mes: MONTHS_SHORT[d.getMonth()], receita, despesa };
@@ -150,10 +183,10 @@ export default function DashboardPage() {
         : { tom: 'success' as const, titulo: 'Tudo sob controle', texto: 'Nenhuma pendência crítica no momento.' };
 
     const kpisHero = [
-      { label: 'Saldo disponível', value: saldoDisponivel, to: '/caixa/visao-geral', tone: saldoDisponivel < 0 ? 'destructive' as const : 'default' as const },
-      { label: 'A receber', value: aReceber, to: '/caixa/cobranca', tone: 'accent' as const },
-      { label: 'A pagar', value: aPagar, to: '/caixa/apagar', tone: 'warning' as const },
-      { label: 'Saldo projetado', value: saldoProjetadoScalar, to: '/caixa/visao-geral', tone: saldoProjetadoScalar < 0 ? 'destructive' as const : 'default' as const },
+      { label: 'Saldo disponível', value: saldoDisponivel, to: '/caixa/visao-geral', tone: saldoDisponivel < 0 ? 'destructive' as const : 'default' as const, subtext: 'Nas contas e caixa', highlight: true },
+      { label: 'A receber', value: aReceber, to: '/caixa/cobranca', tone: 'accent' as const, subtext: `${aReceberVencidosN} vencido${plural(aReceberVencidosN, '', 's')} · ${aReceberProx7N} próximos 7 dias` },
+      { label: 'A pagar', value: aPagar, to: '/caixa/apagar', tone: 'warning' as const, subtext: `${aPagarVencidosN} vencido${plural(aPagarVencidosN, '', 's')} · ${aPagarProx7N} próximos 7 dias` },
+      { label: 'Saldo projetado', value: saldoProjetadoScalar, to: '/caixa/visao-geral', tone: saldoProjetadoScalar < 0 ? 'destructive' as const : 'default' as const, subtext: 'Considerando A receber e A pagar' },
     ];
     const kpisSecundarios = [
       { label: 'Entradas', value: entradasMes, tone: 'success' as const },
@@ -169,7 +202,6 @@ export default function DashboardPage() {
       .sort((a, b) => a.data.localeCompare(b.data) || (a.horaInicio || '99:99').localeCompare(b.horaInicio || '99:99'))
       .slice(0, 4);
 
-    const em7Str = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
     const trabalhosInfo = trabalhosAtivos.map(p => {
       const atrasado = !!p.prazo && p.prazo < today;
       const prazoProximo = !atrasado && !!p.prazo && p.prazo <= em7Str;
@@ -188,15 +220,36 @@ export default function DashboardPage() {
 
     const atividadeRecente = getHistorico().slice(0, 5);
 
+    // Movimentações recentes — mesmo padrão já validado na Visão Geral (últimas concluídas por
+    // dataEfetiva); aqui só as 5 mais recentes, pra dar contexto sem duplicar o extrato completo
+    // que já vive em Movimentações.
+    const clientesMap = new Map(clients.map(c => [c.id, c]));
+    const partnersMap = new Map(partners.map(p => [p.id, p]));
+    const movimentacoesRecentes = transactions
+      .filter(t => t.status === 'Concluído')
+      .slice()
+      .sort((a, b) => dataEfetiva(b).localeCompare(dataEfetiva(a)))
+      .slice(0, 5)
+      .map(t => ({
+        ...t,
+        income: isIncome(t),
+        contexto: t.clienteId ? `Cliente: ${clientesMap.get(t.clienteId)?.nome || 'Cliente'}` : t.partnerId ? `Parceiro: ${partnersMap.get(t.partnerId)?.nome || 'Parceiro'}` : t.categoria,
+      }));
+
     return {
       attention, cashflow, etapasResumo, saudeEscritorio, reserva,
       statusGeral, kpisHero, kpisSecundarios, atencaoTop, hojeAgenda, proximosDias, trabalhosAtencao, atividadeRecente,
+      movimentacoesRecentes,
     };
-  }, [transactions, shell.refreshKey]);
+  }, [transactions, shell.refreshKey, chartMeses]);
 
-  const maxCash = Math.max(1, ...cashflow.flatMap(m => [m.receita, m.despesa]));
   const tiposPresentes = Array.from(new Set(attention.map(a => a.tipo)));
   const filaVisivel = filtro === 'tudo' ? attention : attention.filter(a => a.tipo === filtro);
+  const agendaCtaTexto = hojeAgenda.length > 0
+    ? `Você tem ${hojeAgenda.length} compromisso${plural(hojeAgenda.length, '', 's')} hoje.`
+    : proximosDias.length > 0
+      ? `Nada hoje — ${proximosDias.length} compromisso${plural(proximosDias.length, '', 's')} nos próximos dias.`
+      : 'Nada agendado por enquanto.';
 
   function marcarCobrado(clienteId: string | undefined) {
     if (!clienteId) return;
@@ -248,9 +301,9 @@ export default function DashboardPage() {
   }
 
   const STATUS_STYLE = {
-    critical: { wrap: 'bg-destructive-soft border-destructive/30', icon: 'text-destructive', titulo: 'text-destructive', texto: 'text-destructive/80' },
-    warning: { wrap: 'bg-warning-soft border-warning-border', icon: 'text-warning', titulo: 'text-warning', texto: 'text-warning/85' },
-    success: { wrap: 'bg-success-soft border-success/30', icon: 'text-success', titulo: 'text-success', texto: 'text-success/80' },
+    critical: { wrap: 'bg-destructive-soft border-destructive/30', icon: 'text-destructive', titulo: 'text-destructive', texto: 'text-destructive/80', dot: 'bg-destructive' },
+    warning: { wrap: 'bg-warning-soft border-warning-border', icon: 'text-warning', titulo: 'text-warning', texto: 'text-warning/85', dot: 'bg-warning' },
+    success: { wrap: 'bg-success-soft border-success/30', icon: 'text-success', titulo: 'text-success', texto: 'text-success/80', dot: 'bg-success' },
   } as const;
   const statusStyle = STATUS_STYLE[statusGeral.tom];
 
@@ -259,12 +312,6 @@ export default function DashboardPage() {
     warning: { wrap: 'bg-warning-soft', dot: 'bg-warning', titulo: 'text-warning', btn: 'bg-warning text-warning-foreground' },
     info: { wrap: 'bg-accent-soft', dot: 'bg-accent', titulo: 'text-accent', btn: 'bg-accent text-accent-foreground' },
   } as const;
-
-  const TRABALHO_STATUS_STYLE: Record<string, string> = {
-    Atrasado: 'bg-destructive-soft text-destructive',
-    Atenção: 'bg-warning-soft text-warning',
-    'Em andamento': 'bg-accent-soft text-accent',
-  };
 
   const SAUDE_DOT: Record<'success' | 'warning' | 'destructive', string> = {
     success: 'bg-success', warning: 'bg-warning', destructive: 'bg-destructive',
@@ -275,7 +322,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-3 animate-hbs-in">
-      {/* TOPO — saudação + data + Criar (botão global já fica no header do Shell) */}
+      {/* SAUDAÇÃO */}
       <div className="flex items-end justify-between gap-3 flex-wrap flex-none">
         <div className="min-w-0">
           <h1 className="text-[19px] font-semibold -tracking-[.02em] leading-tight">{saudacao()}, Jádson.</h1>
@@ -283,143 +330,284 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ATENÇÃO NECESSÁRIA / TUDO SOB CONTROLE */}
-      <div className={cn('flex items-center gap-3 rounded-xl border px-4 py-3 flex-none', statusStyle.wrap)}>
-        <AlertTriangle className={cn('w-[18px] h-[18px] flex-none', statusStyle.icon)} strokeWidth={2} />
-        <div className="min-w-0">
-          <div className={cn('text-[13.5px] font-semibold', statusStyle.titulo)}>{statusGeral.titulo}</div>
-          <div className={cn('text-[12px] mt-[1px]', statusStyle.texto)}>{statusGeral.texto}</div>
-        </div>
-      </div>
-
-      {/* KPIs PRINCIPAIS — mesma fonte de verdade da Visão Geral (financials.ts) */}
+      {/* KPIs PRINCIPAIS — 1 destaque (Saldo disponível) + 3 neutros, mesma fonte de verdade da
+          Visão Geral (financials.ts) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border border border-border rounded-xl overflow-hidden flex-none">
         {kpisHero.map(k => (
-          <KpiCard key={k.label} label={k.label} value={fmtMoney(k.value)} tone={k.tone} onClick={() => navigate(k.to)} />
+          <KpiCard key={k.label} label={k.label} value={fmtMoney(k.value)} tone={k.tone} subtext={k.subtext} highlight={k.highlight} onClick={() => navigate(k.to)} />
         ))}
       </div>
 
-      {/* KPIs SECUNDÁRIOS — menores, mesmo grid visual */}
-      <div className="grid grid-cols-3 gap-px bg-border border border-border rounded-xl overflow-hidden flex-none">
+      {/* KPIs SECUNDÁRIOS + chip compacto de atenção — mesma linha, sem banner full-width */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border border border-border rounded-xl overflow-hidden flex-none">
         {kpisSecundarios.map(k => (
           <KpiCard key={k.label} label={k.label} value={fmtMoney(k.value)} tone={k.tone} size="compact" onClick={() => navigate('/caixa/visao-geral')} />
         ))}
+        <button
+          onClick={() => document.getElementById('atencao')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          className={cn('min-w-0 text-left px-[8px] sm:px-[14px] py-[11px] flex items-center gap-2 hover:opacity-90 transition-opacity', statusStyle.wrap)}
+        >
+          <span className={cn('w-1.5 h-1.5 rounded-full flex-none', statusStyle.dot)} />
+          <span className={cn('text-[11px] leading-snug', statusStyle.texto)}>{statusGeral.texto}</span>
+        </button>
       </div>
 
-      {/* PRECISA DA SUA ATENÇÃO */}
-      <section id="atencao" className="bg-card border border-border rounded-xl p-4 flex-none">
-        <div className="flex items-baseline justify-between gap-2 flex-wrap">
-          <div className="text-[15px] font-semibold">Precisa da sua atenção</div>
-          <div className="text-[11.5px] text-mute-2">{attention.length} {attention.length === 1 ? 'item' : 'itens'}</div>
-        </div>
-        <p className="text-[12px] text-muted-foreground mt-0.5 mb-3">O que precisa ser resolvido agora.</p>
-
-        {atencaoTop.length === 0 ? (
-          <div className="py-8 text-center text-[12.5px] text-muted-foreground flex flex-col items-center gap-1.5">
-            <CheckCircle2 className="w-5 h-5 text-success" />
-            Nada pendente agora. Bom sinal.
+      {/* PRECISA DA SUA ATENÇÃO + FLUXO DE CAIXA — lado a lado, como na referência */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1.4fr] gap-3 items-start">
+        <section id="atencao" className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-baseline justify-between gap-2 flex-wrap">
+            <div className="text-[15px] font-semibold">Precisa da sua atenção</div>
+            <div className="text-[11.5px] text-mute-2">{attention.length} {attention.length === 1 ? 'item' : 'itens'}</div>
           </div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {atencaoTop.map(a => {
-              const s = SEVERITY_ROW[a.severity];
-              const acaoLabel = a.transactionId ? 'Recebido' : a.exigenciaRef ? 'Cumprir' : a.cta;
-              return (
-                <div key={a.id} className={cn('flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 rounded-lg px-3.5 py-2.5', s.wrap)}>
-                  <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                    <span className={cn('w-2 h-2 rounded-full flex-none mt-[5px]', s.dot)} />
-                    <div className="min-w-0">
-                      <div className={cn('text-[13px] font-semibold leading-[1.3]', s.titulo)}>{a.title}</div>
-                      {a.sub && <div className="text-[11.5px] text-muted-foreground mt-[1px] leading-[1.35]">{a.sub}</div>}
+          <p className="text-[12px] text-muted-foreground mt-0.5 mb-3">O que precisa ser resolvido agora.</p>
+
+          {atencaoTop.length === 0 ? (
+            <div className="py-8 text-center text-[12.5px] text-muted-foreground flex flex-col items-center gap-1.5">
+              <CheckCircle2 className="w-5 h-5 text-success" />
+              Nada pendente agora. Bom sinal.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {atencaoTop.map(a => {
+                const s = SEVERITY_ROW[a.severity];
+                const acaoLabel = a.transactionId ? 'Recebido' : a.exigenciaRef ? 'Cumprir' : a.cta;
+                return (
+                  <div key={a.id} className={cn('flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 rounded-lg px-3.5 py-2.5', s.wrap)}>
+                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                      <span className={cn('w-2 h-2 rounded-full flex-none mt-[5px]', s.dot)} />
+                      <div className="min-w-0">
+                        <div className={cn('text-[13px] font-semibold leading-[1.3]', s.titulo)}>{a.title}</div>
+                        {a.sub && <div className="text-[11.5px] text-muted-foreground mt-[1px] leading-[1.35]">{a.sub}</div>}
+                      </div>
+                    </div>
+                    <button onClick={() => atencaoItemAction(a)} className={cn('flex-none h-7 px-3 rounded-md text-[11.5px] font-semibold whitespace-nowrap hover:opacity-90 transition-opacity self-start sm:self-auto ml-[18px] sm:ml-0', s.btn)}>
+                      {acaoLabel}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {attention.length > 0 && (
+            <div className="text-right mt-3">
+              <button onClick={() => document.getElementById('fila-completa')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="text-[12.5px] font-semibold text-primary">
+                Ver todas as pendências →
+              </button>
+            </div>
+          )}
+        </section>
+
+        <section className="bg-card border border-border rounded-xl px-4 py-3.5">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+            <div className="text-[13.5px] font-semibold">Fluxo de caixa</div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="flex items-center gap-4 text-[11px] text-mute-2">
+                <span className="flex items-center gap-1.5"><span className="w-[7px] h-[7px] rounded-full bg-success inline-block" />Entradas</span>
+                <span className="flex items-center gap-1.5"><span className="w-[7px] h-[7px] rounded-full bg-destructive inline-block" />Saídas</span>
+              </span>
+              <div className="flex gap-0.5 bg-surface-2 p-0.5 rounded-lg border border-3">
+                {CHART_PERIODS.map(n => (
+                  <button
+                    key={n}
+                    onClick={() => setChartMeses(n)}
+                    className={cn('px-2 py-[3px] rounded-md text-[10px] font-medium transition-colors', chartMeses === n ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
+                  >
+                    {n}m
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="h-[190px] -ml-3">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={cashflow} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="entradasFillDash" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(var(--success))" stopOpacity={0.18} />
+                    <stop offset="100%" stopColor="hsl(var(--success))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                <XAxis dataKey="mes" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis hide domain={[0, 'dataMax']} />
+                <RechartsTooltip formatter={(value: number, name: string) => [fmtMoneyFull(value), name === 'receita' ? 'Entradas' : 'Saídas']} contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', fontSize: '12px' }} />
+                <Area type="monotone" dataKey="receita" stroke="hsl(var(--success))" strokeWidth={2} fill="url(#entradasFillDash)" />
+                <Area type="monotone" dataKey="despesa" stroke="hsl(var(--destructive))" strokeWidth={2} fill="transparent" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      </div>
+
+      {/* TRABALHOS EM ANDAMENTO · MOVIMENTAÇÕES RECENTES · AGENDA — três colunas, como na
+          referência */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr_0.9fr] gap-3 items-start">
+
+        <section className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-[13.5px] font-semibold">Trabalhos em andamento</div>
+            <button onClick={() => navigate('/trabalhos')} className="text-[11.5px] font-semibold text-primary">Ver todos →</button>
+          </div>
+          {trabalhosAtencao.length === 0 ? (
+            <div className="text-[12.5px] text-muted-foreground py-3">Nenhum trabalho ativo agora.</div>
+          ) : (
+            <div className="flex flex-col">
+              {trabalhosAtencao.map(t => (
+                <div key={t.id} onClick={() => navigate(`/trabalhos/${t.id}`)} className="flex items-center justify-between gap-2 py-[9px] border-b border-3 last:border-b-0 cursor-pointer">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[12.5px] leading-[1.3] truncate">{t.nome}</div>
+                    <div className="text-[11px] text-mute-2 truncate mt-[1px]">{t.clienteNome}</div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-none">
+                    <StatusBadge tone={TRABALHO_STATUS_TONE[t.status]}>{t.status}</StatusBadge>
+                    <span className="font-mono-hbs text-[11px] text-mute-2 w-9 text-right">{t.prazo ? dataCurta(t.prazo) : '—'}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-[13.5px] font-semibold">Movimentações recentes</div>
+            <button onClick={() => navigate('/caixa/receitas')} className="text-[11.5px] font-semibold text-primary">Ver todas →</button>
+          </div>
+          {movimentacoesRecentes.length === 0 ? (
+            <div className="text-[12.5px] text-muted-foreground py-3">Nenhuma movimentação concluída ainda.</div>
+          ) : (
+            <div className="flex flex-col">
+              {movimentacoesRecentes.map(m => (
+                <div key={m.id} onClick={() => setDetalheTx(m)} className="flex items-center gap-2.5 py-[9px] border-b border-3 last:border-b-0 cursor-pointer">
+                  <span className={cn('w-6 h-6 rounded-full flex-none grid place-items-center', m.income ? 'bg-success-soft text-success' : 'bg-destructive-soft text-destructive')}>
+                    {m.income ? <ArrowDownCircle className="w-3.5 h-3.5" /> : <ArrowUpCircle className="w-3.5 h-3.5" />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[12px] font-medium truncate">{m.descricao}</div>
+                    <div className="text-[10.5px] text-mute-2 truncate mt-[1px]">{m.contexto}</div>
+                  </div>
+                  <div className="text-right flex-none">
+                    <div className={cn('font-mono-hbs text-[12px] font-semibold', m.income ? 'text-success' : 'text-foreground')}>{m.income ? '+ ' : '− '}{fmtMoney(m.valor)}</div>
+                    <div className="text-[10px] text-mute-2 mt-[1px]">{m.income ? 'Recebido' : 'Pago'}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="bg-card border border-border rounded-xl overflow-hidden flex flex-col">
+          <div className="px-4 pt-4 pb-1 flex items-center justify-between">
+            <div className="text-[13.5px] font-semibold">Agenda</div>
+            <button onClick={() => navigate('/agenda')} className="text-[11.5px] font-semibold text-primary">Ver todos →</button>
+          </div>
+          {hojeAgenda.length === 0 && proximosDias.length === 0 ? (
+            <div className="px-4 py-3 text-[12px] text-muted-foreground">Nada agendado pros próximos dias.</div>
+          ) : (
+            <div className="px-4 pt-2 pb-3 flex flex-col gap-2.5">
+              {hojeAgenda.map(c => (
+                <div key={c.id} className="flex gap-3">
+                  <div className="font-mono-hbs text-[11.5px] text-primary font-semibold w-[38px] flex-none">{c.horaInicio || 'Hoje'}</div>
+                  <div className="min-w-0 truncate text-[12.5px]">{c.titulo}</div>
+                </div>
+              ))}
+              {proximosDias.map(c => (
+                <div key={c.id} className="flex gap-3">
+                  <div className="font-mono-hbs text-[11.5px] text-mute-2 w-[38px] flex-none">{dataCurta(c.data)}</div>
+                  <div className="min-w-0 truncate text-[12.5px] text-muted-foreground">{c.titulo}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex-1" />
+          <div className="m-3 rounded-xl p-4 bg-primary text-primary-foreground">
+            <div className="text-[12.5px] font-semibold leading-[1.35]">{agendaCtaTexto}</div>
+            <button onClick={() => navigate('/agenda')} className="mt-2.5 h-7 px-3 bg-primary-foreground text-primary rounded-lg text-[11px] font-bold">Ver agenda →</button>
+          </div>
+        </section>
+
+      </div>
+
+      {/* INFORMAÇÕES SECUNDÁRIAS — tudo real, nada removido: só reposicionado abaixo da
+          composição principal (referência visual), pra não competir com ela. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <section className="bg-card border border-border rounded-xl p-4">
+          <div className="text-[13px] font-semibold mb-3">Atividade recente</div>
+          {atividadeRecente.length === 0 ? (
+            <div className="text-[12px] text-muted-foreground py-2">Nenhuma atividade registrada ainda.</div>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {atividadeRecente.map(ev => {
+                const m = MODULO_ICON[ev.modulo];
+                const Icon = m?.icon || CheckCircle2;
+                return (
+                  <div key={ev.id} className="flex items-start gap-2.5">
+                    <Icon className={cn('w-3.5 h-3.5 flex-none mt-[2px]', m?.tone || 'text-success')} />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[12px] text-foreground/85 leading-[1.4]">{ev.texto}</div>
+                      <div className="text-[10.5px] text-mute-3 mt-0.5">{ev.modulo} · {tempoRelativo(ev.createdAt)}</div>
                     </div>
                   </div>
-                  <button onClick={() => atencaoItemAction(a)} className={cn('flex-none h-7 px-3 rounded-md text-[11.5px] font-semibold whitespace-nowrap hover:opacity-90 transition-opacity self-start sm:self-auto ml-[18px] sm:ml-0', s.btn)}>
-                    {acaoLabel}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {attention.length > 0 && (
-          <div className="text-right mt-3">
-            <button onClick={() => document.getElementById('fila-completa')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="text-[12.5px] font-semibold text-primary">
-              Ver todas as pendências →
-            </button>
-          </div>
-        )}
-      </section>
-
-      {/* FLUXO DE CAIXA COMPACTO — contexto, não protagonista */}
-      <section className="bg-card border border-border rounded-xl px-4 py-3 flex-none">
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-[12.5px] font-semibold text-muted-foreground">Fluxo de caixa · 6 meses</div>
-          <button onClick={() => navigate('/caixa/visao-geral')} className="text-[11.5px] font-semibold text-primary flex items-center gap-1">Ver financeiro <ArrowRight className="w-3 h-3" /></button>
-        </div>
-        <div className="flex items-end gap-2 h-[52px]">
-          {cashflow.map(m => (
-            <div key={m.mes} className="flex-1 flex flex-col items-center gap-1 h-full">
-              <div className="flex-1 w-full flex items-end justify-center gap-1">
-                <div className="w-2 rounded-t-[2px] bg-accent" style={{ height: `${Math.max(4, (m.receita / maxCash) * 100)}%` }} title={`Entradas · ${fmtMoney(m.receita)}`} />
-                <div className="w-2 rounded-t-[2px] bg-warning" style={{ height: `${Math.max(4, (m.despesa / maxCash) * 100)}%` }} title={`Saídas · ${fmtMoney(m.despesa)}`} />
-              </div>
-              <span className="text-[9px] text-mute-3 font-mono-hbs">{m.mes}</span>
+                );
+              })}
             </div>
-          ))}
-        </div>
-      </section>
+          )}
+        </section>
 
-      {/* TRABALHOS QUE MERECEM ATENÇÃO */}
-      <section className="bg-card border border-border rounded-xl p-4 flex-none">
-        <div className="text-[14px] font-semibold mb-3">Trabalhos que merecem atenção</div>
-        {trabalhosAtencao.length === 0 ? (
-          <div className="text-[12.5px] text-muted-foreground py-3">Nenhum trabalho ativo agora.</div>
-        ) : (
-          <div className="flex flex-col">
-            {trabalhosAtencao.map(t => (
-              <div key={t.id} onClick={() => navigate(`/trabalhos/${t.id}`)} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 py-[9px] border-b border-3 last:border-b-0 cursor-pointer">
-                <div className="min-w-0 flex-1">
-                  <div className="text-[13px] leading-[1.3] truncate">{t.clienteNome}</div>
-                  <div className="text-[11px] text-mute-2 truncate mt-[1px]">{t.nome}</div>
+        <section className="bg-card border border-border rounded-xl p-4 flex flex-col gap-3">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] font-semibold">Saúde do escritório</span>
+              <span className="flex items-center gap-1.5">
+                <span className={cn('w-1.5 h-1.5 rounded-full', SAUDE_DOT[saudeEscritorio.tone])} />
+                <span className={cn('text-[11.5px] font-semibold', SAUDE_TEXT[saudeEscritorio.tone])}>{saudeEscritorio.status}</span>
+              </span>
+            </div>
+            {saudeEscritorio.motivoPrincipal && <div className="text-[11px] text-muted-foreground mt-1">{saudeEscritorio.motivoPrincipal}</div>}
+            <button onClick={() => navigate('/relatorios')} className="text-[11.5px] font-semibold text-primary mt-1.5">Ver análise →</button>
+          </div>
+
+          <div className="pt-2.5 border-t border-3">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[13px] font-semibold">Trabalhos por etapa</span>
+              <button onClick={() => navigate('/trabalhos')} className="text-[11px] font-medium text-accent flex items-center gap-0.5"><ChevronLeft className="w-2.5 h-2.5 rotate-180" />Kanban</button>
+            </div>
+            {etapasResumo.length === 0 ? (
+              <div className="text-[11.5px] text-muted-foreground">Nenhum trabalho em andamento.</div>
+            ) : (
+              <div className="text-[12px] text-muted-foreground">
+                {etapasResumo.map((e, i) => (
+                  <span key={e.etapa}>{i > 0 && ' · '}<span className="font-mono-hbs text-foreground">{e.count}</span> {e.label}</span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="pt-2.5 border-t border-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap mb-1.5">
+              <div className="flex items-center gap-1.5 text-[13px] font-semibold"><Wallet className="w-3.5 h-3.5 text-mute-2" /> Reserva &amp; disponível</div>
+              <button onClick={() => navigate('/caixa/contas')} className="text-[11px] font-medium text-accent">Ver contas →</button>
+            </div>
+            {reserva.temContaReserva ? (
+              <div className="flex items-center gap-4">
+                <div>
+                  <div className="flex items-center gap-1 text-[10px] uppercase tracking-[.06em] text-mute-2"><PiggyBank className="w-2.5 h-2.5" /> Reserva</div>
+                  <div className="font-mono-hbs text-[15px] mt-0.5">{fmtMoney(reserva.reserva)}</div>
                 </div>
-                <div className="flex items-center gap-2.5 flex-none">
-                  <span className={cn('text-[10.5px] font-semibold px-2 py-[3px] rounded-md', TRABALHO_STATUS_STYLE[t.status])}>{t.status}</span>
-                  <span className="font-mono-hbs text-[11.5px] text-mute-2 w-9 text-right">{t.prazo ? dataCurta(t.prazo) : '—'}</span>
+                <div>
+                  <div className="text-[10px] uppercase tracking-[.06em] text-mute-2">Disponível pra você</div>
+                  <div className={cn('font-mono-hbs text-[15px] mt-0.5', reserva.disponivelAgora < 0 ? 'text-destructive' : 'text-success')}>{fmtMoney(reserva.disponivelAgora)}</div>
                 </div>
               </div>
-            ))}
+            ) : (
+              <div className="text-[11px] text-muted-foreground">
+                Marque uma conta como "reserva da empresa" em <button onClick={() => navigate('/caixa/contas')} className="text-accent font-medium underline underline-offset-2">Contas</button>.
+              </div>
+            )}
           </div>
-        )}
-        <div className="text-right mt-3">
-          <button onClick={() => navigate('/trabalhos')} className="text-[12.5px] font-semibold text-primary">Ver todos os trabalhos →</button>
-        </div>
-      </section>
-
-      {/* ATIVIDADE RECENTE — timeline simples sobre o histórico real (getHistorico), agrupado por
-          módulo (mesmo campo já usado em toda chamada de registrarEvento — não é dado novo). */}
-      <section className="bg-card border border-border rounded-xl p-4 flex-none">
-        <div className="text-[14px] font-semibold mb-3">Atividade recente</div>
-        {atividadeRecente.length === 0 ? (
-          <div className="text-[12.5px] text-muted-foreground py-3">Nenhuma atividade registrada ainda.</div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {atividadeRecente.map(ev => {
-              const m = MODULO_ICON[ev.modulo];
-              const Icon = m?.icon || CheckCircle2;
-              return (
-                <div key={ev.id} className="flex items-start gap-2.5">
-                  <Icon className={cn('w-3.5 h-3.5 flex-none mt-[2px]', m?.tone || 'text-success')} />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[12.5px] text-foreground/85 leading-[1.4]">{ev.texto}</div>
-                    <div className="text-[10.5px] text-mute-3 mt-0.5">{ev.modulo} · {tempoRelativo(ev.createdAt)}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
+        </section>
+      </div>
 
       {/* Fila de hoje — attention.ts inteiro, filtrável, com ação de cobrança em lote */}
       <section id="fila-completa" className="bg-card border border-border rounded-xl overflow-hidden flex flex-col flex-none">
@@ -524,88 +712,6 @@ export default function DashboardPage() {
         )}
       </section>
 
-      {/* CLUSTER COMPACTO — Hoje/Próximos dias, Saúde do escritório, Trabalhos por etapa, Reserva.
-          Todos secundários por design: sem score grande, sem Kanban, sem calendário completo. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <section className="bg-card border border-border rounded-xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-1.5 text-[13px] font-semibold"><CalendarDays className="w-3.5 h-3.5 text-mute-2" /> Hoje &amp; próximos dias</div>
-            <button onClick={() => navigate('/agenda')} className="text-[11.5px] font-semibold text-primary">Ver agenda →</button>
-          </div>
-          {hojeAgenda.length === 0 && proximosDias.length === 0 ? (
-            <div className="text-[12px] text-muted-foreground py-2">Nada agendado pros próximos dias.</div>
-          ) : (
-            <div className="flex flex-col gap-2.5">
-              {hojeAgenda.map(c => (
-                <div key={c.id} className="flex gap-3">
-                  <div className="font-mono-hbs text-[11.5px] text-primary font-semibold w-[38px] flex-none">{c.horaInicio || 'Hoje'}</div>
-                  <div className="min-w-0 truncate text-[12.5px]">{c.titulo}</div>
-                </div>
-              ))}
-              {proximosDias.map(c => (
-                <div key={c.id} className="flex gap-3">
-                  <div className="font-mono-hbs text-[11.5px] text-mute-2 w-[38px] flex-none">{dataCurta(c.data)}</div>
-                  <div className="min-w-0 truncate text-[12.5px] text-muted-foreground">{c.titulo}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="bg-card border border-border rounded-xl p-4 flex flex-col gap-3">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] font-semibold">Saúde do escritório</span>
-              <span className="flex items-center gap-1.5">
-                <span className={cn('w-1.5 h-1.5 rounded-full', SAUDE_DOT[saudeEscritorio.tone])} />
-                <span className={cn('text-[11.5px] font-semibold', SAUDE_TEXT[saudeEscritorio.tone])}>{saudeEscritorio.status}</span>
-              </span>
-            </div>
-            {saudeEscritorio.motivoPrincipal && <div className="text-[11px] text-muted-foreground mt-1">{saudeEscritorio.motivoPrincipal}</div>}
-            <button onClick={() => navigate('/relatorios')} className="text-[11.5px] font-semibold text-primary mt-1.5">Ver análise →</button>
-          </div>
-
-          <div className="pt-2.5 border-t border-3">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[13px] font-semibold">Trabalhos por etapa</span>
-              <button onClick={() => navigate('/trabalhos')} className="text-[11px] font-medium text-accent flex items-center gap-0.5"><ChevronLeft className="w-2.5 h-2.5 rotate-180" />Kanban</button>
-            </div>
-            {etapasResumo.length === 0 ? (
-              <div className="text-[11.5px] text-muted-foreground">Nenhum trabalho em andamento.</div>
-            ) : (
-              <div className="text-[12px] text-muted-foreground">
-                {etapasResumo.map((e, i) => (
-                  <span key={e.etapa}>{i > 0 && ' · '}<span className="font-mono-hbs text-foreground">{e.count}</span> {e.label}</span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="pt-2.5 border-t border-3">
-            <div className="flex items-center justify-between gap-2 flex-wrap mb-1.5">
-              <div className="flex items-center gap-1.5 text-[13px] font-semibold"><Wallet className="w-3.5 h-3.5 text-mute-2" /> Reserva &amp; disponível</div>
-              <button onClick={() => navigate('/caixa/contas')} className="text-[11px] font-medium text-accent">Ver contas →</button>
-            </div>
-            {reserva.temContaReserva ? (
-              <div className="flex items-center gap-4">
-                <div>
-                  <div className="flex items-center gap-1 text-[10px] uppercase tracking-[.06em] text-mute-2"><PiggyBank className="w-2.5 h-2.5" /> Reserva</div>
-                  <div className="font-mono-hbs text-[15px] mt-0.5">{fmtMoney(reserva.reserva)}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] uppercase tracking-[.06em] text-mute-2">Disponível pra você</div>
-                  <div className={cn('font-mono-hbs text-[15px] mt-0.5', reserva.disponivelAgora < 0 ? 'text-destructive' : 'text-success')}>{fmtMoney(reserva.disponivelAgora)}</div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-[11px] text-muted-foreground">
-                Marque uma conta como "reserva da empresa" em <button onClick={() => navigate('/caixa/contas')} className="text-accent font-medium underline underline-offset-2">Contas</button>.
-              </div>
-            )}
-          </div>
-        </section>
-      </div>
-
       <Dialog open={!!lembrete} onOpenChange={v => !v && setLembrete(null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader><DialogTitle>Lembrete para {lembrete?.clienteNome}</DialogTitle></DialogHeader>
@@ -620,6 +726,8 @@ export default function DashboardPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <DetalheLancamentoDialog transaction={detalheTx} onClose={() => setDetalheTx(null)} />
     </div>
   );
 }

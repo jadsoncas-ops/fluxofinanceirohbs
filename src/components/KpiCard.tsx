@@ -34,39 +34,44 @@ interface Props {
   onClick?: () => void;
   active?: boolean;
   className?: string;
+  /** Destaque sólido terracota (bg-primary, texto branco) — reproduz o card de maior hierarquia
+   *  da referência visual HBS 2.0 (Dashboard, Fase "reabertura visual"). Aditivo: quando ausente
+   *  o card renderiza exatamente como antes; `tone`/`active` são ignorados quando true. */
+  highlight?: boolean;
 }
 
 /** Card de KPI (rótulo + valor monetário grande) — mesmo padrão visual reimplementado à mão em
  *  Visão Geral, Dashboard, A Receber e A Pagar (cada um com seu próprio JSX de label/valor/
  *  padding). Consolidado na Fase 2 do redesign HBS 2.0; adoção nessas telas fica pras fases
  *  seguintes (Dashboard / Financeiro), pra não redesenhar página nenhuma nesta fase. */
-export function KpiCard({ label, value, size = 'default', tone = 'default', subtext, info, onClick, active, className }: Props) {
+export function KpiCard({ label, value, size = 'default', tone = 'default', subtext, info, onClick, active, className, highlight }: Props) {
   const s = SIZE_STYLE[size];
   const Comp = onClick ? 'button' : 'div';
   return (
     <Comp
       onClick={onClick}
       className={cn(
-        'bg-card min-w-0 text-left',
-        onClick && 'hover:bg-surface-2 transition-colors',
-        active && 'bg-surface-2',
+        'min-w-0 text-left',
+        highlight ? 'bg-primary' : 'bg-card',
+        onClick && (highlight ? 'hover:bg-primary-hover transition-colors' : 'hover:bg-surface-2 transition-colors'),
+        !highlight && active && 'bg-surface-2',
         s.pad,
         className
       )}
     >
       <div className="flex items-center gap-1 min-w-0">
-        <div className={cn('uppercase tracking-[.07em] text-mute-2 truncate', s.label)}>{label}</div>
+        <div className={cn('uppercase tracking-[.07em] truncate', s.label, highlight ? 'text-primary-foreground/75' : 'text-mute-2')}>{label}</div>
         {info && (
           <Tooltip delayDuration={200}>
-            <TooltipTrigger asChild><Info className="w-3 h-3 text-mute-3 flex-none cursor-help" /></TooltipTrigger>
+            <TooltipTrigger asChild><Info className={cn('w-3 h-3 flex-none cursor-help', highlight ? 'text-primary-foreground/60' : 'text-mute-3')} /></TooltipTrigger>
             <TooltipContent className="max-w-[260px] text-[11.5px]">{info}</TooltipContent>
           </Tooltip>
         )}
       </div>
-      <div className={cn('font-mono-hbs truncate', s.value, TONE_TEXT[tone])}>
+      <div className={cn('font-mono-hbs truncate', s.value, highlight ? 'text-primary-foreground' : TONE_TEXT[tone])}>
         <ValorMonetario value={value} />
       </div>
-      {subtext && <div className="text-[11px] text-muted-foreground mt-0.5">{subtext}</div>}
+      {subtext && <div className={cn('text-[11px] mt-0.5', highlight ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{subtext}</div>}
     </Comp>
   );
 }
