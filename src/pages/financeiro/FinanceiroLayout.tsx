@@ -4,7 +4,7 @@ import { useShell } from '@/hooks/use-shell';
 
 const items = [
   { to: '/caixa/visao-geral', label: 'Visão geral' },
-  { to: '/caixa/cobranca', label: 'Cobrança' },
+  { to: '/caixa/cobranca', label: 'A Receber' },
   { to: '/caixa/receitas', label: 'Movimentações' },
   { to: '/caixa/contas', label: 'Contas' },
   { to: '/caixa/parceiros', label: 'Parceiros' },
