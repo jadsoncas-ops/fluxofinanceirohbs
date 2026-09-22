@@ -204,7 +204,14 @@ export default function FinanceiroMovimentacoesPage() {
       {/* Lista agrupada por data */}
       {blocos.length === 0 ? (
         <div className="bg-card border border-dash border-2 rounded-xl py-10 text-center">
-          <p className="text-[12.5px] text-muted-foreground">Nenhuma movimentação encontrada.</p>
+          {shell.monthTransactions.length === 0 ? (
+            <p className="text-[12.5px] text-muted-foreground">Nenhuma movimentação neste período. Lançamentos de entrada e saída aparecem aqui assim que forem registrados.</p>
+          ) : (
+            <>
+              <p className="text-[12.5px] text-muted-foreground">Nenhum lançamento corresponde à busca ou aos filtros.</p>
+              <button onClick={() => { setSearch(''); setFiltroTipo('todos'); setFiltroStatus('todos'); }} className="mt-2 text-[11.5px] font-medium text-accent">Limpar busca e filtros</button>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-[18px]">

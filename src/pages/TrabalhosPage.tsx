@@ -5,6 +5,8 @@ import { getProcesses, getClients, getTransactions, updateProcess, registrarEven
 import { Process, TrabalhoEtapa } from '@/lib/types';
 import { NovoTrabalhoDiretoDialog } from '@/components/trabalhos/NovoTrabalhoDiretoDialog';
 import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ETAPA_DESCRICAO } from '@/lib/etapas';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -122,6 +124,14 @@ export default function TrabalhosPage() {
           <p className="text-sm font-semibold">Nenhum trabalho encontrado</p>
           <p className="text-xs text-muted-foreground mt-1.5">Tente buscar por outro cliente, objeto ou tipo de trabalho.</p>
         </div>
+      ) : trabalhos.length === 0 ? (
+        <div className="bg-card border border-dash border-2 rounded-xl py-16 text-center px-6">
+          <p className="text-sm font-semibold">Você ainda não tem nenhum Trabalho</p>
+          <p className="text-xs text-muted-foreground mt-1.5 max-w-[360px] mx-auto">Trabalho é o serviço técnico que a HBS presta para um cliente — regularização, projeto, laudo... Crie o primeiro pra começar a acompanhar etapa, produção e financeiro num só lugar.</p>
+          <button onClick={() => setNovoOpen(true)} className="mt-4 h-9 px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] font-medium hover:bg-primary-hover transition-colors inline-flex items-center gap-1.5">
+            <Plus className="w-3.5 h-3.5" /> Novo trabalho
+          </button>
+        </div>
       ) : view === 'kanban' ? (
         <div className="grid gap-3.5 items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(228px, 1fr))' }}>
           {COLUNAS.map(col => {
@@ -134,7 +144,12 @@ export default function TrabalhosPage() {
                 className="bg-kanban border border-border rounded-xl p-3 flex flex-col max-h-[calc(100vh-280px)] min-h-[160px]"
               >
                 <div className="flex items-center justify-between px-1 pb-2.5 flex-none">
-                  <span className="text-[12px] font-semibold">{col}</span>
+                  <Tooltip delayDuration={200}>
+                    <TooltipTrigger asChild>
+                      <span className="text-[12px] font-semibold cursor-help decoration-dotted underline-offset-2 hover:underline">{col}</span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[220px] text-[11.5px]">{ETAPA_DESCRICAO[col]}</TooltipContent>
+                  </Tooltip>
                   <span className="text-[10.5px] font-mono-hbs text-mute-2">{items.length}</span>
                 </div>
                 {/* Só esta lista rola — o cabeçalho da coluna (nome + contador) fica sempre visível,
@@ -188,12 +203,7 @@ export default function TrabalhosPage() {
             <span className="w-[84px] flex-none">Prazo</span>
             <span className="w-[92px] flex-none text-right">Valor</span>
           </div>
-          {trabalhos.length === 0 ? (
-            <div className="py-14 text-center">
-              <p className="text-sm text-muted-foreground">Nenhum trabalho cadastrado ainda.</p>
-            </div>
-          ) : (
-            trabalhosFiltrados.map(t => {
+          {trabalhosFiltrados.map(t => {
               const etapa = t.etapa || 'Levantamento';
               const pi = prazoInfo(t.prazo, etapa);
               return (
@@ -207,18 +217,17 @@ export default function TrabalhosPage() {
                   {/* Mobile: cliente + etapa + prazo + valor numa linha só, com legenda embutida */}
                   <div className="flex sm:hidden flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[11px]">
                     <span className="text-muted-foreground">{clienteNome(t.clienteId)}</span>
-                    <StatusBadge tone={ETAPA_TONE[etapa]}>{etapa}</StatusBadge>
+                    <StatusBadge tone={ETAPA_TONE[etapa]} info={ETAPA_DESCRICAO[etapa]}>{etapa}</StatusBadge>
                     <span className={cn('font-mono-hbs', TONE_TEXT_CLASS[pi.tone])}>{pi.label}</span>
                     {typeof t.valorContrato === 'number' && <span className="font-mono-hbs text-mute-2">{fmt(t.valorContrato)}</span>}
                   </div>
 
-                  <span className="hidden sm:block w-[112px] flex-none"><StatusBadge tone={ETAPA_TONE[etapa]}>{etapa}</StatusBadge></span>
+                  <span className="hidden sm:block w-[112px] flex-none"><StatusBadge tone={ETAPA_TONE[etapa]} info={ETAPA_DESCRICAO[etapa]}>{etapa}</StatusBadge></span>
                   <span className={cn('hidden sm:block w-[84px] flex-none text-[11px] font-mono-hbs', TONE_TEXT_CLASS[pi.tone])}>{pi.label}</span>
                   <span className="hidden sm:block w-[92px] flex-none text-right text-[12px] font-mono-hbs text-mute-2">{typeof t.valorContrato === 'number' ? fmt(t.valorContrato) : '—'}</span>
                 </div>
               );
-            })
-          )}
+            })}
         </div>
       )}
 

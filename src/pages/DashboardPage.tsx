@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   MessageCircle, Check, ChevronLeft, Wallet, AlertTriangle, CheckCircle2, ArrowRight, ArrowDownCircle, ArrowUpCircle,
-  Layers, FileStack, Handshake, Landmark, Users, ScrollText, CalendarDays, PiggyBank, type LucideIcon,
+  Layers, FileStack, Handshake, Landmark, Users, ScrollText, CalendarDays, PiggyBank, Info, type LucideIcon,
 } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
 import { getAccounts, getProcesses, getClients, getPartners, getTasks, getPropostas, getCompromissos, getCompanyConfig, getHistorico, updateClient, updateProcess, registrarEvento } from '@/lib/storage';
@@ -96,11 +97,16 @@ export default function DashboardPage() {
   const [selecionados, setSelecionados] = useState<string[]>([]);
   const [chartMeses, setChartMeses] = useState<(typeof CHART_PERIODS)[number]>(6);
   const [detalheTx, setDetalheTx] = useState<Transaction | null>(null);
+  // HBS 2.1 — cartão de primeiros passos: só aparece pra quem ainda não tem cliente ou trabalho
+  // real, e some sozinho (ou se a pessoa fechar) sem voltar depois. Não é onboarding obrigatório.
+  const [passosFechados, setPassosFechados] = useState(() => {
+    try { return localStorage.getItem('hbs_primeiros_passos_fechado') === '1'; } catch { return false; }
+  });
 
   const {
     attention, cashflow, etapasResumo, saudeEscritorio, reserva,
     statusGeral, kpisHero, kpisSecundarios, atencaoTop, hojeAgenda, proximosDias, trabalhosAtencao, atividadeRecente,
-    movimentacoesRecentes,
+    movimentacoesRecentes, clientCount, trabalhoCount,
   } = useMemo(() => {
     const accounts = getAccounts();
     const processes = getProcesses();
@@ -240,6 +246,9 @@ export default function DashboardPage() {
       attention, cashflow, etapasResumo, saudeEscritorio, reserva,
       statusGeral, kpisHero, kpisSecundarios, atencaoTop, hojeAgenda, proximosDias, trabalhosAtencao, atividadeRecente,
       movimentacoesRecentes,
+      // HBS 2.1 — só pra decidir se mostra o cartão de primeiros passos abaixo; não entra em
+      // nenhum cálculo financeiro/KPI existente.
+      clientCount: clients.length, trabalhoCount: processes.length,
     };
   }, [transactions, shell.refreshKey, chartMeses]);
 
@@ -320,6 +329,12 @@ export default function DashboardPage() {
     success: 'text-success', warning: 'text-warning', destructive: 'text-destructive',
   };
 
+  const mostrarPrimeirosPassos = !passosFechados && (clientCount === 0 || trabalhoCount === 0);
+  function fecharPrimeirosPassos() {
+    setPassosFechados(true);
+    try { localStorage.setItem('hbs_primeiros_passos_fechado', '1'); } catch { /* modo privado, sem problema */ }
+  }
+
   return (
     <div className="flex flex-col gap-3 animate-hbs-in">
       {/* SAUDAÇÃO */}
@@ -327,8 +342,32 @@ export default function DashboardPage() {
         <div className="min-w-0">
           <h1 className="text-[19px] font-semibold -tracking-[.02em] leading-tight">{saudacao()}, Jádson.</h1>
           <p className="text-[12px] text-muted-foreground mt-0.5">Aqui está o resumo do seu escritório hoje — {dataPorExtenso()}.</p>
+          {mostrarPrimeirosPassos && (
+            <p className="text-[12px] text-mute-2 mt-1">HBS Engineering organiza clientes, trabalhos, produção técnica, financeiro e cartório da HBS num só lugar.</p>
+          )}
         </div>
       </div>
+
+      {mostrarPrimeirosPassos && (
+        <div className="bg-accent-soft border border-accent/25 rounded-xl px-[18px] py-[15px] flex-none relative">
+          <button onClick={fecharPrimeirosPassos} className="absolute top-2.5 right-3 text-mute-2 hover:text-foreground text-[11px] px-1.5 py-0.5 rounded transition-colors" aria-label="Fechar primeiros passos">✕</button>
+          <div className="text-[12.5px] font-semibold text-accent">Primeiros passos</div>
+          <div className="flex flex-wrap gap-x-6 gap-y-1.5 mt-2 text-[12.5px]">
+            <span className={cn('flex items-center gap-1.5', clientCount > 0 ? 'text-mute-2 line-through' : 'text-foreground font-medium')}>
+              {clientCount > 0 ? <CheckCircle2 className="w-3.5 h-3.5 text-success flex-none" /> : <span className="w-3.5 h-3.5 rounded-full border-2 border-accent/40 flex-none" />}
+              1. Cadastre seu primeiro cliente
+            </span>
+            <span className={cn('flex items-center gap-1.5', trabalhoCount > 0 ? 'text-mute-2 line-through' : clientCount > 0 ? 'text-foreground font-medium' : 'text-mute-3')}>
+              {trabalhoCount > 0 ? <CheckCircle2 className="w-3.5 h-3.5 text-success flex-none" /> : <span className="w-3.5 h-3.5 rounded-full border-2 border-accent/40 flex-none" />}
+              2. Crie um Trabalho para ele — o serviço técnico que a HBS presta
+            </span>
+            <span className="flex items-center gap-1.5 text-mute-3">
+              <span className="w-3.5 h-3.5 rounded-full border-2 border-accent/40 flex-none" />
+              3. Acompanhe a execução, a produção técnica e o financeiro
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* KPIs PRINCIPAIS — 1 destaque (Saldo disponível) + 3 neutros, mesma fonte de verdade da
           Visão Geral (financials.ts) */}
@@ -596,7 +635,15 @@ export default function DashboardPage() {
                   <div className="font-mono-hbs text-[15px] mt-0.5">{fmtMoney(reserva.reserva)}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] uppercase tracking-[.06em] text-mute-2">Disponível pra você</div>
+                  <div className="flex items-center gap-1 text-[10px] uppercase tracking-[.06em] text-mute-2">
+                    Disponível para retirada
+                    <Tooltip delayDuration={200}>
+                      <TooltipTrigger asChild>
+                        <Info className="w-2.5 h-2.5 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-[240px] text-[11.5px]">Saldo total das contas menos o que está guardado na reserva — é o quanto dá pra retirar sem mexer na reserva da empresa.</TooltipContent>
+                    </Tooltip>
+                  </div>
                   <div className={cn('font-mono-hbs text-[15px] mt-0.5', reserva.disponivelAgora < 0 ? 'text-destructive' : 'text-success')}>{fmtMoney(reserva.disponivelAgora)}</div>
                 </div>
               </div>

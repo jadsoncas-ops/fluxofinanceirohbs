@@ -14,7 +14,8 @@ import { NotificationsDropdown } from '@/components/NotificationsDropdown';
 import { getTransactions, getTasks, getClients, getProcesses, getPropostas, getDocuments, onStorageChange } from '@/lib/storage';
 import { computeAttentionItems } from '@/lib/attention';
 import { Transaction, Task, TransactionType } from '@/lib/types';
-import { Search, X, LogOut, Eye, EyeOff } from 'lucide-react';
+import { Search, X, LogOut, Eye, EyeOff, Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { signOut } from '@/lib/auth';
 import { useValoresOcultos, toggleValoresOcultos } from '@/lib/privacidade';
 import { findNavItem } from '@/lib/navigation';
@@ -310,6 +311,12 @@ export function AppShell() {
                 {years.map((y: number) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                <Info className="w-3.5 h-3.5 text-mute-3 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[260px] text-[11.5px]">Esta tela organiza por data de vencimento do lançamento. A Visão geral e o Início usam a data em que o valor foi efetivamente recebido/pago — por isso os totais dos dois lugares podem não bater no mesmo mês.</TooltipContent>
+            </Tooltip>
           </div>
         )}
 

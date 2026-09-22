@@ -117,7 +117,7 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
       toast.success('Cliente atualizado com sucesso.');
     } else {
       addClient(clientData);
-      toast.success('Cliente cadastrado com sucesso.');
+      toast.success('Cliente cadastrado com sucesso.', { description: 'Agora você pode criar o primeiro Trabalho para ele.' });
     }
     onSave(clientData);
     onClose();
@@ -127,7 +127,7 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{editItem ? 'Editar Cliente' : 'Novo Cliente'}</DialogTitle>
+          <DialogTitle>{editItem ? 'Editar cliente' : 'Novo cliente'}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-2">
            <div className="space-y-1.5">
@@ -162,8 +162,8 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
              </div>
            </div>
 
-           <div className="space-y-2 border border-border/50 p-3 rounded-lg bg-muted/20">
-             <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Endereço (Opcional)</Label>
+           <div className="space-y-2 border border-3 p-3 rounded-lg bg-surface-2">
+             <Label className="text-[11px] font-bold uppercase tracking-wider text-mute-2">Endereço (opcional)</Label>
              <div className="grid grid-cols-4 gap-2">
                 <div className="col-span-3">
                    <Input value={rua} onChange={e => setRua(e.target.value)} placeholder="Rua / Avenida" className="text-xs h-8" />
@@ -179,18 +179,20 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
              </div>
            </div>
 
-           <div className="border border-border/50 rounded-lg bg-muted/20 overflow-hidden">
+           <div className="border border-3 rounded-lg bg-surface-2 overflow-hidden">
              <button
                type="button"
                onClick={() => setQualOpen(o => !o)}
-               className="w-full flex items-center justify-between p-3 text-left"
+               className="w-full flex flex-col items-start gap-1 p-3 text-left"
              >
-               <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Qualificação jurídica (opcional)</span>
-               <span className="text-[10.5px] text-muted-foreground">{qualOpen ? '▲' : '▼'}</span>
+               <div className="w-full flex items-center justify-between">
+                 <span className="text-[11px] font-bold uppercase tracking-wider text-mute-2">Qualificação jurídica (opcional)</span>
+                 <span className="text-[10.5px] text-mute-2">{qualOpen ? '▲' : '▼'}</span>
+               </div>
+               <p className="text-[10.5px] text-mute-2 font-normal normal-case tracking-normal">Dados usados em documentos e instrumentos jurídicos — preenchidos aqui, já entram prontos na hora de gerar documentos técnicos.</p>
              </button>
              {qualOpen && (
                <div className="px-3 pb-3 space-y-2">
-                 <p className="text-[10.5px] text-muted-foreground -mt-1">Preenchido aqui, já entra pronto na hora de gerar documentos técnicos — sem precisar redigitar por trabalho.</p>
                  <div className="grid grid-cols-2 gap-2">
                    <Input value={nacionalidade} onChange={e => setNacionalidade(e.target.value)} placeholder="Nacionalidade" className="text-xs h-8" />
                    <Input value={profissao} onChange={e => setProfissao(e.target.value)} placeholder="Profissão" className="text-xs h-8" />
@@ -205,8 +207,8 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
                  <Input value={filiacao} onChange={e => setFiliacao(e.target.value)} placeholder="Filiação (ex: filho de Fulano e Sicrana)" className="text-xs h-8" />
 
                  {precisaConjuge && (
-                   <div className="space-y-2 border-t border-border/50 pt-2 mt-1">
-                     <Label className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">Cônjuge</Label>
+                   <div className="space-y-2 border-t border-3 pt-2 mt-1">
+                     <Label className="text-[10.5px] font-semibold uppercase tracking-wider text-mute-2">Cônjuge</Label>
                      <Select value={regimeBens} onValueChange={v => setRegimeBens(v as RegimeBens)}>
                        <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Regime de bens" /></SelectTrigger>
                        <SelectContent>{REGIMES_BENS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
@@ -216,7 +218,7 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
                        <Input value={conjugeCpf} onChange={e => setConjugeCpf(e.target.value)} placeholder="CPF do cônjuge" className="text-xs h-8" />
                      </div>
                      <Input value={conjugeProfissao} onChange={e => setConjugeProfissao(e.target.value)} placeholder="Profissão do cônjuge" className="text-xs h-8" />
-                     <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
+                     <label className="flex items-center gap-1.5 text-[11px] text-mute-2 cursor-pointer">
                        <input type="checkbox" checked={conjugeAssina} onChange={e => setConjugeAssina(e.target.checked)} className="w-3.5 h-3.5 accent-primary" />
                        Cônjuge também assina os documentos
                      </label>
@@ -232,7 +234,7 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
            </div>
 
            <Button onClick={handleSave} className="w-full">
-              {editItem ? 'Guardar Alterações' : 'Cadastrar Cliente'}
+              {editItem ? 'Salvar alterações' : 'Cadastrar cliente'}
            </Button>
         </div>
       </DialogContent>

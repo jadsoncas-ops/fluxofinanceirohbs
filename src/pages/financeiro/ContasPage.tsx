@@ -4,7 +4,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, Landmark, PiggyBank, ArrowDownUp } from 'lucide-react';
+import { Plus, Pencil, Trash2, Landmark, PiggyBank, ArrowDownUp, Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { getAccounts, addAccount, updateAccount, deleteAccount, registrarMovimentacaoConta, getCompanyConfig, saveCompanyConfig } from '@/lib/storage';
 import { Account, AccountType, AccountMovimentacaoTipo } from '@/lib/types';
 import { KpiCard } from '@/components/KpiCard';
@@ -108,7 +109,15 @@ export default function FinanceiroContasPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-[16px] font-semibold">Contas</h2>
-          <p className="text-[12.5px] text-muted-foreground mt-0.5">Bancos, contas digitais e caixa — saldo mantido manualmente por você</p>
+          <p className="text-[12.5px] text-muted-foreground mt-0.5 flex items-center gap-1">
+            Bancos, contas digitais e caixa — saldo mantido manualmente por você
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                <Info className="w-3 h-3 text-mute-3 cursor-help flex-none" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[280px] text-[11.5px]">Marcar uma conta como "reserva" não move dinheiro — é só um rótulo que diz "esse saldo é protegido". A partir daí, o Início mostra separadamente quanto está na reserva e quanto está disponível para retirada (saldo total menos a reserva).</TooltipContent>
+            </Tooltip>
+          </p>
         </div>
         <button onClick={openNew} className="h-9 px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] font-medium hover:bg-primary-hover transition-colors flex items-center gap-1.5">
           <Plus className="w-3.5 h-3.5" /> Nova conta

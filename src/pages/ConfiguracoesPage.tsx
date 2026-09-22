@@ -63,6 +63,8 @@ export default function ConfiguracoesPage() {
   const [confirmarImportacaoUnica, setConfirmarImportacaoUnica] = useState(false);
   const [confirmarLimparLancamentos, setConfirmarLimparLancamentos] = useState(false);
   const [backupPendente, setBackupPendente] = useState<string | null>(null);
+  const [palavraLimpar, setPalavraLimpar] = useState('');
+  const [palavraRestaurar, setPalavraRestaurar] = useState('');
 
   useEffect(() => {
     const temDadoLocal = !!localStorage.getItem('hbs_clients') || !!localStorage.getItem('hbs_transactions');
@@ -177,6 +179,7 @@ export default function ConfiguracoesPage() {
       toast.error('Ficheiro inválido. Verifique o formato JSON.');
     } finally {
       setBackupPendente(null);
+      setPalavraRestaurar('');
     }
   }
 
@@ -188,6 +191,7 @@ export default function ConfiguracoesPage() {
     clearAllTransactions();
     toast.success('Todos os lançamentos foram apagados.');
     setConfirmarLimparLancamentos(false);
+    setPalavraLimpar('');
     shell.refresh();
   }
 
@@ -336,32 +340,40 @@ export default function ConfiguracoesPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!backupPendente} onOpenChange={v => !v && setBackupPendente(null)}>
+      <AlertDialog open={!!backupPendente} onOpenChange={v => { if (!v) { setBackupPendente(null); setPalavraRestaurar(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Restaurar backup</AlertDialogTitle>
-            <AlertDialogDescription>
-              Isso substitui os dados atuais deste aparelho pelos dados do arquivo de backup selecionado. Esta ação não pode ser desfeita.
+            <AlertDialogDescription asChild>
+              <div className="space-y-2.5">
+                <p>Isso substitui TODOS os dados atuais deste aparelho (clientes, trabalhos, financeiro, tudo) pelos dados do arquivo de backup selecionado. Esta ação não pode ser desfeita.</p>
+                <p>Para confirmar, digite <strong className="text-foreground font-medium">RESTAURAR</strong> abaixo:</p>
+                <Input value={palavraRestaurar} onChange={e => setPalavraRestaurar(e.target.value)} placeholder="RESTAURAR" className="h-9 text-xs" autoFocus />
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmarImportarBackup} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Restaurar</AlertDialogAction>
+            <AlertDialogAction disabled={palavraRestaurar !== 'RESTAURAR'} onClick={confirmarImportarBackup} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:pointer-events-none">Restaurar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={confirmarLimparLancamentos} onOpenChange={setConfirmarLimparLancamentos}>
+      <AlertDialog open={confirmarLimparLancamentos} onOpenChange={v => { setConfirmarLimparLancamentos(v); if (!v) setPalavraLimpar(''); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Limpar lançamentos</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja apagar TODOS os lançamentos? Esta ação não pode ser desfeita. Seus clientes serão mantidos.
+            <AlertDialogDescription asChild>
+              <div className="space-y-2.5">
+                <p>Tem certeza que deseja apagar TODOS os lançamentos? Esta ação não pode ser desfeita. Seus clientes serão mantidos.</p>
+                <p>Para confirmar, digite <strong className="text-foreground font-medium">APAGAR</strong> abaixo:</p>
+                <Input value={palavraLimpar} onChange={e => setPalavraLimpar(e.target.value)} placeholder="APAGAR" className="h-9 text-xs" autoFocus />
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmarLimparLancamentosAgora} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Apagar tudo</AlertDialogAction>
+            <AlertDialogAction disabled={palavraLimpar !== 'APAGAR'} onClick={confirmarLimparLancamentosAgora} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:pointer-events-none">Apagar tudo</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

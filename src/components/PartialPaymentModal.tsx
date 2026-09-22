@@ -290,6 +290,9 @@ export function PartialPaymentModal({ open, onClose, onSave, transaction }: Prop
 
           {isParcial && (
              <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+               <p className="text-[11.5px] text-muted-foreground leading-snug px-0.5">
+                 Este pagamento é parcial: o valor recebido acima fica registrado agora, e o restante continua em aberto como um novo lançamento — nenhum pagamento duplicado, é o mesmo valor original dividido em duas partes.
+               </p>
                <div className="flex justify-between items-center bg-muted/40 p-3 rounded-xl border border-border/60">
                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Valor Restante:</span>
                  <span className="text-base font-black tabular-nums text-foreground/80">R$ {diferenca.toFixed(2)}</span>

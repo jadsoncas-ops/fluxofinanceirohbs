@@ -80,7 +80,9 @@ export function NovoTrabalhoDiretoDialog({ open, onClose, onCreated, trabalho }:
       texto: editando ? `Trabalho "${salvo.objeto}" editado` : `Trabalho "${salvo.objeto}" criado`,
       clienteId, trabalhoId: salvo.id,
     });
-    toast.success(editando ? 'Trabalho atualizado.' : 'Trabalho criado.');
+    toast.success(editando ? 'Trabalho atualizado.' : 'Trabalho criado.', editando ? undefined : {
+      description: 'Agora você pode acompanhar a execução, gerar documentos técnicos e organizar o financeiro dele.',
+    });
     onCreated(salvo.id);
     onClose();
   }
@@ -89,6 +91,9 @@ export function NovoTrabalhoDiretoDialog({ open, onClose, onCreated, trabalho }:
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader><DialogTitle>{editando ? 'Editar trabalho' : 'Novo trabalho'}</DialogTitle></DialogHeader>
+        {!editando && (
+          <p className="text-[11.5px] text-mute-2 -mt-2">Trabalho é o serviço técnico que a HBS presta para este cliente — a partir dele você organiza etapa, produção técnica e financeiro.</p>
+        )}
         <div className="space-y-3.5 py-1">
           <div className="space-y-1.5">
             <Label>Cliente</Label>

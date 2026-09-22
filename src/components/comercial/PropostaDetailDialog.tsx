@@ -35,6 +35,7 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
   const [editOpen, setEditOpen] = useState(false);
   const [editContratoOpen, setEditContratoOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<'proposta' | 'contrato' | null>(null);
+  const [confirmarAprovar, setConfirmarAprovar] = useState(false);
 
   const { proposta, cliente, contrato } = useMemo(() => {
     void key;
@@ -57,7 +58,10 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
 
   function handleAprovar() {
     aprovarPropostaEGerarContrato(proposta!);
-    toast.success('Proposta aprovada e contrato gerado.');
+    toast.success('Proposta aprovada e contrato gerado.', {
+      description: 'Agora crie o Trabalho a partir do contrato para gerar as parcelas no financeiro.',
+    });
+    setConfirmarAprovar(false);
     setKey(k => k + 1);
     onChanged();
   }
@@ -170,7 +174,7 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
                 )}
                 {(proposta.status === 'Rascunho' || proposta.status === 'Enviada' || proposta.status === 'Em aprovação') && (
                   <>
-                    <Button size="sm" className="gap-1.5" onClick={handleAprovar}><CheckCircle2 className="w-3.5 h-3.5" /> Aprovar e gerar contrato</Button>
+                    <Button size="sm" className="gap-1.5" onClick={() => setConfirmarAprovar(true)}><CheckCircle2 className="w-3.5 h-3.5" /> Aprovar e gerar contrato</Button>
                     <Button size="sm" variant="ghost" className="gap-1.5 text-destructive hover:text-destructive" onClick={() => setStatus('Perdida')}><XCircle className="w-3.5 h-3.5" /> Marcar como perdida</Button>
                   </>
                 )}
@@ -217,6 +221,24 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
             <AlertDialogAction onClick={deleteConfirm === 'contrato' ? handleDeleteContrato : handleDeleteProposta} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmarAprovar} onOpenChange={setConfirmarAprovar}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Aprovar proposta e gerar contrato</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>Cliente: <strong className="text-foreground font-medium">{cliente?.nome || 'Cliente'}</strong> · Valor: <strong className="text-foreground font-medium">{formatBRL(proposta.resultado.precoVenda)}</strong></p>
+                <p>Isso vai marcar a proposta {proposta.codigo} como Aprovada e criar um contrato no valor acima. Depois disso a proposta não pode mais ser excluída diretamente — e o próximo passo será criar o Trabalho a partir do contrato para gerar as parcelas no financeiro.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleAprovar}>Aprovar e gerar contrato</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

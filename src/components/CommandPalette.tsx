@@ -2,10 +2,24 @@ import { useEffect, useState, useMemo } from 'react';
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import {
   LayoutGrid, FolderKanban, Users, ListTodo, Settings as SettingsIcon, Plus, FileText,
-  Receipt, ArrowUpCircle, ArrowDownCircle, UserPlus, BarChart3, ScrollText, MessageCircle, ShieldAlert,
+  Receipt, ArrowUpCircle, ArrowDownCircle, UserPlus, BarChart3, ScrollText, MessageCircle, ShieldAlert, HelpCircle,
 } from 'lucide-react';
 import { getClients, getProcesses, getTasks } from '@/lib/storage';
 import { TransactionType } from '@/lib/types';
+import { ETAPA_DESCRICAO } from '@/lib/etapas';
+import { toast } from 'sonner';
+
+const GLOSSARIO: { termo: string; definicao: string }[] = [
+  { termo: 'Trabalho', definicao: 'O serviço técnico que a HBS presta para um cliente — reúne etapa, produção técnica, financeiro e cartório num só lugar.' },
+  { termo: 'Produção técnica', definicao: 'Onde os documentos técnicos do trabalho (memorial, plantas, laudos etc.) são gerados e organizados.' },
+  { termo: 'Reserva', definicao: 'Conta marcada como "reserva da empresa" em Contas — protegida do valor disponível para retirada.' },
+  { termo: 'A receber', definicao: 'Lançamentos de entrada ainda pendentes de recebimento.' },
+  { termo: 'A pagar', definicao: 'Lançamentos de saída ainda pendentes de pagamento.' },
+  { termo: 'Repasse', definicao: 'Valor devido a um parceiro (comissionado, indicador, prestador) vinculado a um trabalho.' },
+  { termo: 'Proposta', definicao: 'Orçamento comercial enviado ao cliente, antes de virar contrato.' },
+  { termo: 'Contrato', definicao: 'Gerado ao aprovar uma proposta — ainda não é um Trabalho até ter o Trabalho criado a partir dele.' },
+  ...Object.entries(ETAPA_DESCRICAO).map(([termo, definicao]) => ({ termo, definicao })),
+];
 
 interface Props {
   open: boolean;
@@ -130,6 +144,17 @@ export function CommandPalette({ open, onOpenChange, onNavigate, onNewTask, onNe
             </CommandGroup>
           </>
         )}
+
+        <CommandSeparator />
+        <CommandGroup heading="Glossário">
+          {GLOSSARIO.map(g => (
+            <CommandItem key={g.termo} value={`glossário ${g.termo}`} onSelect={() => toast.info(g.termo, { description: g.definicao })} className="gap-3 py-2">
+              <Tile icon={HelpCircle} />
+              <span className="text-[13px] truncate flex-1">{g.termo}</span>
+              <span className="text-[11px] text-mute-3 font-mono-hbs">o que é isso?</span>
+            </CommandItem>
+          ))}
+        </CommandGroup>
 
         {snapshot.clients.length > 0 && (
           <>

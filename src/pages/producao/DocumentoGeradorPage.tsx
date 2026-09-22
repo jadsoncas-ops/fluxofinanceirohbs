@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Printer, Save } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Printer, Save } from 'lucide-react';
 import { getProcesses, getClients, getCompanyConfig, getDocuments, addDocument, updateDocument, registrarEvento } from '@/lib/storage';
 import { TipoDocumentoTecnico } from '@/lib/types';
 import { buscarTemplate } from '@/lib/producao/registry';
@@ -91,11 +91,22 @@ export default function DocumentoGeradorPage() {
 
   return (
     <div className="flex flex-col gap-[18px] pb-10 animate-hbs-in">
-      <div className="no-print flex items-center justify-between flex-wrap gap-3">
-        <button onClick={() => navigate(`/trabalhos/${trabalho.id}`)} className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-          <ArrowLeft className="w-3 h-3" /> {trabalho.objeto}
-        </button>
-        {template.disponivel && (
+      <div className="no-print flex flex-col gap-1">
+        <div className="flex items-center gap-1 text-[11px] text-mute-2 flex-wrap">
+          <button onClick={() => navigate('/producao')} className="hover:text-foreground transition-colors">Produção técnica</button>
+          <ChevronRight className="w-2.5 h-2.5 text-mute-3" />
+          <button onClick={() => navigate(`/trabalhos/${trabalho.id}`)} className="hover:text-foreground transition-colors">{trabalho.objeto}</button>
+          <ChevronRight className="w-2.5 h-2.5 text-mute-3" />
+          <span className="text-mute-3">{template.label}</span>
+        </div>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-1">
+            <button onClick={() => navigate(`/trabalhos/${trabalho.id}`)} className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+              <ArrowLeft className="w-3 h-3" />
+            </button>
+            <span className="text-[13px] font-semibold">Gerando: {template.label} <span className="font-normal text-muted-foreground">para {trabalho.objeto}</span></span>
+          </div>
+          {template.disponivel && (
           <div className="flex items-center gap-2">
             {(gerado || jaExiste) && <span className="text-[11.5px] text-success font-medium">✓ Salvo no trabalho</span>}
             <button onClick={salvarDocumento} className="h-9 px-3.5 rounded-lg border-2 text-[12.5px] font-medium hover:border-hover transition-colors flex items-center gap-1.5">
@@ -105,7 +116,8 @@ export default function DocumentoGeradorPage() {
               <Printer className="w-3.5 h-3.5" /> Imprimir / Baixar PDF
             </button>
           </div>
-        )}
+          )}
+        </div>
       </div>
 
       {!template.disponivel ? (

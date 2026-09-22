@@ -10,6 +10,7 @@ import { computeTrabalhoFinancials, dataEfetiva } from '@/lib/financials';
 import { TrabalhoEtapa, DocumentSituacao, Oficio, Exigencia, ExigenciaStatus } from '@/lib/types';
 import { Stepper } from '@/components/ui/Stepper';
 import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
+import { ETAPA_DESCRICAO } from '@/lib/etapas';
 import { KpiCard, type KpiTone } from '@/components/KpiCard';
 import { computeCartorioProgress } from '@/lib/cartorio';
 import { DOCUMENT_REGISTRY } from '@/lib/producao/registry';
@@ -105,7 +106,19 @@ export default function TrabalhoDetailPage() {
       createdAt: n.data,
       modulo: 'Financeiro' as const,
     }));
-    const historico = [...getHistorico({ trabalhoId: trabalho.id }), ...notasComoEventos].sort((a, b) => b.createdAt - a.createdAt);
+    // HBS 2.1: PartialPaymentModal grava os dois registros acima pro MESMO pagamento (linhas
+    // 227-238 de PartialPaymentModal.tsx, a poucos ms de diferença) — um resumo curto
+    // ("Pagamento recebido — R$X em Y") e uma nota mais completa ("✅ Pagamento integral..." /
+    // "💰 Pagamento parcial...", que já traz o restante quando é parcial). Juntos na mesma linha
+    // do tempo, os dois lêem como se o pagamento tivesse sido registrado duas vezes. Aqui só
+    // escondemos o resumo curto quando a nota completa do mesmo instante já existe — nenhum
+    // dado gravado é alterado ou removido, é só apresentação.
+    const notaJaContaEssePagamento = (createdAt: number) =>
+      notasComoEventos.some(n => (n.texto.startsWith('✅ Pagamento integral') || n.texto.startsWith('💰 Pagamento parcial')) && Math.abs(n.createdAt - createdAt) < 5000);
+    const eventosSemDuplicar = getHistorico({ trabalhoId: trabalho.id }).filter(ev =>
+      !(ev.texto.startsWith('Pagamento recebido —') && notaJaContaEssePagamento(ev.createdAt))
+    );
+    const historico = [...eventosSemDuplicar, ...notasComoEventos].sort((a, b) => b.createdAt - a.createdAt);
     const contrato = trabalho.contratoId ? getContratos().find(c => c.id === trabalho.contratoId) || null : null;
     const lancamentos = shell.allTransactions.filter(t => t.processId === trabalho.id).sort((a, b) => a.data.localeCompare(b.data));
     return { trabalho, cliente, fin, tasks, documentos, historico, contrato, lancamentos };
@@ -407,7 +420,7 @@ export default function TrabalhoDetailPage() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="hover:opacity-80 transition-opacity">
-                  <StatusBadge tone={ETAPA_TONE[etapaAtual]} size="md">
+                  <StatusBadge tone={ETAPA_TONE[etapaAtual]} size="md" info={ETAPA_DESCRICAO[etapaAtual]}>
                     {etapaAtual} <ChevronDown className="w-3 h-3" />
                   </StatusBadge>
                 </button>
@@ -575,7 +588,7 @@ export default function TrabalhoDetailPage() {
               </div>
             </div>
             {documentos.length === 0 ? (
-              <div className="px-[18px] py-6 text-xs text-muted-foreground">Nenhum documento vinculado ainda.</div>
+              <div className="px-[18px] py-6 text-xs text-muted-foreground">Nenhum documento vinculado ainda. Use <strong className="text-foreground font-medium">"Gerar documento"</strong> para criar um documento técnico deste trabalho, ou <strong className="text-foreground font-medium">"Anexar link"</strong> para vincular um arquivo já existente (Drive, PDF, etc.).</div>
             ) : (
               documentos.map(d => (
                 <div key={d.id} className={cn('group flex items-center gap-[11px] px-[18px] py-[10px] border-t border-3 hover:bg-surface-3 transition-colors')}>

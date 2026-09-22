@@ -72,7 +72,10 @@ export default function CartorioPage() {
           <ScrollText className="w-4 h-4 text-mute-2" /> Trabalhos em trâmite
         </div>
         {trabalhos.length === 0 ? (
-          <div className="px-[18px] py-8 text-center text-xs text-muted-foreground">Nenhum trabalho com registro em cartório iniciado ainda.</div>
+          <div className="px-[18px] py-10 text-center">
+            <p className="text-xs text-muted-foreground max-w-[360px] mx-auto">Nenhum trabalho com registro em cartório iniciado ainda. Abra um trabalho e use o botão <strong className="text-foreground font-medium">"Iniciar registro em cartório"</strong> quando ele estiver pronto pra tramitar.</p>
+            <button onClick={() => navigate('/trabalhos')} className="mt-3 h-8 px-3 rounded-lg border-2 text-[11.5px] font-medium hover:border-hover transition-colors">Ver trabalhos</button>
+          </div>
         ) : (
           trabalhos.map(({ processo, cliente, progress }) => (
             <button
