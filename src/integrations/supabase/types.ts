@@ -93,6 +93,7 @@ export type Database = {
           descarte_entulhos: Json | null
           abnt: Json | null
           registro: Json | null
+          observacoes: string | null
           created_at: string
           updated_at: string
           created_by: string | null
@@ -121,6 +122,7 @@ export type Database = {
           descarte_entulhos?: Json | null
           abnt?: Json | null
           registro?: Json | null
+          observacoes?: string | null
           created_at?: string
           updated_at?: string
           created_by?: string | null
@@ -149,6 +151,7 @@ export type Database = {
           descarte_entulhos?: Json | null
           abnt?: Json | null
           registro?: Json | null
+          observacoes?: string | null
           created_at?: string
           updated_at?: string
           created_by?: string | null

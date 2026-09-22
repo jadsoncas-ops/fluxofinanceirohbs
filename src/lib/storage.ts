@@ -126,6 +126,7 @@ function rowToProcess(r: Row<'hbs_processes'>): Process {
     descarteEntulhos: r.descarte_entulhos as Process['descarteEntulhos'],
     abnt: r.abnt as Process['abnt'],
     registro: (r.registro as Process['registro']) ?? undefined,
+    observacoes: r.observacoes ?? undefined,
     createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime(),
   };
 }
@@ -145,6 +146,7 @@ function processToRow(p: Process): Database['public']['Tables']['hbs_processes']
     descarte_entulhos: (p.descarteEntulhos ?? null) as Database['public']['Tables']['hbs_processes']['Insert']['descarte_entulhos'],
     abnt: (p.abnt ?? null) as Database['public']['Tables']['hbs_processes']['Insert']['abnt'],
     registro: (p.registro ?? null) as Database['public']['Tables']['hbs_processes']['Insert']['registro'],
+    observacoes: p.observacoes ?? null,
     created_at: p.createdAt ? new Date(p.createdAt).toISOString() : undefined,
     updated_at: p.updatedAt ? new Date(p.updatedAt).toISOString() : undefined,
   };

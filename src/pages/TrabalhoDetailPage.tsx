@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, FileText, FilePlus2, Trash2, CheckCircle2, Pencil, Clock3, Check, MessageCircle, Link2, ExternalLink, ScrollText, ShieldAlert, ChevronDown } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
@@ -86,6 +86,7 @@ export default function TrabalhoDetailPage() {
   const [matriculaOpen, setMatriculaOpen] = useState(false);
   const [matriculaNumero, setMatriculaNumero] = useState('');
   const [matriculaData, setMatriculaData] = useState(() => new Date().toISOString().slice(0, 10));
+  const [observacoesDraft, setObservacoesDraft] = useState('');
 
   const { trabalho, cliente, fin, tasks, documentos, historico, contrato, lancamentos } = useMemo(() => {
     void key; void shell.refreshKey;
@@ -123,6 +124,13 @@ export default function TrabalhoDetailPage() {
     const lancamentos = shell.allTransactions.filter(t => t.processId === trabalho.id).sort((a, b) => a.data.localeCompare(b.data));
     return { trabalho, cliente, fin, tasks, documentos, historico, contrato, lancamentos };
   }, [trabalhoId, key, shell.allTransactions, shell.refreshKey]);
+
+  // Só resincroniza ao trocar de trabalho; reagir a trabalho.observacoes aqui apagaria o que
+  // o usuário está digitando a cada re-render.
+  useEffect(() => {
+    setObservacoesDraft(trabalho?.observacoes ?? '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trabalho?.id]);
 
   if (!trabalho || !fin) {
     return (
@@ -244,6 +252,13 @@ export default function TrabalhoDetailPage() {
     if (novaEtapa === etapaAtual) return;
     updateProcess({ ...trabalho, etapa: novaEtapa });
     toast.success(`Trabalho movido para "${novaEtapa}".`);
+    setKey(k => k + 1);
+  }
+
+  function salvarObservacoes() {
+    if (observacoesDraft === (trabalho.observacoes ?? '')) return;
+    updateProcess({ ...trabalho, observacoes: observacoesDraft.trim() || undefined });
+    toast.success('Observações salvas.');
     setKey(k => k + 1);
   }
 
@@ -558,6 +573,16 @@ export default function TrabalhoDetailPage() {
             <Input value={novaTarefa} onChange={e => setNovaTarefa(e.target.value)} onKeyDown={e => e.key === 'Enter' && adicionarTarefa()} placeholder="Nova tarefa…" className="h-8 text-xs flex-1" />
             <Input type="date" value={novaTarefaPrazo} onChange={e => setNovaTarefaPrazo(e.target.value)} className="h-8 text-xs w-[136px] font-mono-hbs" />
             <button onClick={adicionarTarefa} className="h-8 w-8 flex-none grid place-items-center rounded-lg border-2 hover:border-hover transition-colors"><Plus className="w-3.5 h-3.5" /></button>
+          </div>
+          <div className="px-[18px] py-3 border-t border-3">
+            <div className="text-[10.5px] uppercase tracking-[.06em] text-mute-2 mb-1.5">Observações</div>
+            <Textarea
+              value={observacoesDraft}
+              onChange={e => setObservacoesDraft(e.target.value)}
+              onBlur={salvarObservacoes}
+              placeholder="Anotações livres sobre este trabalho…"
+              className="min-h-[70px] text-[12.5px]"
+            />
           </div>
         </section>
 

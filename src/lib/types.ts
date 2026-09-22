@@ -223,6 +223,8 @@ export interface Process {
   abnt?: AbntData;
   /** Trâmite em cartório — presente só nos trabalhos que vão a registro. */
   registro?: RegistroImobiliario;
+  /** Anotações livres sobre o trabalho — não é histórico de eventos nem tarefa. */
+  observacoes?: string;
   createdAt: number;
   updatedAt: number;
 }
