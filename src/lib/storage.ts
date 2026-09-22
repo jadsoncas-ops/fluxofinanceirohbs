@@ -2,7 +2,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import {
-  Transaction, Client, Process, Task, Account, Partner, DocumentRecord,
+  Transaction, Client, Process, Task, Account, AccountMovimentacao, AccountMovimentacaoTipo, Partner, DocumentRecord,
   CompanyConfig, Proposta, Contrato, PrecificacaoConfig, HistoricoEvent, Compromisso, AvaliacaoAluguel,
 } from './types';
 import { CUSTOS_FIXOS_PADRAO, CUSTOS_VARIAVEIS_PADRAO, INVESTIMENTOS_PADRAO, HORAS_PRODUTIVAS_PADRAO, CUSTOS_PROTOCOLO_PADRAO } from './comercial/precificacao';
@@ -169,10 +169,17 @@ function taskToRow(t: Task): Database['public']['Tables']['hbs_tasks']['Insert']
 }
 
 function rowToAccount(r: Row<'hbs_accounts'>): Account {
-  return { id: r.id, nome: r.nome, tipo: r.tipo as Account['tipo'], saldo: Number(r.saldo), ativo: r.ativo, createdAt: new Date(r.created_at).getTime() };
+  return {
+    id: r.id, nome: r.nome, tipo: r.tipo as Account['tipo'], saldo: Number(r.saldo), ativo: r.ativo,
+    createdAt: new Date(r.created_at).getTime(), movimentacoes: (r.movimentacoes as Account['movimentacoes']) ?? [],
+  };
 }
 function accountToRow(a: Account): Database['public']['Tables']['hbs_accounts']['Insert'] {
-  return { id: a.id, nome: a.nome, tipo: a.tipo, saldo: a.saldo, ativo: a.ativo, created_at: a.createdAt ? new Date(a.createdAt).toISOString() : undefined };
+  return {
+    id: a.id, nome: a.nome, tipo: a.tipo, saldo: a.saldo, ativo: a.ativo,
+    movimentacoes: (a.movimentacoes ?? []) as Database['public']['Tables']['hbs_accounts']['Insert']['movimentacoes'],
+    created_at: a.createdAt ? new Date(a.createdAt).toISOString() : undefined,
+  };
 }
 
 function rowToPartner(r: Row<'hbs_partners'>): Partner {
@@ -848,6 +855,17 @@ export function updateAccount(updated: Account): void {
     const { error } = await supabase.from('hbs_accounts').update(accountToRow(updated)).eq('id', updated.id);
     if (error) { reportError(error, 'Não foi possível salvar. Sincronizando novamente…'); await resyncTable('hbs_accounts', rowToAccount, v => cache.accounts = v); }
   })();
+}
+
+/** Registra um aporte/retirada com data — ajusta Account.saldo automaticamente (+ no aporte, - na
+ *  retirada) e guarda a movimentação em Account.movimentacoes. Diferente de updateAccount() chamado
+ *  direto pelo diálogo "Editar conta", que só corrige o número sem deixar rastro. */
+export function registrarMovimentacaoConta(accountId: string, tipo: AccountMovimentacaoTipo, valor: number, data: string, observacao?: string): void {
+  const conta = cache.accounts.find(a => a.id === accountId);
+  if (!conta) return;
+  const movimentacao: AccountMovimentacao = { id: crypto.randomUUID(), tipo, valor, data, observacao: observacao || undefined, createdAt: Date.now() };
+  const saldo = tipo === 'Aporte' ? conta.saldo + valor : conta.saldo - valor;
+  updateAccount({ ...conta, saldo, movimentacoes: [movimentacao, ...(conta.movimentacoes || [])] });
 }
 
 export function deleteAccount(id: string): void {

@@ -4,9 +4,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, Landmark, PiggyBank } from 'lucide-react';
-import { getAccounts, addAccount, updateAccount, deleteAccount, getCompanyConfig, saveCompanyConfig } from '@/lib/storage';
-import { Account, AccountType } from '@/lib/types';
+import { Plus, Pencil, Trash2, Landmark, PiggyBank, ArrowDownUp } from 'lucide-react';
+import { getAccounts, addAccount, updateAccount, deleteAccount, registrarMovimentacaoConta, getCompanyConfig, saveCompanyConfig } from '@/lib/storage';
+import { Account, AccountType, AccountMovimentacaoTipo } from '@/lib/types';
 import { KpiCard } from '@/components/KpiCard';
 import { StatusBadge } from '@/components/StatusBadge';
 import { toast } from 'sonner';
@@ -31,6 +31,12 @@ export default function FinanceiroContasPage() {
   const [tipo, setTipo] = useState<AccountType>('Conta Corrente');
   const [saldo, setSaldo] = useState('');
   const [ativo, setAtivo] = useState(true);
+  const [movOpen, setMovOpen] = useState(false);
+  const [movConta, setMovConta] = useState<Account | null>(null);
+  const [movTipo, setMovTipo] = useState<AccountMovimentacaoTipo>('Aporte');
+  const [movValor, setMovValor] = useState('');
+  const [movData, setMovData] = useState(() => new Date().toISOString().slice(0, 10));
+  const [movObservacao, setMovObservacao] = useState('');
 
   const { accounts, contaReservaId } = useMemo(() => { void key; return { accounts: getAccounts(), contaReservaId: getCompanyConfig().contaReservaId }; }, [key]);
   const refresh = () => setKey(k => k + 1);
@@ -66,6 +72,26 @@ export default function FinanceiroContasPage() {
       toast.success('Conta criada.');
     }
     setOpen(false);
+    refresh();
+  }
+
+  function openMovimentar(a: Account) {
+    setMovConta(a);
+    setMovTipo('Aporte');
+    setMovValor('');
+    setMovData(new Date().toISOString().slice(0, 10));
+    setMovObservacao('');
+    setMovOpen(true);
+  }
+
+  function handleSalvarMovimentacao() {
+    if (!movConta) return;
+    const valor = parseFloat(movValor.replace(',', '.')) || 0;
+    if (valor <= 0) { toast.error('Informe um valor.'); return; }
+    if (!movData) { toast.error('Selecione a data.'); return; }
+    registrarMovimentacaoConta(movConta.id, movTipo, valor, movData, movObservacao.trim() || undefined);
+    toast.success(movTipo === 'Aporte' ? 'Aporte registrado.' : 'Retirada registrada.');
+    setMovOpen(false);
     refresh();
   }
 
@@ -113,8 +139,9 @@ export default function FinanceiroContasPage() {
                     <div className="text-[11px] text-mute-2 uppercase tracking-[.05em] mt-0.5">{a.tipo}</div>
                   </div>
                   <div className="flex gap-0.5 flex-none">
-                    <button onClick={() => openEdit(a)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 transition-colors text-mute-2"><Pencil className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => setDeleteTarget(a)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-destructive-soft transition-colors text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => openMovimentar(a)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 transition-colors text-mute-2" title="Registrar aporte ou retirada"><ArrowDownUp className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => openEdit(a)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-surface-3 transition-colors text-mute-2" title="Editar conta"><Pencil className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => setDeleteTarget(a)} className="h-7 w-7 grid place-items-center rounded-lg hover:bg-destructive-soft transition-colors text-destructive" title="Excluir conta"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
                 </div>
                 <div className="font-mono-hbs text-[19px] mt-2.5">{fmt(a.saldo)}</div>
@@ -127,6 +154,27 @@ export default function FinanceiroContasPage() {
                 >
                   <PiggyBank className="w-3 h-3" /> {ehReserva ? 'Remover como conta reserva' : 'Marcar como conta reserva'}
                 </button>
+                {a.movimentacoes && a.movimentacoes.length > 0 && (
+                  <div className="mt-2.5 pt-2.5 border-t border-3">
+                    <div className="text-[10px] uppercase tracking-[.06em] text-mute-2 mb-1.5">Últimas movimentações</div>
+                    <div className="space-y-1.5 max-h-[120px] overflow-y-auto">
+                      {[...a.movimentacoes]
+                        .sort((x, y) => y.data.localeCompare(x.data) || y.createdAt - x.createdAt)
+                        .map(m => (
+                          <div key={m.id} className="flex items-center justify-between gap-2 text-[11px]">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <StatusBadge tone={m.tipo === 'Aporte' ? 'success' : 'warning'}>{m.tipo === 'Aporte' ? '+' : '−'}</StatusBadge>
+                              <span className="text-mute-2 truncate">{m.observacao || m.tipo}</span>
+                            </div>
+                            <div className="flex items-center gap-2 flex-none">
+                              <span className="font-mono-hbs">{fmt(m.valor)}</span>
+                              <span className="text-mute-3 font-mono-hbs">{new Date(m.data + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -145,7 +193,11 @@ export default function FinanceiroContasPage() {
                 <SelectContent>{TIPOS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5"><Label>Saldo atual</Label><Input type="number" step="0.01" value={saldo} onChange={e => setSaldo(e.target.value)} placeholder="0,00" /></div>
+            <div className="space-y-1.5">
+              <Label>Saldo atual</Label>
+              <Input type="number" step="0.01" value={saldo} onChange={e => setSaldo(e.target.value)} placeholder="0,00" />
+              <p className="text-[10.5px] text-mute-3">Corrige o número diretamente, sem data. Para aportes/retiradas do dia a dia, use "Movimentar".</p>
+            </div>
             <label className="flex items-center gap-2 text-[12.5px] cursor-pointer pt-1">
               <input type="checkbox" checked={ativo} onChange={e => setAtivo(e.target.checked)} className="w-3.5 h-3.5 accent-primary" /> Conta ativa
             </label>
@@ -153,6 +205,37 @@ export default function FinanceiroContasPage() {
           <DialogFooter>
             <button onClick={() => setOpen(false)} className="h-9 px-3.5 border-2 rounded-lg text-[12.5px]">Cancelar</button>
             <button onClick={handleSave} className="h-9 px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] font-medium">{editItem ? 'Salvar' : 'Criar conta'}</button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={movOpen} onOpenChange={setMovOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Movimentar {movConta?.nome}</DialogTitle></DialogHeader>
+          <div className="space-y-3.5 py-2">
+            <div className="flex bg-surface-2 rounded-lg p-1 gap-1 w-fit">
+              <button
+                type="button"
+                onClick={() => setMovTipo('Aporte')}
+                className={cn('px-3 py-1.5 rounded-md text-[12.5px] font-medium transition-colors', movTipo === 'Aporte' ? 'bg-success text-white' : 'text-muted-foreground')}
+              >
+                Aporte
+              </button>
+              <button
+                type="button"
+                onClick={() => setMovTipo('Retirada')}
+                className={cn('px-3 py-1.5 rounded-md text-[12.5px] font-medium transition-colors', movTipo === 'Retirada' ? 'bg-warning text-white' : 'text-muted-foreground')}
+              >
+                Retirada
+              </button>
+            </div>
+            <div className="space-y-1.5"><Label>Valor</Label><Input type="number" step="0.01" value={movValor} onChange={e => setMovValor(e.target.value)} placeholder="0,00" autoFocus /></div>
+            <div className="space-y-1.5"><Label>Data</Label><Input type="date" value={movData} onChange={e => setMovData(e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>Observação (opcional)</Label><Input value={movObservacao} onChange={e => setMovObservacao(e.target.value)} placeholder="Ex: transferência da conta corrente" /></div>
+          </div>
+          <DialogFooter>
+            <button onClick={() => setMovOpen(false)} className="h-9 px-3.5 border-2 rounded-lg text-[12.5px]">Cancelar</button>
+            <button onClick={handleSalvarMovimentacao} className="h-9 px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] font-medium">Registrar</button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

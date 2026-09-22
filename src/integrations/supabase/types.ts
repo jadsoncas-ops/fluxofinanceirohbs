@@ -201,9 +201,9 @@ export type Database = {
         Relationships: []
       }
       hbs_accounts: {
-        Row: { id: string; nome: string; tipo: string; saldo: number; ativo: boolean; created_at: string; created_by: string | null }
-        Insert: { id?: string; nome: string; tipo: string; saldo?: number; ativo?: boolean; created_at?: string; created_by?: string | null }
-        Update: { id?: string; nome?: string; tipo?: string; saldo?: number; ativo?: boolean; created_at?: string; created_by?: string | null }
+        Row: { id: string; nome: string; tipo: string; saldo: number; ativo: boolean; movimentacoes: Json | null; created_at: string; created_by: string | null }
+        Insert: { id?: string; nome: string; tipo: string; saldo?: number; ativo?: boolean; movimentacoes?: Json | null; created_at?: string; created_by?: string | null }
+        Update: { id?: string; nome?: string; tipo?: string; saldo?: number; ativo?: boolean; movimentacoes?: Json | null; created_at?: string; created_by?: string | null }
         Relationships: []
       }
       hbs_partners: {

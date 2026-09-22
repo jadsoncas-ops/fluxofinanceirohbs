@@ -239,6 +239,18 @@ export interface Partner {
 
 export type AccountType = 'Conta Corrente' | 'Poupança' | 'Conta Digital' | 'Caixa' | 'Investimento';
 
+export type AccountMovimentacaoTipo = 'Aporte' | 'Retirada';
+
+export interface AccountMovimentacao {
+  id: string;
+  tipo: AccountMovimentacaoTipo;
+  valor: number;
+  /** Data no formato YYYY-MM-DD, mesmo padrão de Transaction.data/Task.prazo. */
+  data: string;
+  observacao?: string;
+  createdAt: number;
+}
+
 export interface Account {
   id: string;
   nome: string;
@@ -247,6 +259,9 @@ export interface Account {
   saldo: number;
   ativo: boolean;
   createdAt: number;
+  /** Histórico de aportes/retiradas com data — cada um já reflete no saldo acima quando registrado
+   *  via registrarMovimentacaoConta(). Editar o saldo diretamente (openEdit) não gera movimentação. */
+  movimentacoes?: AccountMovimentacao[];
 }
 
 export type DocumentSituacao = 'Vigente' | 'Pendente' | 'Entregue' | 'Modelo' | 'Em produção' | 'Em revisão' | 'Rascunho' | 'Desatualizado' | 'Concluído';
