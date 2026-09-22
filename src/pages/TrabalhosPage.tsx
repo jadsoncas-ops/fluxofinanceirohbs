@@ -131,13 +131,16 @@ export default function TrabalhosPage() {
                 key={col}
                 onDragOver={e => e.preventDefault()}
                 onDrop={() => dragId && moverEtapa(dragId, col)}
-                className="bg-kanban border border-border rounded-xl p-3"
+                className="bg-kanban border border-border rounded-xl p-3 flex flex-col max-h-[calc(100vh-280px)] min-h-[160px]"
               >
-                <div className="flex items-center justify-between px-1 pb-2.5">
+                <div className="flex items-center justify-between px-1 pb-2.5 flex-none">
                   <span className="text-[12px] font-semibold">{col}</span>
                   <span className="text-[10.5px] font-mono-hbs text-mute-2">{items.length}</span>
                 </div>
-                <div className="flex flex-col gap-2.5">
+                {/* Só esta lista rola — o cabeçalho da coluna (nome + contador) fica sempre visível,
+                    então dá pra ver todas as colunas ao arrastar um card mesmo quando uma delas tem
+                    muitos itens (ex.: Tramitando). */}
+                <div className="flex flex-col gap-2.5 overflow-y-auto pr-0.5">
                   {items.map(t => {
                     const pi = prazoInfo(t.prazo, col);
                     const proximo = proximoPagamentoPorTrabalho.get(t.id);
