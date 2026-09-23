@@ -25,8 +25,11 @@ import { toast } from 'sonner';
 
 const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 const WEEKDAYS_LONG = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
-const STAGE_ORDER: TrabalhoEtapa[] = ['Aguardando cliente', 'Levantamento', 'Tramitando', 'Devolutiva', 'Concluído'];
-const STAGE_LABEL_CURTO: Record<TrabalhoEtapa, string> = { 'Aguardando cliente': 'aguardando cliente', Levantamento: 'levantamento', Tramitando: 'tramitando', Devolutiva: 'devolutiva', Concluído: 'concluído' };
+const STAGE_ORDER: TrabalhoEtapa[] = ['Aguardando cliente', 'Elaboração', 'Tramitando prefeitura', 'Tramitando cartório', 'Pendência/Exigência', 'Concluído'];
+const STAGE_LABEL_CURTO: Record<TrabalhoEtapa, string> = {
+  'Aguardando cliente': 'aguardando cliente', 'Elaboração': 'elaboração', 'Tramitando prefeitura': 'tramitando prefeitura',
+  'Tramitando cartório': 'tramitando cartório', 'Pendência/Exigência': 'pendência/exigência', 'Concluído': 'concluído',
+};
 const CHART_PERIODS = [3, 6, 12] as const;
 
 const MODULO_ICON: Record<HistoricoModulo, { icon: LucideIcon; tone: string }> = {
@@ -139,7 +142,7 @@ export default function DashboardPage() {
     const saidasMes = saidasNoMes(transactions, now.getFullYear(), now.getMonth());
     const resultadoMes = entradasMes - saidasMes;
 
-    const trabalhosAtivos = processes.filter(p => !p.isArchived && (p.etapa || 'Levantamento') !== 'Concluído');
+    const trabalhosAtivos = processes.filter(p => !p.isArchived && (p.etapa || 'Elaboração') !== 'Concluído');
     const parados14d = trabalhosAtivos.filter(p => Date.now() - p.updatedAt > 14 * 86400000).length;
 
     const registrosComRegistro = processes.filter(p => !p.isArchived && p.registro);
@@ -163,7 +166,7 @@ export default function DashboardPage() {
 
     // Resumo de etapas — só contagem, sem barra de progresso/gargalo (isso é papel do Kanban).
     const etapasResumo = STAGE_ORDER
-      .map(etapa => ({ etapa, label: STAGE_LABEL_CURTO[etapa], count: trabalhosAtivos.filter(p => (p.etapa || 'Levantamento') === etapa).length }))
+      .map(etapa => ({ etapa, label: STAGE_LABEL_CURTO[etapa], count: trabalhosAtivos.filter(p => (p.etapa || 'Elaboração') === etapa).length }))
       .filter(e => e.count > 0);
 
     const inadimplenciaPct = aReceber > 0 ? Math.round((aReceberAtrasado / aReceber) * 1000) / 10 : 0;

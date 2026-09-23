@@ -27,11 +27,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 
-const ETAPAS: TrabalhoEtapa[] = ['Aguardando cliente', 'Levantamento', 'Tramitando', 'Devolutiva', 'Concluído'];
+const ETAPAS: TrabalhoEtapa[] = ['Aguardando cliente', 'Elaboração', 'Tramitando prefeitura', 'Tramitando cartório', 'Pendência/Exigência', 'Concluído'];
 // Mesmo padrão de tom por etapa já usado em ClienteDetailPage.tsx e TrabalhosPage.tsx — reaproveitado
 // aqui tal como está, sem virar util compartilhado ainda.
 const ETAPA_TONE: Record<TrabalhoEtapa, BadgeTone> = {
-  'Aguardando cliente': 'warning', Levantamento: 'neutral', Tramitando: 'accent', Devolutiva: 'destructive', Concluído: 'success',
+  'Aguardando cliente': 'warning', 'Elaboração': 'neutral', 'Tramitando prefeitura': 'accent',
+  'Tramitando cartório': 'accent', 'Pendência/Exigência': 'destructive', 'Concluído': 'success',
 };
 const DOC_TONE: Record<string, BadgeTone> = {
   Vigente: 'success', Entregue: 'success', Concluído: 'success',
@@ -141,7 +142,7 @@ export default function TrabalhoDetailPage() {
     );
   }
 
-  const etapaAtual = trabalho.etapa || 'Levantamento';
+  const etapaAtual = trabalho.etapa || 'Elaboração';
 
   const registro = trabalho.registro;
   const hoje = new Date().toISOString().slice(0, 10);

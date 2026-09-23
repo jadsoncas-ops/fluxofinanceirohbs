@@ -65,7 +65,7 @@ export function NovoTrabalhoDiretoDialog({ open, onClose, onCreated, trabalho }:
     if (!objeto.trim()) { toast.error('Descreva o trabalho.'); return; }
     const now = Date.now();
     const salvo: Process = {
-      ...(trabalho ?? { id: crypto.randomUUID(), status: 'Levantamento', etapa: 'Levantamento', notas: [], createdAt: now }),
+      ...(trabalho ?? { id: crypto.randomUUID(), status: 'Levantamento', etapa: 'Elaboração', notas: [], createdAt: now }),
       clienteId,
       objeto: objeto.trim(),
       tipoTrabalho,

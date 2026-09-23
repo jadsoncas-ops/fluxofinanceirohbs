@@ -101,7 +101,7 @@ export function CalendarioAgenda({ compromissos, tasks, transactions, clients, o
     const add = (data: string | undefined) => { if (data) map.set(data, (map.get(data) || 0) + 1); };
     tasks.filter(t => t.status !== 'Concluída' && t.prazo).forEach(t => add(t.prazo));
     transactions.filter(t => t.status !== 'Concluído').forEach(t => add(t.data));
-    processes.filter(p => !p.isArchived && (p.etapa || 'Levantamento') !== 'Concluído' && p.prazo).forEach(p => add(p.prazo));
+    processes.filter(p => !p.isArchived && (p.etapa || 'Elaboração') !== 'Concluído' && p.prazo).forEach(p => add(p.prazo));
     compromissos.forEach(c => add(c.data));
     clients.forEach(c => (c.lembretesCobranca || []).forEach(ts => add(toKey(new Date(ts)))));
     return map;

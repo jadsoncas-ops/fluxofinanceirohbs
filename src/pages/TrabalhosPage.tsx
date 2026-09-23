@@ -11,17 +11,18 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-const COLUNAS: TrabalhoEtapa[] = ['Aguardando cliente', 'Levantamento', 'Tramitando', 'Devolutiva', 'Concluído'];
+const COLUNAS: TrabalhoEtapa[] = ['Aguardando cliente', 'Elaboração', 'Tramitando prefeitura', 'Tramitando cartório', 'Pendência/Exigência', 'Concluído'];
 
 // Mesmo padrão de tom por etapa já usado em ClienteDetailPage.tsx (Fase Clientes) — reaproveitado
 // aqui tal como está, sem virar um util compartilhado ainda. Se essa duplicação (2 arquivos até
 // agora) crescer, uma fase futura de Design System/limpeza pode extrair um único ETAPA_TONE.
 const ETAPA_TONE: Record<string, BadgeTone> = {
   'Aguardando cliente': 'warning',
-  Levantamento: 'neutral',
-  Tramitando: 'accent',
-  Devolutiva: 'destructive',
-  Concluído: 'success',
+  'Elaboração': 'neutral',
+  'Tramitando prefeitura': 'accent',
+  'Tramitando cartório': 'accent',
+  'Pendência/Exigência': 'destructive',
+  'Concluído': 'success',
 };
 const TONE_TEXT_CLASS: Record<BadgeTone, string> = {
   destructive: 'text-destructive', warning: 'text-warning', success: 'text-success', neutral: 'text-mute-2', accent: 'text-accent',
@@ -65,7 +66,7 @@ export default function TrabalhosPage() {
 
     return {
       trabalhos, clients, proximoPagamentoPorTrabalho,
-      ativos: trabalhos.filter(t => (t.etapa || 'Levantamento') !== 'Concluído').length,
+      ativos: trabalhos.filter(t => (t.etapa || 'Elaboração') !== 'Concluído').length,
       aguardando: trabalhos.filter(t => t.etapa === 'Aguardando cliente').length,
     };
   }, [key]);
@@ -90,7 +91,7 @@ export default function TrabalhosPage() {
 
   function moverEtapa(id: string, etapa: TrabalhoEtapa) {
     const t = trabalhos.find(x => x.id === id);
-    if (!t || (t.etapa || 'Levantamento') === etapa) return;
+    if (!t || (t.etapa || 'Elaboração') === etapa) return;
     updateProcess({ ...t, etapa });
     registrarEvento({ modulo: 'Trabalhos', texto: `"${t.objeto}" movido para ${etapa}`, clienteId: t.clienteId, trabalhoId: t.id });
     toast.success(`Movido para ${etapa}.`);
@@ -135,7 +136,7 @@ export default function TrabalhosPage() {
       ) : view === 'kanban' ? (
         <div className="grid gap-3.5 items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(228px, 1fr))' }}>
           {COLUNAS.map(col => {
-            const items = trabalhosFiltrados.filter(t => (t.etapa || 'Levantamento') === col);
+            const items = trabalhosFiltrados.filter(t => (t.etapa || 'Elaboração') === col);
             return (
               <div
                 key={col}
@@ -204,7 +205,7 @@ export default function TrabalhosPage() {
             <span className="w-[92px] flex-none text-right">Valor</span>
           </div>
           {trabalhosFiltrados.map(t => {
-              const etapa = t.etapa || 'Levantamento';
+              const etapa = t.etapa || 'Elaboração';
               const pi = prazoInfo(t.prazo, etapa);
               return (
                 <div key={t.id} onClick={() => navigate(`/trabalhos/${t.id}`)} className="flex flex-col sm:flex-row gap-1.5 sm:gap-3.5 sm:items-center px-[18px] py-3 border-b border-3 last:border-b-0 cursor-pointer hover:bg-surface-3 transition-colors">

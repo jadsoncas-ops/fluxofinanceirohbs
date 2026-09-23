@@ -39,10 +39,11 @@ function fmt(v: number) {
 
 const ETAPA_TONE: Record<string, BadgeTone> = {
   'Aguardando cliente': 'warning',
-  Levantamento: 'neutral',
-  Tramitando: 'accent',
-  Devolutiva: 'destructive',
-  Concluído: 'success',
+  'Elaboração': 'neutral',
+  'Tramitando prefeitura': 'accent',
+  'Tramitando cartório': 'accent',
+  'Pendência/Exigência': 'destructive',
+  'Concluído': 'success',
 };
 
 const DOC_TONE: Record<string, BadgeTone> = {
@@ -111,7 +112,7 @@ export default function ClienteDetailPage() {
   const pctFin = financials && financials.totalContratado > 0 ? Math.min(100, Math.round((financials.recebido / financials.totalContratado) * 100)) : 0;
 
   const txsAvulsos = txs.filter(t => !t.processId);
-  const trabalhosAtivos = processes.filter(p => !p.isArchived && (p.etapa || 'Levantamento') !== 'Concluído').length;
+  const trabalhosAtivos = processes.filter(p => !p.isArchived && (p.etapa || 'Elaboração') !== 'Concluído').length;
   const propostasAprovadas = propostas.filter(p => p.status === 'Aprovada').length;
   const docsPendentes = documents.filter(d => d.situacao === 'Pendente' || d.situacao === 'Em produção').length;
   const podeExcluir = processes.length === 0 && txs.length === 0 && propostas.length === 0;
@@ -334,7 +335,7 @@ export default function ClienteDetailPage() {
                   <div className="text-[12.5px] font-medium truncate">{p.objeto || '(sem descrição)'}{p.isArchived && ' · arquivado'}</div>
                   <div className="text-[11px] text-mute-2 font-mono-hbs mt-0.5">{typeof p.valorContrato === 'number' && p.valorContrato > 0 ? fmt(p.valorContrato) : 'sem valor definido'}</div>
                 </div>
-                <StatusBadge tone={ETAPA_TONE[p.etapa || 'Levantamento']}>{p.etapa || 'Levantamento'}</StatusBadge>
+                <StatusBadge tone={ETAPA_TONE[p.etapa || 'Elaboração']}>{p.etapa || 'Elaboração'}</StatusBadge>
               </div>
             ))
           )}
