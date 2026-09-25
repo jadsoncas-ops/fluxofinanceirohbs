@@ -1101,8 +1101,18 @@ export function registrarEvento(evento: Omit<HistoricoEvent, 'id' | 'createdAt'>
   cache.historico = [novo, ...cache.historico].slice(0, 500);
   notify();
   void (async () => {
-    const { error } = await supabase.from('hbs_historico_events').insert(historicoToRow(novo));
-    if (error) console.error(error);
+    // Quem chama isto normalmente acabou de disparar (sem esperar) a gravação do
+    // cliente/trabalho/contrato que este evento referencia — as duas escritas correm em
+    // paralelo, então às vezes esta chega no Postgres antes da outra, e a FK (trabalho_id/
+    // cliente_id/etc.) ainda não existe (23503). Não é um erro real, só uma corrida; espera
+    // um pouco e tenta de novo antes de desistir.
+    for (const espera of [0, 400, 1200]) {
+      if (espera) await new Promise(r => setTimeout(r, espera));
+      const { error } = await supabase.from('hbs_historico_events').insert(historicoToRow(novo));
+      if (!error) return;
+      if (error.code !== '23503') { console.error(error); return; }
+    }
+    console.error('Não foi possível gravar o evento no histórico (registro relacionado ainda não existia após 3 tentativas).');
   })();
 }
 

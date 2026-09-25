@@ -3,11 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, FileText, FilePlus2, Trash2, CheckCircle2, Pencil, Clock3, Check, MessageCircle, Link2, ExternalLink, ScrollText, ShieldAlert, ChevronDown } from 'lucide-react';
 import { useShell } from '@/hooks/use-shell';
 import {
-  getProcesses, getClients, getTasks, getDocuments, getHistorico, getContratos, getCompanyConfig,
+  getProcesses, getClients, getTasks, getDocuments, getHistorico, getContratos, getCompanyConfig, getPartners,
   updateProcess, addTask, updateTask, deleteTask, deleteProcess, deleteDocument, deleteTransaction, addTransaction, registrarEvento, addDocument,
 } from '@/lib/storage';
 import { computeTrabalhoFinancials, dataEfetiva } from '@/lib/financials';
-import { TrabalhoEtapa, DocumentSituacao, Oficio, Exigencia, ExigenciaStatus } from '@/lib/types';
+import { TrabalhoEtapa, DocumentSituacao, Oficio, Exigencia, ExigenciaStatus, Transaction } from '@/lib/types';
 import { Stepper } from '@/components/ui/Stepper';
 import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
 import { ETAPA_DESCRICAO } from '@/lib/etapas';
@@ -40,6 +40,15 @@ const DOC_TONE: Record<string, BadgeTone> = {
   Rascunho: 'neutral', Modelo: 'neutral',
   Desatualizado: 'destructive',
 };
+
+interface RepasseGrupo {
+  partnerId: string;
+  partnerNome: string;
+  itens: Transaction[];
+  valorTotal: number;
+  valorPago: number;
+  valorPendente: number;
+}
 
 function fmt(v: number) {
   return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -88,11 +97,12 @@ export default function TrabalhoDetailPage() {
   const [matriculaNumero, setMatriculaNumero] = useState('');
   const [matriculaData, setMatriculaData] = useState(() => new Date().toISOString().slice(0, 10));
   const [observacoesDraft, setObservacoesDraft] = useState('');
+  const [repasseGrupoAberto, setRepasseGrupoAberto] = useState<string | null>(null);
 
-  const { trabalho, cliente, fin, tasks, documentos, historico, contrato, lancamentos } = useMemo(() => {
+  const { trabalho, cliente, fin, tasks, documentos, historico, contrato, lancamentosDiretos, repassesPorParceiro } = useMemo(() => {
     void key; void shell.refreshKey;
     const trabalho = getProcesses().find(p => p.id === trabalhoId) || null;
-    if (!trabalho) return { trabalho: null, cliente: null, fin: null, tasks: [], documentos: [], historico: [], contrato: null, lancamentos: [] };
+    if (!trabalho) return { trabalho: null, cliente: null, fin: null, tasks: [], documentos: [], historico: [], contrato: null, lancamentosDiretos: [], repassesPorParceiro: [] as RepasseGrupo[] };
     const cliente = getClients().find(c => c.id === trabalho.clienteId) || null;
     const fin = computeTrabalhoFinancials(trabalho, shell.allTransactions);
     const tasks = getTasks().filter(t => t.processId === trabalho.id).sort((a, b) => (a.prazo || '9999').localeCompare(b.prazo || '9999'));
@@ -122,8 +132,30 @@ export default function TrabalhoDetailPage() {
     );
     const historico = [...eventosSemDuplicar, ...notasComoEventos].sort((a, b) => b.createdAt - a.createdAt);
     const contrato = trabalho.contratoId ? getContratos().find(c => c.id === trabalho.contratoId) || null : null;
-    const lancamentos = shell.allTransactions.filter(t => t.processId === trabalho.id).sort((a, b) => a.data.localeCompare(b.data));
-    return { trabalho, cliente, fin, tasks, documentos, historico, contrato, lancamentos };
+
+    const todosLancamentos = shell.allTransactions.filter(t => t.processId === trabalho.id).sort((a, b) => a.data.localeCompare(b.data));
+    const lancamentosDiretos = todosLancamentos.filter(t => !t.isRepasse);
+    // Repasses do mesmo parceiro (ex.: 2 parcelas) ficavam intercalados por data com os
+    // lançamentos do cliente, embolando a lista — agrupa por parceiro num card só, expansível.
+    const partners = getPartners();
+    const porParceiro = new Map<string, Transaction[]>();
+    todosLancamentos.filter(t => t.isRepasse).forEach(t => {
+      const chave = t.partnerId || 'sem-parceiro';
+      const arr = porParceiro.get(chave);
+      if (arr) arr.push(t); else porParceiro.set(chave, [t]);
+    });
+    const repassesPorParceiro: RepasseGrupo[] = Array.from(porParceiro.entries()).map(([partnerId, itens]) => {
+      const valorTotal = itens.reduce((s, t) => s + t.valor, 0);
+      const valorPago = itens.filter(t => t.status === 'Concluído').reduce((s, t) => s + t.valor, 0);
+      return {
+        partnerId,
+        partnerNome: partners.find(p => p.id === partnerId)?.nome || 'Parceiro',
+        itens: [...itens].sort((a, b) => a.data.localeCompare(b.data)),
+        valorTotal, valorPago, valorPendente: valorTotal - valorPago,
+      };
+    }).sort((a, b) => a.partnerNome.localeCompare(b.partnerNome));
+
+    return { trabalho, cliente, fin, tasks, documentos, historico, contrato, lancamentosDiretos, repassesPorParceiro };
   }, [trabalhoId, key, shell.allTransactions, shell.refreshKey]);
 
   // Só resincroniza ao trocar de trabalho; reagir a trabalho.observacoes aqui apagaria o que
@@ -392,6 +424,43 @@ export default function TrabalhoDetailPage() {
     deleteProcess(trabalho.id);
     toast.success('Trabalho excluído.');
     navigate('/trabalhos');
+  }
+
+  function linhaLancamento(t: Transaction) {
+    const isIncome = t.tipo === 'Entrada' || t.tipo === 'A Receber';
+    const isPendente = t.status !== 'Concluído';
+    const isAtrasado = isPendente && t.data < new Date().toISOString().slice(0, 10);
+    return (
+      <div key={t.id} className="group flex items-center gap-2.5 py-2 border-t border-3 first:border-t-0">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[12.5px] font-medium truncate">{t.descricao}</span>
+            {t.isRepasse && <span className="text-[9px] px-1.5 py-[1px] rounded-[4px] bg-accent-soft text-accent font-medium uppercase tracking-wide flex-none">🤝 Repasse</span>}
+          </div>
+          <div className="text-[10.5px] text-mute-3 font-mono-hbs">{new Date(dataEfetiva(t) + 'T12:00:00').toLocaleDateString('pt-BR')}</div>
+        </div>
+        <span className={cn('font-mono-hbs text-[12.5px]', isIncome ? 'text-success' : 'text-warning')}>{fmt(t.valor)}</span>
+        <StatusBadge
+          tone={t.status === 'Concluído' ? 'success' : isAtrasado ? 'destructive' : 'warning'}
+          icon={t.status === 'Concluído' ? CheckCircle2 : Clock3}
+        >
+          {t.status === 'Concluído' ? (isIncome ? 'Recebida' : 'Paga') : isAtrasado ? 'Atrasada' : 'Prevista'}
+        </StatusBadge>
+        <div className="flex-none flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {isPendente && (
+            <button onClick={() => shell.openCompleteTransaction(t)} className="h-6 w-6 grid place-items-center rounded-md hover:bg-success-soft text-mute-2 hover:text-success" title={isIncome ? 'Marcar como recebida' : 'Marcar como paga'}>
+              <CheckCircle2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <button onClick={() => shell.openEditTransaction(t)} className="h-6 w-6 grid place-items-center rounded-md hover:bg-surface-3 text-mute-2" title="Editar">
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={() => removerLancamento(t.id, t.descricao)} className="h-6 w-6 grid place-items-center rounded-md hover:bg-destructive-soft text-mute-2 hover:text-destructive" title="Excluir">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -741,45 +810,38 @@ export default function TrabalhoDetailPage() {
                 </div>
               )}
 
-              {lancamentos.length === 0 && !novoLancamentoAberto ? (
+              {lancamentosDiretos.length === 0 && repassesPorParceiro.length === 0 && !novoLancamentoAberto ? (
                 <div className="text-xs text-muted-foreground py-2">Nenhum lançamento ainda.</div>
               ) : (
-                lancamentos.map(t => {
-                  const isIncome = t.tipo === 'Entrada' || t.tipo === 'A Receber';
-                  const isPendente = t.status !== 'Concluído';
-                  const isAtrasado = isPendente && t.data < new Date().toISOString().slice(0, 10);
-                  return (
-                    <div key={t.id} className="group flex items-center gap-2.5 py-2 border-t border-3 first:border-t-0">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[12.5px] font-medium truncate">{t.descricao}</span>
-                          {t.isRepasse && <span className="text-[9px] px-1.5 py-[1px] rounded-[4px] bg-accent-soft text-accent font-medium uppercase tracking-wide flex-none">🤝 Repasse</span>}
-                        </div>
-                        <div className="text-[10.5px] text-mute-3 font-mono-hbs">{new Date(dataEfetiva(t) + 'T12:00:00').toLocaleDateString('pt-BR')}</div>
-                      </div>
-                      <span className={cn('font-mono-hbs text-[12.5px]', isIncome ? 'text-success' : 'text-warning')}>{fmt(t.valor)}</span>
-                      <StatusBadge
-                        tone={t.status === 'Concluído' ? 'success' : isAtrasado ? 'destructive' : 'warning'}
-                        icon={t.status === 'Concluído' ? CheckCircle2 : Clock3}
-                      >
-                        {t.status === 'Concluído' ? (isIncome ? 'Recebida' : 'Paga') : isAtrasado ? 'Atrasada' : 'Prevista'}
-                      </StatusBadge>
-                      <div className="flex-none flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {isPendente && (
-                          <button onClick={() => shell.openCompleteTransaction(t)} className="h-6 w-6 grid place-items-center rounded-md hover:bg-success-soft text-mute-2 hover:text-success" title={isIncome ? 'Marcar como recebida' : 'Marcar como paga'}>
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                          </button>
+                <>
+                  {lancamentosDiretos.map(t => linhaLancamento(t))}
+                  {repassesPorParceiro.map(grupo => {
+                    const aberto = repasseGrupoAberto === grupo.partnerId;
+                    const resumo = grupo.valorPago > 0 && grupo.valorPendente > 0
+                      ? `${fmt(grupo.valorPago)} pago + ${fmt(grupo.valorPendente)} previsto`
+                      : `${grupo.itens.length} parcela${grupo.itens.length > 1 ? 's' : ''} ${grupo.valorPendente > 0 ? 'prevista' : 'paga'}${grupo.itens.length > 1 ? 's' : ''}`;
+                    return (
+                      <div key={grupo.partnerId} className="border-t border-3">
+                        <button onClick={() => setRepasseGrupoAberto(aberto ? null : grupo.partnerId)} className="w-full flex items-center gap-2.5 py-2 text-left hover:bg-surface-3 transition-colors -mx-1 px-1 rounded-md">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[12.5px] font-medium truncate">{grupo.partnerNome}</span>
+                              <span className="text-[9px] px-1.5 py-[1px] rounded-[4px] bg-accent-soft text-accent font-medium uppercase tracking-wide flex-none">🤝 Repasse</span>
+                            </div>
+                            <div className="text-[10.5px] text-mute-3">{resumo}</div>
+                          </div>
+                          <span className="font-mono-hbs text-[12.5px] text-warning">{fmt(grupo.valorTotal)}</span>
+                          <ChevronDown className={cn('w-3.5 h-3.5 text-mute-3 flex-none transition-transform', aberto && 'rotate-180')} />
+                        </button>
+                        {aberto && (
+                          <div className="pl-3 ml-1 border-l-2 border-3 mb-2">
+                            {grupo.itens.map(t => linhaLancamento(t))}
+                          </div>
                         )}
-                        <button onClick={() => shell.openEditTransaction(t)} className="h-6 w-6 grid place-items-center rounded-md hover:bg-surface-3 text-mute-2" title="Editar">
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => removerLancamento(t.id, t.descricao)} className="h-6 w-6 grid place-items-center rounded-md hover:bg-destructive-soft text-mute-2 hover:text-destructive" title="Excluir">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
                       </div>
-                    </div>
-                  );
-                })
+                    );
+                  })}
+                </>
               )}
             </div>
           </section>
