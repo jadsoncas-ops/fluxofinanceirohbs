@@ -25,9 +25,11 @@ interface Props {
   onCreated: (id: string) => void;
   /** Quando informado, o diálogo edita esse trabalho em vez de criar um novo. */
   trabalho?: Process;
+  /** Pré-seleciona o cliente ao criar (ex.: logo após cadastrar um cliente novo). Ignorado ao editar. */
+  clienteIdInicial?: string;
 }
 
-export function NovoTrabalhoDiretoDialog({ open, onClose, onCreated, trabalho }: Props) {
+export function NovoTrabalhoDiretoDialog({ open, onClose, onCreated, trabalho, clienteIdInicial }: Props) {
   const clients = getClients();
   const editando = !!trabalho;
   const [clienteId, setClienteId] = useState('');
@@ -48,10 +50,10 @@ export function NovoTrabalhoDiretoDialog({ open, onClose, onCreated, trabalho }:
       setValorContrato(trabalho.valorContrato != null ? String(trabalho.valorContrato) : '');
       setPrazo(trabalho.prazo || '');
     } else {
-      setClienteId(''); setObjeto(''); setTipoTrabalho(TIPOS_TRABALHO[0]); setEndereco(''); setValorContrato(''); setPrazo('');
+      setClienteId(clienteIdInicial || ''); setObjeto(''); setTipoTrabalho(TIPOS_TRABALHO[0]); setEndereco(''); setValorContrato(''); setPrazo('');
     }
     setUsarEnderecoCliente(false);
-  }, [open, trabalho]);
+  }, [open, trabalho, clienteIdInicial]);
 
   const clienteSelecionado = clients.find(c => c.id === clienteId);
   const enderecoCliente = enderecoDoCliente(clienteSelecionado);
@@ -92,7 +94,11 @@ export function NovoTrabalhoDiretoDialog({ open, onClose, onCreated, trabalho }:
       <DialogContent className="sm:max-w-sm">
         <DialogHeader><DialogTitle>{editando ? 'Editar trabalho' : 'Novo trabalho'}</DialogTitle></DialogHeader>
         {!editando && (
-          <p className="text-[11.5px] text-mute-2 -mt-2">Trabalho é o serviço técnico que a HBS presta para este cliente — a partir dele você organiza etapa, produção técnica e financeiro.</p>
+          <p className="text-[11.5px] text-mute-2 -mt-2">
+            {clienteIdInicial
+              ? 'Cliente cadastrado. Continue criando o primeiro Trabalho dele agora, ou cancele para pular esta etapa.'
+              : 'Trabalho é o serviço técnico que a HBS presta para este cliente — a partir dele você organiza etapa, produção técnica e financeiro.'}
+          </p>
         )}
         <div className="space-y-3.5 py-1">
           <div className="space-y-1.5">

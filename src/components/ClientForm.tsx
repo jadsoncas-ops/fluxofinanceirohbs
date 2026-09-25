@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2 } from 'lucide-react';
 import { Client, ClientTipo, EstadoCivil, RegimeBens } from '@/lib/types';
 import { addClient, updateClient } from '@/lib/storage';
 import { toast } from 'sonner';
@@ -11,6 +12,35 @@ import { toast } from 'sonner';
 const TIPOS: ClientTipo[] = ['Pessoa física', 'Pessoa jurídica', 'Condomínio'];
 const ESTADOS_CIVIS: EstadoCivil[] = ['Solteiro(a)', 'Casado(a)', 'Divorciado(a)', 'Viúvo(a)', 'União Estável'];
 const REGIMES_BENS: RegimeBens[] = ['Comunhão Parcial de Bens', 'Comunhão Universal de Bens', 'Separação Total de Bens', 'Participação Final nos Aquestos'];
+const ESTADOS_BR = [
+  ['AC', 'Acre'], ['AL', 'Alagoas'], ['AP', 'Amapá'], ['AM', 'Amazonas'], ['BA', 'Bahia'], ['CE', 'Ceará'],
+  ['DF', 'Distrito Federal'], ['ES', 'Espírito Santo'], ['GO', 'Goiás'], ['MA', 'Maranhão'], ['MT', 'Mato Grosso'],
+  ['MS', 'Mato Grosso do Sul'], ['MG', 'Minas Gerais'], ['PA', 'Pará'], ['PB', 'Paraíba'], ['PR', 'Paraná'],
+  ['PE', 'Pernambuco'], ['PI', 'Piauí'], ['RJ', 'Rio de Janeiro'], ['RN', 'Rio Grande do Norte'], ['RS', 'Rio Grande do Sul'],
+  ['RO', 'Rondônia'], ['RR', 'Roraima'], ['SC', 'Santa Catarina'], ['SP', 'São Paulo'], ['SE', 'Sergipe'], ['TO', 'Tocantins'],
+] as const;
+
+function formatCep(raw: string): string {
+  const d = raw.replace(/\D/g, '').slice(0, 8);
+  return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
+}
+
+function formatDocumento(raw: string, tipo: ClientTipo): string {
+  const d = raw.replace(/\D/g, '');
+  if (tipo === 'Pessoa física') {
+    const p = d.slice(0, 11);
+    if (p.length > 9) return `${p.slice(0, 3)}.${p.slice(3, 6)}.${p.slice(6, 9)}-${p.slice(9)}`;
+    if (p.length > 6) return `${p.slice(0, 3)}.${p.slice(3, 6)}.${p.slice(6)}`;
+    if (p.length > 3) return `${p.slice(0, 3)}.${p.slice(3)}`;
+    return p;
+  }
+  const p = d.slice(0, 14);
+  if (p.length > 12) return `${p.slice(0, 2)}.${p.slice(2, 5)}.${p.slice(5, 8)}/${p.slice(8, 12)}-${p.slice(12)}`;
+  if (p.length > 8) return `${p.slice(0, 2)}.${p.slice(2, 5)}.${p.slice(5, 8)}/${p.slice(8)}`;
+  if (p.length > 5) return `${p.slice(0, 2)}.${p.slice(2, 5)}.${p.slice(5)}`;
+  if (p.length > 2) return `${p.slice(0, 2)}.${p.slice(2)}`;
+  return p;
+}
 
 interface Props {
   open: boolean;
@@ -25,6 +55,8 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
   const [documento, setDocumento] = useState('');
   const [ddd, setDdd] = useState('');
   const [numero, setNumero] = useState('');
+  const [cep, setCep] = useState('');
+  const [cepLoading, setCepLoading] = useState(false);
   const [rua, setRua] = useState('');
   const [numEnd, setNumEnd] = useState('');
   const [bairro, setBairro] = useState('');
@@ -52,6 +84,7 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
       setDocumento(editItem.documento || '');
       setDdd(editItem.telefone?.ddd || '');
       setNumero(editItem.telefone?.numero || '');
+      setCep('');
       setRua(editItem.endereco?.rua || '');
       setNumEnd(editItem.endereco?.numero || '');
       setBairro(editItem.endereco?.bairro || '');
@@ -69,13 +102,40 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
       setConjugeCpf(q?.conjuge?.cpf || '');
       setConjugeProfissao(q?.conjuge?.profissao || '');
       setConjugeAssina(q?.conjuge?.assina || false);
-      setQualOpen(!!q);
+      // Pessoa física quase sempre acaba precisando desses dados pra gerar documento técnico —
+      // melhor já abrir do que deixar o usuário descobrir a falta lá na frente.
+      setQualOpen(!!q || (editItem.tipo || 'Pessoa física') === 'Pessoa física');
     } else {
-      setNome(''); setTipo('Pessoa física'); setDocumento(''); setDdd(''); setNumero(''); setRua(''); setNumEnd(''); setBairro(''); setCidade(''); setEstado(''); setDescricao('');
+      setNome(''); setTipo('Pessoa física'); setDocumento(''); setDdd(''); setNumero('');
+      setCep(''); setRua(''); setNumEnd(''); setBairro(''); setCidade(''); setEstado('BA'); setDescricao('');
       setNacionalidade(''); setEstadoCivil(''); setRegimeBens(''); setProfissao(''); setRg(''); setFiliacao('');
-      setConjugeNome(''); setConjugeCpf(''); setConjugeProfissao(''); setConjugeAssina(false); setQualOpen(false);
+      setConjugeNome(''); setConjugeCpf(''); setConjugeProfissao(''); setConjugeAssina(false); setQualOpen(true);
     }
   }, [editItem, open]);
+
+  function handleTipoChange(novoTipo: ClientTipo) {
+    setTipo(novoTipo);
+    setDocumento(prev => formatDocumento(prev, novoTipo));
+  }
+
+  async function buscarCep() {
+    const digits = cep.replace(/\D/g, '');
+    if (digits.length !== 8) return;
+    setCepLoading(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const data = await res.json();
+      if (data.erro) { toast.error('CEP não encontrado. Preencha o endereço manualmente.'); return; }
+      setRua(data.logradouro || '');
+      setBairro(data.bairro || '');
+      setCidade(data.localidade || '');
+      setEstado(data.uf || '');
+    } catch {
+      toast.error('Não deu pra buscar o CEP agora. Preencha o endereço manualmente.');
+    } finally {
+      setCepLoading(false);
+    }
+  }
 
   function handleSave() {
     if (!nome) {
@@ -117,7 +177,7 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
       toast.success('Cliente atualizado com sucesso.');
     } else {
       addClient(clientData);
-      toast.success('Cliente cadastrado com sucesso.', { description: 'Agora você pode criar o primeiro Trabalho para ele.' });
+      toast.success('Cliente cadastrado com sucesso.');
     }
     onSave(clientData);
     onClose();
@@ -138,7 +198,7 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
            <div className="grid grid-cols-2 gap-3">
              <div className="space-y-1.5">
                <Label className="text-xs">Tipo</Label>
-               <Select value={tipo} onValueChange={v => setTipo(v as ClientTipo)}>
+               <Select value={tipo} onValueChange={v => handleTipoChange(v as ClientTipo)}>
                  <SelectTrigger><SelectValue /></SelectTrigger>
                  <SelectContent>
                    {TIPOS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
@@ -146,8 +206,8 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
                </Select>
              </div>
              <div className="space-y-1.5">
-               <Label className="text-xs">{tipo === 'Pessoa jurídica' ? 'CNPJ' : 'CPF'}</Label>
-               <Input value={documento} onChange={e => setDocumento(e.target.value)} placeholder={tipo === 'Pessoa jurídica' ? '00.000.000/0001-00' : '000.000.000-00'} />
+               <Label className="text-xs">{tipo === 'Pessoa física' ? 'CPF' : 'CNPJ'}</Label>
+               <Input value={documento} onChange={e => setDocumento(formatDocumento(e.target.value, tipo))} placeholder={tipo === 'Pessoa física' ? '000.000.000-00' : '00.000.000/0001-00'} />
              </div>
            </div>
 
@@ -164,18 +224,35 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
 
            <div className="space-y-2 border border-3 p-3 rounded-lg bg-surface-2">
              <Label className="text-[11px] font-bold uppercase tracking-wider text-mute-2">Endereço (opcional)</Label>
-             <div className="grid grid-cols-4 gap-2">
-                <div className="col-span-3">
-                   <Input value={rua} onChange={e => setRua(e.target.value)} placeholder="Rua / Avenida" className="text-xs h-8" />
+             <div className="grid grid-cols-4 gap-2 items-start">
+                <div className="col-span-2 relative">
+                   <Input
+                     value={cep}
+                     onChange={e => setCep(formatCep(e.target.value))}
+                     onBlur={buscarCep}
+                     placeholder="CEP"
+                     className="text-xs h-8 pr-7"
+                   />
+                   {cepLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-mute-2 absolute right-2 top-1/2 -translate-y-1/2" />}
                 </div>
-                <div className="col-span-1">
-                   <Input value={numEnd} onChange={e => setNumEnd(e.target.value)} placeholder="Nº" className="text-xs h-8" />
+                <div className="col-span-2">
+                   <Input value={numEnd} onChange={e => setNumEnd(e.target.value)} placeholder="Número" className="text-xs h-8" />
                 </div>
              </div>
-             <div className="grid grid-cols-3 gap-2">
-                <Input value={bairro} onChange={e => setBairro(e.target.value)} placeholder="Bairro" className="text-xs h-8" />
-                <Input value={cidade} onChange={e => setCidade(e.target.value)} placeholder="Cidade" className="text-xs h-8" />
-                <Input value={estado} onChange={e => setEstado(e.target.value)} placeholder="UF" maxLength={2} className="text-xs h-8 uppercase" />
+             <Input value={rua} onChange={e => setRua(e.target.value)} placeholder="Rua / Avenida" className="text-xs h-8" />
+             <div className="grid grid-cols-4 gap-2">
+                <div className="col-span-2">
+                  <Input value={bairro} onChange={e => setBairro(e.target.value)} placeholder="Bairro" className="text-xs h-8" />
+                </div>
+                <div className="col-span-1">
+                  <Input value={cidade} onChange={e => setCidade(e.target.value)} placeholder="Cidade" className="text-xs h-8" />
+                </div>
+                <div className="col-span-1">
+                  <Select value={estado} onValueChange={setEstado}>
+                    <SelectTrigger className="text-xs h-8"><SelectValue placeholder="UF" /></SelectTrigger>
+                    <SelectContent>{ESTADOS_BR.map(([uf, nome]) => <SelectItem key={uf} value={uf}>{uf} — {nome}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
              </div>
            </div>
 

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TransactionForm } from '@/components/TransactionForm';
@@ -85,6 +85,12 @@ export function AppShell() {
   const [clientFormOpen, setClientFormOpen] = useState(false);
   const [recebimentoOpen, setRecebimentoOpen] = useState(false);
   const [novoTrabalhoOpen, setNovoTrabalhoOpen] = useState(false);
+  const [novoTrabalhoClienteId, setNovoTrabalhoClienteId] = useState<string | undefined>(undefined);
+  // NovoTrabalhoDiretoDialog chama onCreated() e depois onClose() na mesma sequência síncrona ao
+  // salvar — como setState não atualiza a closure na hora, o onClose subsequente pegaria o
+  // clienteId ainda "velho" e navegaria de volta pro cliente, sobrescrevendo a navegação pro
+  // trabalho recém-criado. Uma ref muda na hora, então o onClose sabe que já foi tratado.
+  const trabalhoRecemCriadoRef = useRef(false);
   const [compromissoOpen, setCompromissoOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
@@ -219,7 +225,7 @@ export function AppShell() {
     openNewTransaction, openEditTransaction,
     openCompleteTransaction: setCompleteItem,
     openNovoRecebimento: () => setRecebimentoOpen(true),
-    openNovoTrabalho: () => setNovoTrabalhoOpen(true),
+    openNovoTrabalho: () => { setNovoTrabalhoClienteId(undefined); setNovoTrabalhoOpen(true); },
     openNovoCliente: () => setClientFormOpen(true),
     pendingNewTask,
     consumePendingNewTask: () => setPendingNewTask(null),
@@ -277,7 +283,7 @@ export function AppShell() {
 
           <NovoDropdown
             onNewClient={() => setClientFormOpen(true)}
-            onNewTrabalho={() => setNovoTrabalhoOpen(true)}
+            onNewTrabalho={() => { setNovoTrabalhoClienteId(undefined); setNovoTrabalhoOpen(true); }}
             onNewProposta={() => navigate('/comercial')}
             onNewDocumento={() => navigate('/producao')}
             onNewReceita={() => setRecebimentoOpen(true)}
@@ -342,13 +348,30 @@ export function AppShell() {
       <ClientForm
         open={clientFormOpen}
         onClose={() => setClientFormOpen(false)}
-        onSave={(client) => { setClientFormOpen(false); refresh(); if (client) navigate(`/clientes/${client.id}`); }}
+        onSave={(client) => {
+          setClientFormOpen(false);
+          refresh();
+          // Cliente novo: continua direto pro Trabalho dele em vez de largar na ficha vazia —
+          // cancelar o Trabalho ainda leva pra ficha do cliente, então não é um beco sem saída.
+          if (client) { setNovoTrabalhoClienteId(client.id); setNovoTrabalhoOpen(true); }
+        }}
       />
       <NovoRecebimentoDialog open={recebimentoOpen} onClose={() => setRecebimentoOpen(false)} onCreated={refresh} />
       <NovoTrabalhoDiretoDialog
         open={novoTrabalhoOpen}
-        onClose={() => setNovoTrabalhoOpen(false)}
-        onCreated={(id) => { setNovoTrabalhoOpen(false); refresh(); navigate(`/trabalhos/${id}`); }}
+        clienteIdInicial={novoTrabalhoClienteId}
+        onClose={() => {
+          setNovoTrabalhoOpen(false);
+          if (!trabalhoRecemCriadoRef.current && novoTrabalhoClienteId) navigate(`/clientes/${novoTrabalhoClienteId}`);
+          trabalhoRecemCriadoRef.current = false;
+          setNovoTrabalhoClienteId(undefined);
+        }}
+        onCreated={(id) => {
+          trabalhoRecemCriadoRef.current = true;
+          setNovoTrabalhoOpen(false);
+          refresh();
+          navigate(`/trabalhos/${id}`);
+        }}
       />
 
       {migrationOpen && (
