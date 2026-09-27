@@ -9,7 +9,12 @@ import { cn } from '@/lib/utils';
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const DIAS_SEMANA_MES = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-const MAX_ITENS_DIA = 6;
+// Era 6 — herdado de quando este calendário vivia embutido no fim do Dashboard e precisava
+// de altura previsível pra não empurrar o resto da tela. Hoje é a página /agenda inteira, sem
+// mais nada dividindo espaço com ele (AgendaPage.tsx), e a seção já cresce sozinha (só tem
+// min-h, não max-h) — então o corte agressivo só escondia compromissos sem necessidade. Mantém
+// um teto alto só como proteção pra um dia com um volume verdadeiramente fora do comum.
+const MAX_ITENS_DIA = 20;
 
 function toKey(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -33,10 +38,9 @@ interface Props {
 
 /** Widget único de agenda — alterna entre visão Semana (compromissos com horário, tarefas,
  *  cobranças, em colunas por dia) e Mês (calendário compacto com indicador de pendência).
- *  Cada dia mostra no máximo MAX_ITENS_DIA itens pra manter a altura previsível — sem isso,
- *  um dia lotado de compromissos empurraria o resto da dashboard e quebraria a tela única.
- *  Clicar na data abre um popup com o dia completo (sem esse limite); arrastar um compromisso
- *  pra outra coluna do dia move ele (mesmo padrão de drag-and-drop do kanban de Trabalhos). */
+ *  Clicar na data abre um popup com o dia completo (sem limite de itens); arrastar um
+ *  compromisso pra outra coluna do dia move ele (mesmo padrão de drag-and-drop do kanban de
+ *  Trabalhos). */
 export function CalendarioAgenda({ compromissos, tasks, transactions, clients, onNovo, onEditar }: Props) {
   const navigate = useNavigate();
   const [modo, setModo] = useState<'semana' | 'mes'>('semana');
