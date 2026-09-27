@@ -4,9 +4,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getClients, updateProcess, registrarEvento } from '@/lib/storage';
-import { Client, Process } from '@/lib/types';
+import { getClients, getPartners, updateProcess, registrarEvento, addTransactions } from '@/lib/storage';
+import { Client, Process, Transaction, CATEGORIAS_ENTRADA } from '@/lib/types';
+import { cn } from '@/lib/utils';
+
+function fmt(v: number) {
+  return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+interface RepasseInput {
+  partnerId: string;
+  valor: string;
+}
 
 const TIPOS_TRABALHO = [
   'Regularização de imóvel', 'Instituição de condomínio', 'Convenção de condomínio',
@@ -31,6 +42,7 @@ interface Props {
 
 export function NovoTrabalhoDiretoDialog({ open, onClose, onCreated, trabalho, clienteIdInicial }: Props) {
   const clients = getClients();
+  const partners = getPartners();
   const editando = !!trabalho;
   const [clienteId, setClienteId] = useState('');
   const [objeto, setObjeto] = useState('');
@@ -39,6 +51,7 @@ export function NovoTrabalhoDiretoDialog({ open, onClose, onCreated, trabalho, c
   const [valorContrato, setValorContrato] = useState('');
   const [prazo, setPrazo] = useState('');
   const [usarEnderecoCliente, setUsarEnderecoCliente] = useState(false);
+  const [repasses, setRepasses] = useState<RepasseInput[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -53,6 +66,7 @@ export function NovoTrabalhoDiretoDialog({ open, onClose, onCreated, trabalho, c
       setClienteId(clienteIdInicial || ''); setObjeto(''); setTipoTrabalho(TIPOS_TRABALHO[0]); setEndereco(''); setValorContrato(''); setPrazo('');
     }
     setUsarEnderecoCliente(false);
+    setRepasses([]);
   }, [open, trabalho, clienteIdInicial]);
 
   const clienteSelecionado = clients.find(c => c.id === clienteId);
@@ -61,6 +75,20 @@ export function NovoTrabalhoDiretoDialog({ open, onClose, onCreated, trabalho, c
   useEffect(() => {
     if (usarEnderecoCliente && enderecoCliente) setEndereco(enderecoCliente);
   }, [usarEnderecoCliente, enderecoCliente]);
+
+  function addRepasseRow() {
+    setRepasses(prev => [...prev, { partnerId: '', valor: '' }]);
+  }
+  function updateRepasseRow(i: number, patch: Partial<RepasseInput>) {
+    setRepasses(prev => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  }
+  function removeRepasseRow(i: number) {
+    setRepasses(prev => prev.filter((_, idx) => idx !== i));
+  }
+
+  const valorContratoNum = Number(valorContrato) || 0;
+  const totalRepasses = repasses.reduce((s, r) => s + (Number(r.valor) || 0), 0);
+  const lucroPrevisto = valorContratoNum - totalRepasses;
 
   function handleSave() {
     if (!clienteId) { toast.error('Selecione o cliente.'); return; }
@@ -82,8 +110,71 @@ export function NovoTrabalhoDiretoDialog({ open, onClose, onCreated, trabalho, c
       texto: editando ? `Trabalho "${salvo.objeto}" editado` : `Trabalho "${salvo.objeto}" criado`,
       clienteId, trabalhoId: salvo.id,
     });
+
+    const avisos: string[] = [];
+
+    // Só na criação: o valor do contrato e os repasses viram lançamentos reais na hora, em vez
+    // de precisar de uma segunda visita ao Trabalho pra "Registrar como a receber"/"Novo repasse".
+    // a Vista, com vencimento no prazo informado (ou hoje, se não tiver prazo) — quem precisar de
+    // parcelamento de verdade ainda usa "Registrar recebimento" depois, isso aqui só cobre o caso
+    // simples (a maioria).
+    if (!editando) {
+      const dataLancamento = prazo || new Date().toISOString().slice(0, 10);
+      const novasTransacoes: Transaction[] = [];
+
+      if (valorContratoNum > 0) {
+        novasTransacoes.push({
+          id: crypto.randomUUID(),
+          data: dataLancamento,
+          tipo: 'A Receber',
+          categoria: CATEGORIAS_ENTRADA[0],
+          descricao: salvo.objeto,
+          valor: valorContratoNum,
+          status: 'Pendente',
+          isRepasse: false,
+          clienteId,
+          processId: salvo.id,
+        });
+        registrarEvento({
+          modulo: 'Financeiro',
+          texto: `Recebimento previsto para ${clienteSelecionado?.nome || 'cliente'} — ${fmt(valorContratoNum)}`,
+          clienteId, trabalhoId: salvo.id,
+        });
+        avisos.push(`${fmt(valorContratoNum)} a receber`);
+      }
+
+      const repassesValidos = repasses.filter(r => r.partnerId && Number(r.valor) > 0);
+      repassesValidos.forEach(r => {
+        const valorRepasse = Number(r.valor);
+        const partner = partners.find(p => p.id === r.partnerId);
+        novasTransacoes.push({
+          id: crypto.randomUUID(),
+          data: dataLancamento,
+          tipo: 'A Pagar',
+          categoria: '🤝 Comissão',
+          descricao: `Repasse — ${partner?.nome || 'Parceiro'} — ${salvo.objeto}`,
+          valor: valorRepasse,
+          status: 'Pendente',
+          isRepasse: true,
+          partnerId: r.partnerId,
+          clienteId,
+          processId: salvo.id,
+        });
+        registrarEvento({
+          modulo: 'Financeiro',
+          texto: `Repasse previsto para ${partner?.nome || 'parceiro'} — ${fmt(valorRepasse)}`,
+          clienteId, trabalhoId: salvo.id,
+        });
+      });
+      if (repassesValidos.length > 0) avisos.push(`${fmt(totalRepasses)} repassado${repassesValidos.length > 1 ? 's' : ''}`);
+
+      if (novasTransacoes.length > 0) addTransactions(novasTransacoes);
+    }
+
     toast.success(editando ? 'Trabalho atualizado.' : 'Trabalho criado.', editando ? undefined : {
-      description: 'Agora você pode acompanhar a execução, gerar documentos técnicos e organizar o financeiro dele.',
+      description: avisos.length > 0
+        ? `Já registrado: ${avisos.join(' · ')}.`
+        : 'Agora você pode acompanhar a execução, gerar documentos técnicos e organizar o financeiro dele.',
     });
     onCreated(salvo.id);
     onClose();
@@ -139,12 +230,40 @@ export function NovoTrabalhoDiretoDialog({ open, onClose, onCreated, trabalho, c
             <div className="space-y-1.5">
               <Label>Valor (opcional)</Label>
               <Input type="number" value={valorContrato} onChange={e => setValorContrato(e.target.value)} placeholder="0,00" />
+              {!editando && valorContratoNum > 0 && (
+                <p className="text-[10.5px] text-mute-2">Já registra como a receber, vencimento {prazo ? new Date(prazo + 'T12:00:00').toLocaleDateString('pt-BR') : 'hoje'}.</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Prazo (opcional)</Label>
               <Input type="date" value={prazo} onChange={e => setPrazo(e.target.value)} />
             </div>
           </div>
+
+          {!editando && partners.length > 0 && (
+            <div className="space-y-1.5 pt-1 border-t border-3">
+              <div className="flex items-center justify-between">
+                <Label>Repasse a parceiro (opcional)</Label>
+                <button type="button" onClick={addRepasseRow} className="text-[11px] text-accent font-medium flex items-center gap-1"><Plus className="w-3 h-3" /> Repasse</button>
+              </div>
+              {repasses.map((r, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <Select value={r.partnerId} onValueChange={v => updateRepasseRow(i, { partnerId: v })}>
+                    <SelectTrigger className="h-8 text-xs flex-1"><SelectValue placeholder="Parceiro" /></SelectTrigger>
+                    <SelectContent>{partners.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}</SelectContent>
+                  </Select>
+                  <Input type="number" value={r.valor} onChange={e => updateRepasseRow(i, { valor: e.target.value })} placeholder="Valor" className="w-24 h-8 text-xs" />
+                  <button type="button" onClick={() => removeRepasseRow(i)} className="text-destructive p-1 flex-none"><Trash2 className="w-3.5 h-3.5" /></button>
+                </div>
+              ))}
+              {(valorContratoNum > 0 || totalRepasses > 0) && (
+                <div className="flex items-center justify-between text-[11.5px] pt-1">
+                  <span className="text-muted-foreground">Lucro líquido previsto</span>
+                  <span className={cn('font-mono-hbs font-medium', lucroPrevisto < 0 ? 'text-destructive' : 'text-success')}>{fmt(lucroPrevisto)}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
