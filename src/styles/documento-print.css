@@ -511,6 +511,23 @@
   .documento-table td { padding: 3px 4px; overflow-wrap: break-word; word-break: break-word; }
   .documento-p { font-size: 12px; }
 
+  /* Rodapé ancorado na margem inferior de TODA página impressa (fixed repete por página). O padding
+     clonado por fragmento reserva o espaço dele em cada página, pra o corpo não passar por baixo.
+     Offset negativo pra "dentro da margem" não funciona: o Chromium joga o rodapé pra outra página. */
+  .documento-folha:has(.documento-footer) {
+    padding-bottom: 16mm;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+  .documento-footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    background: #fff;
+  }
+
   /* O app inteiro roda dentro de um shell de altura fixa (h-screen) com o conteúdo principal
      em overflow-y:auto — sem isso, a impressão captura só o que está visível na tela (a
      "dobra"), cortando fora todo o resto do documento abaixo. Sidebar/topbar somem e os
