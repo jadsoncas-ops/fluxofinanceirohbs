@@ -295,6 +295,18 @@ export type TipoAtoAverbacao = 'averbacao_construcao' | 'averbacao_ampliacao' | 
 /** Dados do Requerimento de Averbação — usado quando o Trabalho NÃO envolve instituição de condomínio
  *  (averbação de construção/ampliação/reforma ou regularização de construção existente perante o RI).
  *  Persistido no Trabalho para permitir reabrir, editar e regenerar sem perder o preenchimento. */
+/** Proprietário/requerente adicional do requerimento de averbação — co-proprietários, ex-cônjuges
+ *  (divorciados que continuam donos juntos), herdeiros. O requerente principal segue nos campos
+ *  `requerente*` de AverbacaoData; estes entram além dele, no texto e nas assinaturas. */
+export interface RequerenteAdicional {
+  nome: string;
+  documento?: string;
+  estadoCivil?: EstadoCivil;
+  profissao?: string;
+  conjugeNome?: string;
+  endereco?: string;
+}
+
 export interface AverbacaoData {
   requerenteNome?: string;
   requerenteDocumento?: string;
@@ -302,6 +314,7 @@ export interface AverbacaoData {
   requerenteProfissao?: string;
   requerenteConjugeNome?: string;
   requerenteEndereco?: string;
+  coRequerentes?: RequerenteAdicional[];
   /** Preenchidos apenas quando o requerente é pessoa jurídica. */
   representanteNome?: string;
   representanteCpf?: string;

@@ -1,16 +1,19 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Printer, Save, AlertTriangle, Pencil } from 'lucide-react';
-import { AverbacaoData, Client, DocumentRecord, EstadoCivil, Process } from '@/lib/types';
+import { ArrowLeft, ArrowRight, Printer, Save, AlertTriangle, Pencil, Plus, Trash2 } from 'lucide-react';
+import { AverbacaoData, Client, DocumentRecord, EstadoCivil, Process, RequerenteAdicional } from '@/lib/types';
 import { addDocument, getDocuments, registrarEvento, updateDocument, updateProcess } from '@/lib/storage';
 import {
   CampoFaltante,
   TIPOS_ATO,
   dadosIniciaisAverbacao,
+  mesmoProprietario,
   montarRequerimentoAverbacao,
+  proprietariosAdicionaisDoTrabalho,
   trabalhoPareceCondominio,
   validarAverbacao,
 } from '@/lib/producao/requerimentoAverbacao';
+import { precisaQualificarConjuge } from '@/lib/producao/documentoShared';
 import { DocumentoRequerimentoAverbacao } from '@/components/documento/DocumentoRequerimentoAverbacao';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -63,15 +66,42 @@ export function RequerimentoAverbacaoWizard({ trabalho, cliente }: Props) {
     return erros.find(e => e.campo === campo)?.mensagem;
   }
 
+  const coRequerentes = data.coRequerentes || [];
+  // Proprietários já cadastrados em Dados técnicos que ainda não estão neste requerimento.
+  const paraImportar = useMemo(
+    () => proprietariosAdicionaisDoTrabalho(trabalho, { nome: data.requerenteNome, documento: data.requerenteDocumento })
+      .filter(c => !coRequerentes.some(x => mesmoProprietario({ nome: x.nome, documento: x.documento }, c))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [trabalho, data.requerenteNome, data.requerenteDocumento, data.coRequerentes]
+  );
+
+  function addCoRequerente() {
+    set('coRequerentes', [...coRequerentes, { nome: '' }]);
+  }
+  function updateCoRequerente(i: number, patch: Partial<RequerenteAdicional>) {
+    set('coRequerentes', coRequerentes.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  }
+  function removeCoRequerente(i: number) {
+    set('coRequerentes', coRequerentes.filter((_, idx) => idx !== i));
+  }
+  function importarProprietarios() {
+    set('coRequerentes', [...coRequerentes, ...paraImportar]);
+    toast.success(`${paraImportar.length} proprietário${paraImportar.length > 1 ? 's' : ''} importado${paraImportar.length > 1 ? 's' : ''} dos Dados técnicos.`);
+  }
+
   function gerarDocumento() {
-    const validacao = validarAverbacao(data);
+    // Linha de proprietário adicional sem nome é só rascunho esquecido — não vai pro documento nem pro banco.
+    const preenchidos = coRequerentes.filter(r => r.nome.trim());
+    const dataFinal: AverbacaoData = { ...data, coRequerentes: preenchidos.length > 0 ? preenchidos : undefined };
+    const validacao = validarAverbacao(dataFinal);
     if (validacao.length > 0) {
       setErros(validacao);
       toast.error(validacao[0].mensagem);
       return;
     }
     setErros([]);
-    updateProcess({ ...trabalho, averbacao: data });
+    setData(dataFinal);
+    updateProcess({ ...trabalho, averbacao: dataFinal });
 
     const existente = getDocuments().find(d => d.processId === trabalho.id && d.tipoTecnico === 'requerimento_averbacao');
     if (existente) {
@@ -182,6 +212,65 @@ export function RequerimentoAverbacaoWizard({ trabalho, cliente }: Props) {
               <Field label="Endereço">
                 <Input value={data.requerenteEndereco || ''} onChange={e => set('requerenteEndereco', e.target.value)} className={inputCls} placeholder="Endereço completo do requerente" />
               </Field>
+
+              <div className="pt-4 mt-1 border-t border-3 space-y-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <div className="text-[13.5px] font-semibold">Outros proprietários</div>
+                    <div className="text-[11.5px] text-mute-2 mt-0.5">Imóvel com mais de um dono (ex.: divorciados que seguem donos juntos, herdeiros)? Todos entram no texto e na assinatura.</div>
+                  </div>
+                  <div className="flex items-center gap-3 flex-none">
+                    {paraImportar.length > 0 && (
+                      <button type="button" onClick={importarProprietarios} className="text-[11.5px] font-medium text-accent">
+                        Importar dos Dados técnicos ({paraImportar.length})
+                      </button>
+                    )}
+                    <button type="button" onClick={addCoRequerente} className="text-[11.5px] font-medium text-accent flex items-center gap-1">
+                      <Plus className="w-3.5 h-3.5" /> Proprietário
+                    </button>
+                  </div>
+                </div>
+
+                {erroDe('coRequerentes') && <div className="text-[11px] text-destructive">{erroDe('coRequerentes')}</div>}
+
+                {coRequerentes.map((r, i) => (
+                  <div key={i} className="rounded-lg border border-3 bg-surface-2 p-3 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="text-[11px] uppercase tracking-[.07em] text-mute-2">Proprietário {i + 2}</div>
+                      <button type="button" onClick={() => removeCoRequerente(i)} className="text-mute-3 hover:text-destructive transition-colors" title="Remover">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="grid gap-3" style={{ gridTemplateColumns: '2fr 1fr' }}>
+                      <Field label="Nome completo">
+                        <Input value={r.nome} onChange={e => updateCoRequerente(i, { nome: e.target.value })} className={inputCls} placeholder="Nome do proprietário" />
+                      </Field>
+                      <Field label="CPF">
+                        <Input value={r.documento || ''} onChange={e => updateCoRequerente(i, { documento: e.target.value })} className={inputCls} placeholder="000.000.000-00" />
+                      </Field>
+                    </div>
+                    <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                      <Field label="Estado civil">
+                        <Select value={r.estadoCivil || ''} onValueChange={v => updateCoRequerente(i, { estadoCivil: v as EstadoCivil })}>
+                          <SelectTrigger className={inputCls}><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectContent>{ESTADOS_CIVIS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </Field>
+                      <Field label="Profissão">
+                        <Input value={r.profissao || ''} onChange={e => updateCoRequerente(i, { profissao: e.target.value })} className={inputCls} placeholder="Ex: Do lar" />
+                      </Field>
+                    </div>
+                    {precisaQualificarConjuge(r.estadoCivil) && (
+                      <Field label="Cônjuge">
+                        <Input value={r.conjugeNome || ''} onChange={e => updateCoRequerente(i, { conjugeNome: e.target.value })} className={inputCls} placeholder="Nome do cônjuge" />
+                      </Field>
+                    )}
+                    <Field label="Endereço">
+                      <Input value={r.endereco || ''} onChange={e => updateCoRequerente(i, { endereco: e.target.value })} className={inputCls} placeholder="Endereço completo deste proprietário" />
+                    </Field>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -302,6 +391,9 @@ export function RequerimentoAverbacaoWizard({ trabalho, cliente }: Props) {
               <div className="grid gap-x-6 gap-y-2.5 text-[12.5px]" style={{ gridTemplateColumns: '1fr 1fr' }}>
                 <div><span className="text-mute-2">Requerente:</span> {data.requerenteNome || '—'}</div>
                 <div><span className="text-mute-2">CPF/CNPJ:</span> {data.requerenteDocumento || '—'}</div>
+                {coRequerentes.some(r => r.nome.trim()) && (
+                  <div className="col-span-2"><span className="text-mute-2">Outros proprietários:</span> {coRequerentes.filter(r => r.nome.trim()).map(r => `${r.nome.trim()}${r.documento ? ` (CPF ${r.documento})` : ''}`).join('; ')}</div>
+                )}
                 <div><span className="text-mute-2">Matrícula:</span> {data.matricula || '—'}</div>
                 <div><span className="text-mute-2">Cartório:</span> {data.cartorio || '—'}</div>
                 <div className="col-span-2"><span className="text-mute-2">Endereço do imóvel:</span> {[data.imovelEndereco, data.imovelNumero, data.imovelBairro, data.imovelCidade, data.imovelEstado].filter(Boolean).join(', ') || '—'}</div>

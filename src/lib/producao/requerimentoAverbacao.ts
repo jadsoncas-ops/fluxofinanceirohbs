@@ -1,4 +1,5 @@
-import { AverbacaoData, Client, Process, TipoAtoAverbacao } from '@/lib/types';
+import { AverbacaoData, Client, EstadoCivil, Process, RequerenteAdicional, TipoAtoAverbacao } from '@/lib/types';
+import { precisaQualificarConjuge } from './documentoShared';
 
 export const TIPOS_ATO: { key: TipoAtoAverbacao; label: string; textoDocumento: string }[] = [
   { key: 'averbacao_construcao', label: 'Averbação de construção', textoDocumento: 'construção' },
@@ -13,6 +14,33 @@ function enderecoClienteFmt(cliente: Client | undefined): string {
   if (!cliente?.endereco) return '';
   const { rua, numero, complemento, bairro, cidade, estado } = cliente.endereco;
   return [rua, numero, complemento, bairro, cidade, estado].filter(Boolean).join(', ');
+}
+
+function soDigitos(v: string | undefined): string {
+  return (v || '').replace(/\D/g, '');
+}
+
+/** Mesmo proprietário? Compara pelo CPF/CNPJ quando os dois têm; senão pelo nome (sem caixa/espaços sobrando). */
+export function mesmoProprietario(a: { nome?: string; documento?: string }, b: { nome?: string; documento?: string }): boolean {
+  const da = soDigitos(a.documento), db = soDigitos(b.documento);
+  if (da && db) return da === db;
+  const na = (a.nome || '').trim().toLowerCase(), nb = (b.nome || '').trim().toLowerCase();
+  return !!na && na === nb;
+}
+
+/** Os outros proprietários já cadastrados em Dados técnicos do trabalho (proprietariosGerais — a mesma lista
+ *  que a Instituição e o Requerimento usam), tirando o requerente principal. Evita digitar duas vezes. */
+export function proprietariosAdicionaisDoTrabalho(trabalho: Process, principal: { nome?: string; documento?: string }): RequerenteAdicional[] {
+  return (trabalho.tecnico?.proprietariosGerais || [])
+    .filter(p => p.nome?.trim() && !mesmoProprietario({ nome: p.nome, documento: p.cpf }, principal))
+    .map(p => ({
+      nome: p.nome,
+      documento: p.cpf || undefined,
+      estadoCivil: p.estadoCivil,
+      profissao: p.profissao,
+      conjugeNome: p.conjugeNome,
+      endereco: p.endereco,
+    }));
 }
 
 /** Dados iniciais do wizard: usa o que já foi salvo neste Trabalho (edição), senão auto-preenche do
@@ -43,6 +71,9 @@ export function dadosIniciaisAverbacao(trabalho: Process, cliente: Client | unde
     }
   }
 
+  const adicionais = proprietariosAdicionaisDoTrabalho(trabalho, { nome: data.requerenteNome, documento: data.requerenteDocumento });
+  if (adicionais.length > 0) data.coRequerentes = adicionais;
+
   return data;
 }
 
@@ -67,6 +98,8 @@ export function validarAverbacao(data: AverbacaoData): CampoFaltante[] {
   if (!data.areaConstruida || data.areaConstruida <= 0) erros.push({ campo: 'areaConstruida', mensagem: 'Informe a área construída.' });
   if (!data.tipoAto) erros.push({ campo: 'tipoAto', mensagem: 'Selecione o tipo de ato.' });
   if (!data.valorConstrucao || data.valorConstrucao <= 0) erros.push({ campo: 'valorConstrucao', mensagem: 'Informe o valor atribuído à construção.' });
+  const semCpf = (data.coRequerentes || []).find(r => r.nome.trim() && !r.documento?.trim());
+  if (semCpf) erros.push({ campo: 'coRequerentes', mensagem: `Informe o CPF de ${semCpf.nome.trim()} (outro proprietário).` });
   return erros;
 }
 
@@ -87,6 +120,33 @@ function enderecoImovelCompleto(data: AverbacaoData): string {
   return partes.length ? partes.join(', ') : '';
 }
 
+interface DadosPessoaFisica {
+  nome?: string;
+  documento?: string;
+  estadoCivil?: EstadoCivil;
+  profissao?: string;
+  conjugeNome?: string;
+  endereco?: string;
+}
+
+/** Qualificação de pessoa física — a mesma frase pro requerente principal e pros adicionais. O cônjuge só
+ *  entra se o estado civil pede ("casado(a) com X"); divorciado/viúvo/solteiro nunca leva "com X", mesmo
+ *  que sobre um nome de cônjuge antigo guardado no cadastro. */
+function qualificacaoPessoaFisica(d: DadosPessoaFisica): string {
+  const nome = (d.nome || '').toUpperCase();
+  if (!nome) return PLACEHOLDER;
+
+  const partes = [nome, 'maior, capaz'];
+  if (d.estadoCivil) {
+    const estadoCivil = lowerFirst(d.estadoCivil);
+    partes.push(d.conjugeNome && precisaQualificarConjuge(d.estadoCivil) ? `${estadoCivil} com ${d.conjugeNome}` : estadoCivil);
+  }
+  if (d.profissao) partes.push(d.profissao);
+  if (d.documento) partes.push(`inscrito(a) no CPF nº ${d.documento}`);
+  if (d.endereco) partes.push(`residente e domiciliado(a) em ${d.endereco}`);
+  return partes.join(', ');
+}
+
 function qualificacaoRequerente(data: AverbacaoData, cliente: Client | undefined): string {
   const isPJ = cliente?.tipo === 'Pessoa jurídica';
   const nome = (data.requerenteNome || '').toUpperCase();
@@ -105,15 +165,10 @@ function qualificacaoRequerente(data: AverbacaoData, cliente: Client | undefined
     return partes.join(', ');
   }
 
-  const partes = [nome, 'maior, capaz'];
-  if (data.requerenteEstadoCivil) {
-    const estadoCivil = lowerFirst(data.requerenteEstadoCivil);
-    partes.push(data.requerenteConjugeNome ? `${estadoCivil} com ${data.requerenteConjugeNome}` : estadoCivil);
-  }
-  if (data.requerenteProfissao) partes.push(data.requerenteProfissao);
-  if (data.requerenteDocumento) partes.push(`inscrito(a) no CPF nº ${data.requerenteDocumento}`);
-  if (data.requerenteEndereco) partes.push(`residente e domiciliado(a) em ${data.requerenteEndereco}`);
-  return partes.join(', ');
+  return qualificacaoPessoaFisica({
+    nome: data.requerenteNome, documento: data.requerenteDocumento, estadoCivil: data.requerenteEstadoCivil,
+    profissao: data.requerenteProfissao, conjugeNome: data.requerenteConjugeNome, endereco: data.requerenteEndereco,
+  });
 }
 
 function listaDocumentos(data: AverbacaoData): string {
@@ -134,7 +189,8 @@ function listaDocumentos(data: AverbacaoData): string {
 export interface RequerimentoAverbacaoDoc {
   cartorio: string;
   tituloAto: string;
-  qualificacao: string;
+  /** Uma qualificação por requerente (principal primeiro, depois os adicionais). */
+  qualificacoes: string[];
   matricula: string;
   tipoAtoTexto: string;
   enderecoImovel: string;
@@ -145,8 +201,8 @@ export interface RequerimentoAverbacaoDoc {
   documentos: string;
   municipio: string;
   data: string;
-  nomeRequerente: string;
-  documentoRequerente: string;
+  /** Um bloco de assinatura por requerente. */
+  assinaturas: { nome: string; documento: string }[];
 }
 
 /** Monta o texto do requerimento a partir do que foi preenchido — nunca inventa dado ausente,
@@ -154,11 +210,15 @@ export interface RequerimentoAverbacaoDoc {
 export function montarRequerimentoAverbacao(data: AverbacaoData, cliente: Client | undefined): RequerimentoAverbacaoDoc {
   const ato = TIPOS_ATO.find(t => t.key === data.tipoAto);
   const enderecoImovel = enderecoImovelCompleto(data);
+  const adicionais = (data.coRequerentes || []).filter(r => r.nome.trim());
 
   return {
     cartorio: data.cartorio?.trim() || PLACEHOLDER,
     tituloAto: ato ? ato.label.toUpperCase() : PLACEHOLDER,
-    qualificacao: qualificacaoRequerente(data, cliente),
+    qualificacoes: [
+      qualificacaoRequerente(data, cliente),
+      ...adicionais.map(r => qualificacaoPessoaFisica(r)),
+    ],
     matricula: data.matricula?.trim() || PLACEHOLDER,
     tipoAtoTexto: ato ? ato.textoDocumento : PLACEHOLDER,
     enderecoImovel: enderecoImovel || PLACEHOLDER,
@@ -169,7 +229,9 @@ export function montarRequerimentoAverbacao(data: AverbacaoData, cliente: Client
     documentos: listaDocumentos(data) || 'a documentação a ser complementada',
     municipio: data.imovelCidade?.trim() || '(Município)',
     data: data.dataDocumento ? new Date(data.dataDocumento + 'T12:00:00').toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR'),
-    nomeRequerente: data.requerenteNome?.trim() || PLACEHOLDER,
-    documentoRequerente: data.requerenteDocumento?.trim() || PLACEHOLDER,
+    assinaturas: [
+      { nome: data.requerenteNome?.trim() || PLACEHOLDER, documento: data.requerenteDocumento?.trim() || PLACEHOLDER },
+      ...adicionais.map(r => ({ nome: r.nome.trim(), documento: r.documento?.trim() || PLACEHOLDER })),
+    ],
   };
 }
