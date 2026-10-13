@@ -68,6 +68,19 @@ export function dadosIniciaisAverbacao(trabalho: Process, cliente: Client | unde
       if (cliente.qualificacao?.conjuge?.assina && cliente.qualificacao.conjuge.nome) {
         data.requerenteConjugeNome = cliente.qualificacao.conjuge.nome;
       }
+
+      // O que o Cliente não tem, completa com o mesmo proprietário em Dados técnicos (é de lá que a
+      // Instituição e o Requerimento tiram a qualificação). Só preenche lacuna — o cadastro do cliente manda.
+      const doTrabalho = (trabalho.tecnico?.proprietariosGerais || [])
+        .find(p => mesmoProprietario({ nome: p.nome, documento: p.cpf }, { nome: cliente.nome, documento: cliente.documento }));
+      if (doTrabalho) {
+        data.requerenteEstadoCivil ||= doTrabalho.estadoCivil;
+        data.requerenteProfissao ||= doTrabalho.profissao;
+        if (!data.requerenteEndereco && doTrabalho.endereco) data.requerenteEndereco = doTrabalho.endereco;
+        if (!data.requerenteConjugeNome && doTrabalho.conjugeNome && precisaQualificarConjuge(data.requerenteEstadoCivil)) {
+          data.requerenteConjugeNome = doTrabalho.conjugeNome;
+        }
+      }
     }
   }
 

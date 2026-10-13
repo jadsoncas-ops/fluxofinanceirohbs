@@ -91,6 +91,33 @@ describe('proprietários já cadastrados em Dados técnicos', () => {
     expect(inicial.coRequerentes?.map(r => r.nome)).toEqual(['Sione Ferreira Nascimento']);
   });
 
+  it('cliente sem qualificação herda estado civil e profissão do mesmo proprietário em Dados técnicos', () => {
+    const semQualificacao = { ...cliente, qualificacao: undefined } as Client;
+    const t = trabalhoCom({
+      units: [],
+      proprietariosGerais: [{ nome: 'José Almeida dos Santos', cpf: '357.666.625-72', estadoCivil: 'Divorciado(a)', profissao: 'comerciário' }, sione],
+    });
+    const inicial = dadosIniciaisAverbacao(t, semQualificacao);
+    expect(inicial.requerenteEstadoCivil).toBe('Divorciado(a)');
+    expect(inicial.requerenteProfissao).toBe('comerciário');
+  });
+
+  it('o cadastro do cliente manda: Dados técnicos só preenchem lacuna', () => {
+    const t = trabalhoCom({
+      units: [],
+      proprietariosGerais: [{ nome: 'José Almeida dos Santos', cpf: '357.666.625-72', estadoCivil: 'Solteiro(a)', profissao: 'advogado' }],
+    });
+    const inicial = dadosIniciaisAverbacao(t, cliente);
+    expect(inicial.requerenteEstadoCivil).toBe('Divorciado(a)');
+    expect(inicial.requerenteProfissao).toBe('comerciário');
+  });
+
+  it('não herda de outro proprietário que não seja o cliente', () => {
+    const semQualificacao = { ...cliente, qualificacao: undefined } as Client;
+    const t = trabalhoCom({ units: [], proprietariosGerais: [{ ...sione, estadoCivil: 'Casado(a)' }] });
+    expect(dadosIniciaisAverbacao(t, semQualificacao).requerenteEstadoCivil).toBeUndefined();
+  });
+
   it('averbação já salva é respeitada, sem sobrescrever com os Dados técnicos', () => {
     const t = { ...trabalhoCom({ units: [], proprietariosGerais: [sione] }), averbacao: base } as Process;
     expect(dadosIniciaisAverbacao(t, cliente).coRequerentes).toBeUndefined();
