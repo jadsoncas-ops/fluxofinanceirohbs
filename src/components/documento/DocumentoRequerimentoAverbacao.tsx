@@ -61,10 +61,6 @@ export function DocumentoRequerimentoAverbacao({ dados }: { dados: RequerimentoA
           ))}
         </div>
       </div>
-
-      <div className="documento-nota">
-        <p>Este é um modelo técnico-administrativo parametrizado, sujeito às exigências específicas do Cartório de Registro de Imóveis competente. Revise e adapte os campos conforme a documentação e as normas locais antes de protocolar.</p>
-      </div>
     </div>
   );
 }
