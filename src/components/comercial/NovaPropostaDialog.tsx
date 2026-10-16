@@ -15,7 +15,8 @@ import {
   calcularCustoEtapa, calcularTotalProtocolos, calcularPrecoFinal, formatBRL,
   EtapaServico,
 } from '@/lib/comercial/precificacao';
-import { Proposta, PropostaParcela } from '@/lib/types';
+import { Proposta, PropostaParcela, PropostaProspect } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 interface Props {
   open: boolean;
@@ -40,6 +41,11 @@ export function NovaPropostaDialog({ open, onClose, onSaved, clienteIdInicial, e
   const config = useMemo(() => getPrecificacaoConfig(), [open]);
 
   const [clienteId, setClienteId] = useState(editItem?.clienteId || clienteIdInicial || '');
+  // Orçamento para quem ainda não é cliente: só o nome do interessado; o cadastro fica pra quando aprovar.
+  const [semCadastro, setSemCadastro] = useState(!!editItem && !editItem.clienteId);
+  const [prospectNome, setProspectNome] = useState(editItem?.prospect?.nome || '');
+  const [prospectDocumento, setProspectDocumento] = useState(editItem?.prospect?.documento || '');
+  const [prospectContato, setProspectContato] = useState(editItem?.prospect?.contato || '');
   const [tipoProcesso, setTipoProcesso] = useState('');
   const [titulo, setTitulo] = useState(editItem?.titulo || '');
   const [etapas, setEtapas] = useState<EtapaServico[]>(() => etapasIniciais(editItem));
@@ -55,6 +61,10 @@ export function NovaPropostaDialog({ open, onClose, onSaved, clienteIdInicial, e
   useEffect(() => {
     if (!open) return;
     setClienteId(editItem?.clienteId || clienteIdInicial || '');
+    setSemCadastro(!!editItem && !editItem.clienteId);
+    setProspectNome(editItem?.prospect?.nome || '');
+    setProspectDocumento(editItem?.prospect?.documento || '');
+    setProspectContato(editItem?.prospect?.contato || '');
     setTipoProcesso('');
     setTitulo(editItem?.titulo || '');
     setEtapas(etapasIniciais(editItem));
@@ -121,7 +131,9 @@ export function NovaPropostaDialog({ open, onClose, onSaved, clienteIdInicial, e
   }
 
   function handleSave() {
-    if (!clienteId) { toast.error('Selecione o cliente.'); return; }
+    if (semCadastro) {
+      if (!prospectNome.trim()) { toast.error('Informe o nome de quem vai receber o orçamento.'); return; }
+    } else if (!clienteId) { toast.error('Selecione o cliente.'); return; }
     if (!titulo.trim()) { toast.error('Dê um título à proposta.'); return; }
     const ativos = etapas.filter(e => e.ativa);
     if (ativos.length === 0) { toast.error('Selecione ao menos um serviço.'); return; }
@@ -141,11 +153,15 @@ export function NovaPropostaDialog({ open, onClose, onSaved, clienteIdInicial, e
     };
 
     const notaParceiroFinal = temParceiro ? observacaoParceiro.trim() : undefined;
+    const prospect: PropostaProspect | undefined = semCadastro
+      ? { nome: prospectNome.trim(), documento: prospectDocumento.trim() || undefined, contato: prospectContato.trim() || undefined }
+      : undefined;
+    const clienteFinal = semCadastro ? null : clienteId;
 
     if (editItem) {
       updateProposta({
         ...editItem,
-        clienteId, titulo: titulo.trim(), itens,
+        clienteId: clienteFinal, prospect, titulo: titulo.trim(), itens,
         custoHoraBase: custoHora, lucroPercent, impostosPercent, comissaoPercent,
         custosProtocolo: protocolos, resultado: resultadoFinal, prazoDias,
         parcelasPagamento: parcelasFinal,
@@ -157,7 +173,8 @@ export function NovaPropostaDialog({ open, onClose, onSaved, clienteIdInicial, e
       const proposta: Proposta = {
         id: crypto.randomUUID(),
         codigo: getNextPropostaCodigo(),
-        clienteId,
+        clienteId: clienteFinal,
+        prospect,
         trabalhoId: null,
         titulo: titulo.trim(),
         itens,
@@ -187,13 +204,26 @@ export function NovaPropostaDialog({ open, onClose, onSaved, clienteIdInicial, e
         <div className="space-y-5 py-1">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Cliente</Label>
-              <Select value={clienteId} onValueChange={setClienteId}>
-                <SelectTrigger><SelectValue placeholder="Selecione um cliente" /></SelectTrigger>
-                <SelectContent>
-                  {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center justify-between gap-2">
+                <Label>Para quem</Label>
+                {/* Proposta já ligada a um cliente cadastrado não volta a ser "sem cadastro" (pode já ter contrato). */}
+                {!(editItem && editItem.clienteId) && (
+                  <div className="flex rounded-md border border-border p-0.5 text-[11px] font-medium">
+                    <button type="button" onClick={() => setSemCadastro(false)} className={cn('px-2 py-0.5 rounded transition-colors', !semCadastro ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>Cliente cadastrado</button>
+                    <button type="button" onClick={() => setSemCadastro(true)} className={cn('px-2 py-0.5 rounded transition-colors', semCadastro ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>Sem cadastro</button>
+                  </div>
+                )}
+              </div>
+              {semCadastro ? (
+                <Input value={prospectNome} onChange={e => setProspectNome(e.target.value)} placeholder="Nome de quem vai receber o orçamento" />
+              ) : (
+                <Select value={clienteId} onValueChange={setClienteId}>
+                  <SelectTrigger><SelectValue placeholder="Selecione um cliente" /></SelectTrigger>
+                  <SelectContent>
+                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Tipo de processo</Label>
@@ -206,6 +236,20 @@ export function NovaPropostaDialog({ open, onClose, onSaved, clienteIdInicial, e
               <p className="text-[10.5px] text-muted-foreground">Preenche título e escopo sugerido — ambos continuam editáveis depois.</p>
             </div>
           </div>
+
+          {semCadastro && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">CPF/CNPJ <span className="text-mute-3 font-normal">(opcional)</span></Label>
+                <Input value={prospectDocumento} onChange={e => setProspectDocumento(e.target.value)} placeholder="000.000.000-00" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Contato <span className="text-mute-3 font-normal">(opcional)</span></Label>
+                <Input value={prospectContato} onChange={e => setProspectContato(e.target.value)} placeholder="WhatsApp ou e-mail" />
+              </div>
+              <p className="col-span-2 text-[10.5px] text-muted-foreground -mt-1">Não precisa cadastrar agora. Se a proposta for aprovada, o sistema abre o cadastro já com esses dados.</p>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label>Título da proposta</Label>

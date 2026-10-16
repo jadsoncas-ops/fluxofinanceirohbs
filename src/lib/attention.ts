@@ -212,7 +212,7 @@ export function computeAttentionItems(
       tipo: 'Pendencia',
       severity: dias > 10 ? 'critical' : 'warning',
       title: `Proposta ${p.codigo} sem resposta há ${dias}d`,
-      sub: `${client?.nome || 'Cliente'} · ${fmtMoney(p.resultado.precoVenda)} · ${p.titulo}`,
+      sub: `${client?.nome || p.prospect?.nome || 'Cliente'} · ${fmtMoney(p.resultado.precoVenda)} · ${p.titulo}`,
       cta: 'Fazer follow-up',
       to: `/comercial`,
     });

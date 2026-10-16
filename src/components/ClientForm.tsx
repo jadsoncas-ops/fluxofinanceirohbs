@@ -47,9 +47,11 @@ interface Props {
   onClose: () => void;
   onSave: (client?: Client) => void;
   editItem?: Client | null;
+  /** Só para cliente novo: já abre com nome/documento preenchidos (ex.: interessado de um orçamento sem cadastro). */
+  inicial?: { nome?: string; documento?: string };
 }
 
-export function ClientForm({ open, onClose, onSave, editItem }: Props) {
+export function ClientForm({ open, onClose, onSave, editItem, inicial }: Props) {
   const [nome, setNome] = useState('');
   const [tipo, setTipo] = useState<ClientTipo>('Pessoa física');
   const [documento, setDocumento] = useState('');
@@ -106,12 +108,14 @@ export function ClientForm({ open, onClose, onSave, editItem }: Props) {
       // melhor já abrir do que deixar o usuário descobrir a falta lá na frente.
       setQualOpen(!!q || (editItem.tipo || 'Pessoa física') === 'Pessoa física');
     } else {
-      setNome(''); setTipo('Pessoa física'); setDocumento(''); setDdd(''); setNumero('');
+      // 14 dígitos = CNPJ; qualquer outra coisa continua como pessoa física (o padrão de sempre).
+      const tipoInicial: ClientTipo = (inicial?.documento || '').replace(/\D/g, '').length > 11 ? 'Pessoa jurídica' : 'Pessoa física';
+      setNome(inicial?.nome || ''); setTipo(tipoInicial); setDocumento(formatDocumento(inicial?.documento || '', tipoInicial)); setDdd(''); setNumero('');
       setCep(''); setRua(''); setNumEnd(''); setBairro(''); setCidade(''); setEstado('BA'); setDescricao('');
       setNacionalidade(''); setEstadoCivil(''); setRegimeBens(''); setProfissao(''); setRg(''); setFiliacao('');
       setConjugeNome(''); setConjugeCpf(''); setConjugeProfissao(''); setConjugeAssina(false); setQualOpen(true);
     }
-  }, [editItem, open]);
+  }, [editItem, open, inicial?.nome, inicial?.documento]);
 
   function handleTipoChange(novoTipo: ClientTipo) {
     setTipo(novoTipo);

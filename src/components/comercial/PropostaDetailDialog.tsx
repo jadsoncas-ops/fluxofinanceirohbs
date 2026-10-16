@@ -3,15 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, XCircle, Send, ArrowRight, Printer, Pencil, Trash2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Send, ArrowRight, Printer, Pencil, Trash2, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
-import { Proposta, PropostaStatus, Contrato } from '@/lib/types';
+import { Client, Proposta, PropostaStatus, Contrato } from '@/lib/types';
 import { getClients, getContratos, getPropostas, updateProposta, deleteProposta, deleteContrato, registrarEvento } from '@/lib/storage';
-import { aprovarPropostaEGerarContrato } from '@/lib/comercial/fluxo';
+import { aprovarPropostaEGerarContrato, nomeDaProposta } from '@/lib/comercial/fluxo';
 import { formatBRL } from '@/lib/comercial/precificacao';
 import { NovoTrabalhoDialog } from './NovoTrabalhoDialog';
 import { NovaPropostaDialog } from './NovaPropostaDialog';
 import { EditarContratoDialog } from './EditarContratoDialog';
+import { ClientForm } from '@/components/ClientForm';
 import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
 
 interface Props {
@@ -36,15 +37,18 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
   const [editContratoOpen, setEditContratoOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<'proposta' | 'contrato' | null>(null);
   const [confirmarAprovar, setConfirmarAprovar] = useState(false);
+  const [clienteFormOpen, setClienteFormOpen] = useState(false);
+  // Aprovar uma proposta sem cadastro passa pelo cadastro do cliente; depois dele, segue pra confirmação de aprovar.
+  const [aprovarAposCadastro, setAprovarAposCadastro] = useState(false);
 
-  const { proposta, cliente, contrato } = useMemo(() => {
+  const { proposta, nome, contrato } = useMemo(() => {
     void key;
-    if (!propostaId) return { proposta: null, cliente: null, contrato: null };
+    if (!propostaId) return { proposta: null, nome: '', contrato: null };
     const p: Proposta | undefined = getPropostas().find((x: Proposta) => x.id === propostaId);
-    if (!p) return { proposta: null, cliente: null, contrato: null };
-    const cliente = getClients().find(c => c.id === p.clienteId) || null;
+    if (!p) return { proposta: null, nome: '', contrato: null };
+    const clientes = getClients();
     const contrato = getContratos().find(c => c.propostaId === p.id) || null;
-    return { proposta: p, cliente, contrato };
+    return { proposta: p, nome: nomeDaProposta(p, clientes), contrato };
   }, [propostaId, key]);
 
   if (!proposta) return null;
@@ -54,6 +58,26 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
     registrarEvento({ modulo: 'Comercial', texto: `Proposta ${proposta!.codigo} marcada como ${status.toLowerCase()}`, clienteId: proposta!.clienteId, propostaId: proposta!.id });
     setKey(k => k + 1);
     onChanged();
+  }
+
+  function pedirAprovacao() {
+    if (!proposta!.clienteId) {
+      setAprovarAposCadastro(true);
+      setClienteFormOpen(true);
+      return;
+    }
+    setConfirmarAprovar(true);
+  }
+
+  function handleClienteCadastrado(novo?: Client) {
+    if (!novo) return;
+    updateProposta({ ...proposta!, clienteId: novo.id, prospect: undefined, updatedAt: Date.now() });
+    registrarEvento({ modulo: 'Comercial', texto: `Proposta ${proposta!.codigo} vinculada ao cliente ${novo.nome}`, clienteId: novo.id, propostaId: proposta!.id });
+    toast.success(`Proposta ${proposta!.codigo} vinculada a ${novo.nome}.`);
+    setKey(k => k + 1);
+    onChanged();
+    if (aprovarAposCadastro) setConfirmarAprovar(true);
+    setAprovarAposCadastro(false);
   }
 
   function handleAprovar() {
@@ -120,9 +144,23 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
           )}
 
           <div className="space-y-4">
-            <div className="text-[13px] text-muted-foreground">
-              Cliente: <button onClick={() => { onClose(); navigate(`/clientes/${proposta.clienteId}`); }} className="text-accent font-medium hover:underline">{cliente?.nome || 'Cliente'}</button>
-            </div>
+            {proposta.clienteId ? (
+              <div className="text-[13px] text-muted-foreground">
+                Cliente: <button onClick={() => { onClose(); navigate(`/clientes/${proposta.clienteId}`); }} className="text-accent font-medium hover:underline">{nome}</button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3 rounded-lg bg-surface-2 border border-3 px-3 py-2.5">
+                <div className="min-w-0">
+                  <div className="text-[13px] text-muted-foreground">Para: <span className="text-foreground font-medium">{nome}</span> <span className="text-[11px] text-mute-2">· sem cadastro</span></div>
+                  {(proposta.prospect?.documento || proposta.prospect?.contato) && (
+                    <div className="text-[11px] text-mute-2 mt-0.5 truncate">{[proposta.prospect?.documento, proposta.prospect?.contato].filter(Boolean).join(' · ')}</div>
+                  )}
+                </div>
+                <button onClick={() => { setAprovarAposCadastro(false); setClienteFormOpen(true); }} className="flex-none text-[11.5px] font-medium text-accent flex items-center gap-1">
+                  <UserPlus className="w-3.5 h-3.5" /> Cadastrar cliente
+                </button>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               {proposta.itens.map(item => (
@@ -174,7 +212,7 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
                 )}
                 {(proposta.status === 'Rascunho' || proposta.status === 'Enviada' || proposta.status === 'Em aprovação') && (
                   <>
-                    <Button size="sm" className="gap-1.5" onClick={() => setConfirmarAprovar(true)}><CheckCircle2 className="w-3.5 h-3.5" /> Aprovar e gerar contrato</Button>
+                    <Button size="sm" className="gap-1.5" onClick={pedirAprovacao}><CheckCircle2 className="w-3.5 h-3.5" /> Aprovar e gerar contrato</Button>
                     <Button size="sm" variant="ghost" className="gap-1.5 text-destructive hover:text-destructive" onClick={() => setStatus('Perdida')}><XCircle className="w-3.5 h-3.5" /> Marcar como perdida</Button>
                   </>
                 )}
@@ -206,6 +244,13 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
         proposta={proposta}
       />
 
+      <ClientForm
+        open={clienteFormOpen}
+        onClose={() => { setClienteFormOpen(false); setAprovarAposCadastro(false); }}
+        onSave={handleClienteCadastrado}
+        inicial={{ nome: proposta.prospect?.nome, documento: proposta.prospect?.documento }}
+      />
+
       <AlertDialog open={!!deleteConfirm} onOpenChange={v => !v && setDeleteConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -231,7 +276,7 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
             <AlertDialogTitle>Aprovar proposta e gerar contrato</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2">
-                <p>Cliente: <strong className="text-foreground font-medium">{cliente?.nome || 'Cliente'}</strong> · Valor: <strong className="text-foreground font-medium">{formatBRL(proposta.resultado.precoVenda)}</strong></p>
+                <p>Cliente: <strong className="text-foreground font-medium">{nome}</strong> · Valor: <strong className="text-foreground font-medium">{formatBRL(proposta.resultado.precoVenda)}</strong></p>
                 <p>Isso vai marcar a proposta {proposta.codigo} como Aprovada e criar um contrato no valor acima. Depois disso a proposta não pode mais ser excluída diretamente — e o próximo passo será criar o Trabalho a partir do contrato para gerar as parcelas no financeiro.</p>
               </div>
             </AlertDialogDescription>

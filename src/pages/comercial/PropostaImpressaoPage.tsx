@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { getPropostas, getClients, getCompanyConfig } from '@/lib/storage';
 import { ETAPAS_PADRAO, GRUPOS, CUSTOS_PROTOCOLO_PADRAO, formatBRL } from '@/lib/comercial/precificacao';
+import { nomeDaProposta } from '@/lib/comercial/fluxo';
 import { usePrintTitle } from '@/hooks/use-print-title';
 import hbsLogo from '@/assets/hbs-logo.png';
 import logoJadsonCastro from '@/assets/logo-jadson-castro.png';
@@ -25,14 +26,15 @@ export default function PropostaImpressaoPage() {
   const { propostaId } = useParams<{ propostaId: string }>();
   const navigate = useNavigate();
 
-  const { proposta, cliente, config } = useMemo(() => {
+  const { proposta, nomeCliente, config } = useMemo(() => {
     const proposta = getPropostas().find(p => p.id === propostaId) || null;
-    const cliente = proposta ? getClients().find(c => c.id === proposta.clienteId) : undefined;
+    // Sem cadastro, o orçamento sai em nome do interessado digitado na proposta.
+    const nomeCliente = proposta ? nomeDaProposta(proposta, getClients()) : '';
     const config = getCompanyConfig();
-    return { proposta, cliente, config };
+    return { proposta, nomeCliente, config };
   }, [propostaId]);
 
-  usePrintTitle(proposta ? `Proposta - ${cliente?.nome || proposta.titulo}` : undefined);
+  usePrintTitle(proposta ? `Proposta - ${nomeCliente || proposta.titulo}` : undefined);
 
   if (!proposta) {
     return (
@@ -76,7 +78,7 @@ export default function PropostaImpressaoPage() {
 
         <div className="capa-corpo">
           <div className="capa-label">Preparado para</div>
-          <div className="capa-cliente">{cliente?.nome || 'A definir'}</div>
+          <div className="capa-cliente">{nomeCliente || 'A definir'}</div>
           <div className="capa-descricao">{proposta.titulo}</div>
           <div className="capa-numero">Proposta nº {proposta.codigo} · {new Date(proposta.createdAt).toLocaleDateString('pt-BR')}</div>
 
@@ -96,7 +98,7 @@ export default function PropostaImpressaoPage() {
       {/* Conteúdo */}
       <div className="proposta-folha">
         <div className="proposta-topo">
-          <div className="linha"><span className="lbl">Cliente</span><span className="val">{cliente?.nome || 'A definir'}</span></div>
+          <div className="linha"><span className="lbl">Cliente</span><span className="val">{nomeCliente || 'A definir'}</span></div>
           <div className="linha"><span className="lbl">Prazo estimado</span><span className="val">{proposta.prazoDias ? `${proposta.prazoDias} dias` : 'A definir'}</span></div>
           <div className="linha"><span className="lbl">Validade da proposta</span><span className="val">{validadeDias} dias</span></div>
         </div>

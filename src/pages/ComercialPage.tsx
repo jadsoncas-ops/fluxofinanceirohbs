@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, ArrowRight, Pencil } from 'lucide-react';
 import { getPropostas, getContratos, getClients } from '@/lib/storage';
 import { formatBRL } from '@/lib/comercial/precificacao';
+import { nomeDaProposta } from '@/lib/comercial/fluxo';
 import { Proposta, PropostaStatus, ContratoStatus } from '@/lib/types';
 import { NovaPropostaDialog } from '@/components/comercial/NovaPropostaDialog';
 import { PropostaDetailDialog } from '@/components/comercial/PropostaDetailDialog';
@@ -113,14 +114,14 @@ export default function ComercialPage() {
           {propostasAbertas.length === 0 ? (
             <div className="px-[18px] py-10 text-center">
               <p className="text-sm font-medium">Nenhuma proposta em aberto</p>
-              <p className="text-xs text-muted-foreground mt-1">Crie a primeira proposta reaproveitando os dados de um cliente já cadastrado.</p>
+              <p className="text-xs text-muted-foreground mt-1">Crie o primeiro orçamento — para um cliente cadastrado ou só com o nome de quem pediu.</p>
             </div>
           ) : (
             propostasAbertas.map(p => (
               <div key={p.id} className="flex items-center gap-3 px-[18px] py-[12px] border-b border-3 last:border-b-0 hover:bg-surface-3 transition-colors cursor-pointer" onClick={() => setPropostaAberta(p.id)}>
                 <div className="flex-1 min-w-0">
                   <div className="text-[12.5px] font-medium truncate">{p.codigo} · {p.titulo}</div>
-                  <div className="text-[11px] text-mute-2 mt-0.5">{clienteNome(p.clienteId)} · <ValorMonetario value={formatBRL(p.resultado.precoVenda)} /></div>
+                  <div className="text-[11px] text-mute-2 mt-0.5">{nomeDaProposta(p, clients)}{!p.clienteId && ' (sem cadastro)'} · <ValorMonetario value={formatBRL(p.resultado.precoVenda)} /></div>
                 </div>
                 <StatusBadge tone={PROPOSTA_TONE[p.status]} className="flex-none">
                   {p.status === 'Enviada' && p.enviadaEm ? `Sem resposta ${diasDesde(p.enviadaEm)}d` : p.status}

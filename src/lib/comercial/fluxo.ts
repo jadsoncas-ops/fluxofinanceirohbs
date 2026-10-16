@@ -1,8 +1,14 @@
-import { Proposta, Contrato, ContratoParcela, Process, Transaction, TrabalhoEtapa } from '@/lib/types';
+import { Client, Proposta, Contrato, ContratoParcela, Process, Transaction, TrabalhoEtapa } from '@/lib/types';
 import {
   updateProposta, addContrato, getNextContratoCodigo, getContrato, updateContrato,
   updateProcess, getProcesses, addTransaction, registrarEvento,
 } from '@/lib/storage';
+
+/** Nome de quem recebe a proposta: o cliente cadastrado ou, se ainda não existe cadastro, o interessado. */
+export function nomeDaProposta(proposta: Pick<Proposta, 'clienteId' | 'prospect'>, clientes: Client[]): string {
+  const cliente = proposta.clienteId ? clientes.find(c => c.id === proposta.clienteId) : undefined;
+  return cliente?.nome || proposta.prospect?.nome || 'Cliente';
+}
 
 /**
  * Aprova uma proposta e gera o contrato correspondente — nunca duplica cliente/dados,
@@ -10,6 +16,11 @@ import {
  * isso acontece em criarTrabalhoDoContrato, quando as parcelas são definidas.
  */
 export function aprovarPropostaEGerarContrato(proposta: Proposta): Contrato {
+  // Contrato, trabalho e financeiro são sempre de um cliente cadastrado — proposta só com o nome do interessado
+  // precisa ganhar o cadastro antes (a tela de proposta abre o cadastro já preenchido).
+  const clienteId = proposta.clienteId;
+  if (!clienteId) throw new Error('Cadastre o cliente antes de aprovar a proposta.');
+
   const propostaAtualizada: Proposta = { ...proposta, status: 'Aprovada', updatedAt: Date.now() };
   updateProposta(propostaAtualizada);
 
@@ -17,7 +28,7 @@ export function aprovarPropostaEGerarContrato(proposta: Proposta): Contrato {
     id: crypto.randomUUID(),
     codigo: getNextContratoCodigo(),
     propostaId: proposta.id,
-    clienteId: proposta.clienteId,
+    clienteId,
     trabalhoId: null,
     valor: proposta.resultado.precoVenda,
     parcelas: [],
@@ -31,13 +42,13 @@ export function aprovarPropostaEGerarContrato(proposta: Proposta): Contrato {
   registrarEvento({
     modulo: 'Comercial',
     texto: `Proposta ${proposta.codigo} aprovada`,
-    clienteId: proposta.clienteId,
+    clienteId,
     propostaId: proposta.id,
   });
   registrarEvento({
     modulo: 'Comercial',
     texto: `Contrato ${contrato.codigo} criado — R$ ${contrato.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-    clienteId: proposta.clienteId,
+    clienteId,
     propostaId: proposta.id,
     contratoId: contrato.id,
   });

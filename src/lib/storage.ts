@@ -211,6 +211,7 @@ function documentToRow(d: DocumentRecord): Database['public']['Tables']['hbs_doc
 function rowToProposta(r: Row<'hbs_propostas'>): Proposta {
   return {
     id: r.id, codigo: r.codigo, clienteId: r.cliente_id, trabalhoId: r.trabalho_id,
+    prospect: r.prospect_nome ? { nome: r.prospect_nome, documento: r.prospect_documento ?? undefined, contato: r.prospect_contato ?? undefined } : undefined,
     titulo: r.titulo, itens: (r.itens as Proposta['itens']) ?? [], custoHoraBase: Number(r.custo_hora_base),
     lucroPercent: Number(r.lucro_percent), impostosPercent: Number(r.impostos_percent),
     comissaoPercent: Number(r.comissao_percent), custosProtocolo: r.custos_protocolo as Proposta['custosProtocolo'],
@@ -224,6 +225,7 @@ function rowToProposta(r: Row<'hbs_propostas'>): Proposta {
 function propostaToRow(p: Proposta): Database['public']['Tables']['hbs_propostas']['Insert'] {
   return {
     id: p.id, codigo: p.codigo, cliente_id: p.clienteId, trabalho_id: p.trabalhoId ?? null,
+    prospect_nome: p.prospect?.nome ?? null, prospect_documento: p.prospect?.documento ?? null, prospect_contato: p.prospect?.contato ?? null,
     titulo: p.titulo, itens: p.itens as Database['public']['Tables']['hbs_propostas']['Insert']['itens'],
     custo_hora_base: p.custoHoraBase, lucro_percent: p.lucroPercent, impostos_percent: p.impostosPercent,
     comissao_percent: p.comissaoPercent,
@@ -1019,7 +1021,14 @@ export function updateProposta(updated: Proposta): void {
   cache.propostas = cache.propostas.map(p => p.id === updated.id ? withTs : p);
   notify();
   void (async () => {
-    const { error } = await supabase.from('hbs_propostas').update(propostaToRow(withTs)).eq('id', updated.id);
+    // Vincular a proposta a um cliente recém-cadastrado dispara esta escrita junto com a do cliente (addClient
+    // não espera o banco); se ela chegar antes, a FK (23503) falha só por corrida — espera e tenta de novo.
+    let error: { code?: string } | null = null;
+    for (const espera of [0, 400, 1200]) {
+      if (espera) await new Promise(r => setTimeout(r, espera));
+      ({ error } = await supabase.from('hbs_propostas').update(propostaToRow(withTs)).eq('id', updated.id));
+      if (!error || error.code !== '23503') break;
+    }
     if (error) { reportError(error, 'Não foi possível salvar. Sincronizando novamente…'); await resyncTable('hbs_propostas', rowToProposta, v => cache.propostas = v); }
   })();
 }

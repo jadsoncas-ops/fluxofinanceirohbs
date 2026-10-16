@@ -474,11 +474,21 @@ export interface PropostaParcela {
   valor: number;
 }
 
-/** Uma proposta comercial — nasce de um cliente existente, pode terminar em Contrato. */
+/** Interessado que ainda não é cliente cadastrado — o orçamento sai em nome dele; vira cliente só se a proposta for aprovada. */
+export interface PropostaProspect {
+  nome: string;
+  documento?: string;
+  contato?: string;
+}
+
+/** Uma proposta comercial — nasce de um cliente existente (ou só do nome de um interessado, em `prospect`)
+ *  e pode terminar em Contrato. Sempre tem `clienteId` OU `prospect`; contrato/trabalho exigem cliente cadastrado. */
 export interface Proposta {
   id: string;
   codigo: string; // PRP-0001
-  clienteId: string;
+  clienteId: string | null;
+  /** Preenchido quando a proposta é para alguém sem cadastro; some quando o cliente é cadastrado e vinculado. */
+  prospect?: PropostaProspect;
   /** Preenchido se a proposta parte de (ou gera) um trabalho específico. */
   trabalhoId?: string | null;
   titulo: string;

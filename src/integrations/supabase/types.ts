@@ -327,7 +327,7 @@ export type Database = {
         Row: {
           id: string
           codigo: string
-          cliente_id: string
+          cliente_id: string | null
           trabalho_id: string | null
           titulo: string
           itens: Json
@@ -341,6 +341,9 @@ export type Database = {
           forma_pagamento: string | null
           parcelas_pagamento: Json | null
           observacao_parceiro: string | null
+          prospect_nome: string | null
+          prospect_documento: string | null
+          prospect_contato: string | null
           status: string
           enviada_em: string | null
           created_at: string
@@ -350,7 +353,7 @@ export type Database = {
         Insert: {
           id?: string
           codigo: string
-          cliente_id: string
+          cliente_id?: string | null
           trabalho_id?: string | null
           titulo: string
           itens?: Json
@@ -364,6 +367,9 @@ export type Database = {
           forma_pagamento?: string | null
           parcelas_pagamento?: Json | null
           observacao_parceiro?: string | null
+          prospect_nome?: string | null
+          prospect_documento?: string | null
+          prospect_contato?: string | null
           status?: string
           enviada_em?: string | null
           created_at?: string
@@ -373,7 +379,7 @@ export type Database = {
         Update: {
           id?: string
           codigo?: string
-          cliente_id?: string
+          cliente_id?: string | null
           trabalho_id?: string | null
           titulo?: string
           itens?: Json
@@ -387,6 +393,9 @@ export type Database = {
           forma_pagamento?: string | null
           parcelas_pagamento?: Json | null
           observacao_parceiro?: string | null
+          prospect_nome?: string | null
+          prospect_documento?: string | null
+          prospect_contato?: string | null
           status?: string
           enviada_em?: string | null
           created_at?: string
