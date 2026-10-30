@@ -686,6 +686,18 @@ export type Oficio = '1º Ofício' | '2º Ofício' | '3º Ofício' | 'Outro';
 
 export type ExigenciaStatus = 'Aberta' | 'Cumprida' | 'Dispensada';
 
+/** Uma prorrogação de prazo concedida pelo ofício — da prenotação ou de uma exigência. Fica como histórico. */
+export interface ProrrogacaoPrazo {
+  id: string;
+  /** Quando a prorrogação foi registrada aqui (timestamp). */
+  em: number;
+  /** ISO yyyy-mm-dd — limite antes da prorrogação. */
+  de: string;
+  /** ISO yyyy-mm-dd — novo limite. */
+  ate: string;
+  motivo?: string;
+}
+
 export interface Exigencia {
   id: string;
   /** Texto da exigência como veio do registrador. */
@@ -697,6 +709,8 @@ export interface Exigencia {
   documentosFaltantes?: string[];
   criadaEm: number;
   cumpridaEm?: number;
+  /** Prorrogações do prazo desta exigência (o `prazo` acima já é o limite vigente). */
+  prorrogacoes?: ProrrogacaoPrazo[];
 }
 
 /** Trâmite em cartório de registro de imóveis. Opcional: só trabalhos que registram têm isso. */
@@ -708,8 +722,11 @@ export interface RegistroImobiliario {
   dataProtocolo?: string;
   /** ISO yyyy-mm-dd — início da prenotação. O prazo legal é de 30 dias (Lei 6.015/73, art. 205). */
   dataPrenotacao?: string;
-  /** Sobrescreve os 30 dias quando o ofício deu prazo diferente. */
+  /** Sobrescreve os 30 dias quando o ofício deu prazo diferente. Prorrogar a prenotação soma aqui
+   *  (dias contados de `dataPrenotacao`), então alertas e Dashboard já enxergam o novo limite. */
   prazoPrenotacaoDias?: number;
+  /** Histórico de prorrogações da prenotação. */
+  prorrogacoes?: ProrrogacaoPrazo[];
   exigencias?: Exigencia[];
   /** Nº da matrícula emitida — preenchido quando o registro sai. */
   matricula?: string;

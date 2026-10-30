@@ -12,7 +12,7 @@ import { Stepper } from '@/components/ui/Stepper';
 import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
 import { ETAPA_DESCRICAO } from '@/lib/etapas';
 import { KpiCard, type KpiTone } from '@/components/KpiCard';
-import { computeCartorioProgress } from '@/lib/cartorio';
+import { computeCartorioProgress, limitePrenotacao, prorrogarPrenotacao, prorrogarExigencia, sugestoesProrrogacao } from '@/lib/cartorio';
 import { DOCUMENT_REGISTRY } from '@/lib/producao/registry';
 import { montarMensagemBoasVindas, linkWhatsApp } from '@/lib/mensagens';
 import { NovoRepasseDialog } from '@/components/trabalhos/NovoRepasseDialog';
@@ -93,6 +93,10 @@ export default function TrabalhoDetailPage() {
   const [exigenciaOpen, setExigenciaOpen] = useState(false);
   const [exigenciaDescricao, setExigenciaDescricao] = useState('');
   const [exigenciaPrazo, setExigenciaPrazo] = useState('');
+  // Prorrogação de prazo concedida pelo ofício: da prenotação ou de uma exigência em aberto.
+  const [prorrogar, setProrrogar] = useState<{ tipo: 'prenotacao' } | { tipo: 'exigencia'; id: string } | null>(null);
+  const [prorrogarData, setProrrogarData] = useState('');
+  const [prorrogarMotivo, setProrrogarMotivo] = useState('');
   const [matriculaOpen, setMatriculaOpen] = useState(false);
   const [matriculaNumero, setMatriculaNumero] = useState('');
   const [matriculaData, setMatriculaData] = useState(() => new Date().toISOString().slice(0, 10));
@@ -179,6 +183,40 @@ export default function TrabalhoDetailPage() {
   const registro = trabalho.registro;
   const hoje = new Date().toISOString().slice(0, 10);
   const { stages: cartorioStages, exigenciasAbertas, temRegistro, currentIdx: cartorioIdx, prenotacaoDiasRestantes } = computeCartorioProgress(registro);
+  const dataBR = (iso: string) => iso.split('-').reverse().join('/');
+  const limiteAtualPrenotacao = limitePrenotacao(registro);
+  const limiteProrrogacao = prorrogar?.tipo === 'prenotacao'
+    ? limiteAtualPrenotacao
+    : prorrogar?.tipo === 'exigencia' ? (exigenciasAbertas.find(e => e.id === prorrogar.id)?.prazo ?? null) : null;
+
+  function abrirProrrogacao(alvo: NonNullable<typeof prorrogar>) {
+    const limite = alvo.tipo === 'prenotacao' ? limiteAtualPrenotacao : (exigenciasAbertas.find(e => e.id === alvo.id)?.prazo ?? null);
+    setProrrogar(alvo);
+    setProrrogarData(sugestoesProrrogacao(limite, hoje)[1].data); // +30 dias já preenchido; é só ajustar se o ofício deu outro prazo
+    setProrrogarMotivo('');
+  }
+
+  function confirmarProrrogacao() {
+    if (!prorrogar || !trabalho.registro) return;
+    const motivo = prorrogarMotivo.trim();
+    try {
+      if (prorrogar.tipo === 'prenotacao') {
+        const de = limiteAtualPrenotacao!;
+        updateProcess({ ...trabalho, registro: prorrogarPrenotacao(trabalho.registro, prorrogarData, motivo) });
+        registrarEvento({ modulo: 'Cartório', texto: `Prenotação prorrogada de ${dataBR(de)} para ${dataBR(prorrogarData)}${motivo ? ` — ${motivo}` : ''}`, clienteId: trabalho.clienteId, trabalhoId: trabalho.id });
+        toast.success(`Prenotação prorrogada até ${dataBR(prorrogarData)}.`);
+      } else {
+        const alvo = exigenciasAbertas.find(e => e.id === prorrogar.id);
+        updateProcess({ ...trabalho, registro: prorrogarExigencia(trabalho.registro, prorrogar.id, prorrogarData, motivo) });
+        registrarEvento({ modulo: 'Cartório', texto: `Prazo da exigência prorrogado${alvo?.prazo ? ` de ${dataBR(alvo.prazo)}` : ''} para ${dataBR(prorrogarData)} — ${alvo?.descricao ?? 'exigência'}${motivo ? ` (${motivo})` : ''}`, clienteId: trabalho.clienteId, trabalhoId: trabalho.id });
+        toast.success(`Prazo da exigência prorrogado até ${dataBR(prorrogarData)}.`);
+      }
+      setProrrogar(null);
+      setKey(k => k + 1);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Não foi possível prorrogar.');
+    }
+  }
 
   function registrarProtocolo() {
     if (!protocoloNumero.trim()) { toast.error('Informe o número do protocolo.'); return; }
@@ -565,12 +603,21 @@ export default function TrabalhoDetailPage() {
                   {prenotacaoDiasRestantes !== null && !registro.matricula && (
                     prenotacaoDiasRestantes < 0 ? ` · vencida há ${Math.abs(prenotacaoDiasRestantes)}d` : ` · vence em ${prenotacaoDiasRestantes}d`
                   )}
+                  {limiteAtualPrenotacao && !registro.matricula && ` (limite ${dataBR(limiteAtualPrenotacao)})`}
                 </span>
               )}
               {registro?.matricula && (
                 <span>Matrícula <strong className="text-foreground font-medium font-mono-hbs">{registro.matricula}</strong>{registro.matriculaEmitidaEm && ` · emitida ${new Date(registro.matriculaEmitidaEm + 'T12:00:00').toLocaleDateString('pt-BR')}`}</span>
               )}
             </div>
+
+            {(registro?.prorrogacoes?.length ?? 0) > 0 && (
+              <div className="text-[11px] text-mute-2 -mt-1.5 flex flex-col gap-0.5">
+                {registro!.prorrogacoes!.slice(-3).map(p => (
+                  <span key={p.id}>Prenotação prorrogada: {dataBR(p.de)} → <strong className="text-foreground font-medium">{dataBR(p.ate)}</strong>{p.motivo ? ` · ${p.motivo}` : ''}</span>
+                ))}
+              </div>
+            )}
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
@@ -590,7 +637,12 @@ export default function TrabalhoDetailPage() {
                         <ShieldAlert className={cn('w-3.5 h-3.5 flex-none', vencida ? 'text-destructive' : 'text-warning')} />
                         <div className="min-w-0 flex-1">
                           <div className="text-[12px] leading-tight">{e.descricao}</div>
-                          {e.prazo && <div className={cn('text-[10.5px] font-mono-hbs mt-0.5', vencida ? 'text-destructive' : 'text-mute-2')}>prazo {new Date(e.prazo + 'T12:00:00').toLocaleDateString('pt-BR')}</div>}
+                          {e.prazo && (
+                            <div className={cn('text-[10.5px] font-mono-hbs mt-0.5 flex items-center gap-2', vencida ? 'text-destructive' : 'text-mute-2')}>
+                              <span>prazo {new Date(e.prazo + 'T12:00:00').toLocaleDateString('pt-BR')}{(e.prorrogacoes?.length ?? 0) > 0 && ` · prorrogado ${e.prorrogacoes!.length}×`}</span>
+                              <button onClick={() => abrirProrrogacao({ tipo: 'exigencia', id: e.id })} className="font-sans text-[10.5px] font-medium text-accent hover:underline">Prorrogar</button>
+                            </div>
+                          )}
                         </div>
                         <button onClick={() => resolverExigencia(e.id, 'Cumprida')} className="h-7 px-2.5 rounded-lg bg-success text-white text-[11px] font-medium flex-none whitespace-nowrap">Cumprida</button>
                         <button onClick={() => resolverExigencia(e.id, 'Dispensada')} className="h-7 px-2.5 rounded-lg border-2 text-[11px] font-medium flex-none whitespace-nowrap">Dispensar</button>
@@ -601,10 +653,19 @@ export default function TrabalhoDetailPage() {
               )}
             </div>
 
-            {cartorioIdx === 3 && !registro?.matricula && (
-              <button onClick={() => setMatriculaOpen(true)} className="self-start h-8 px-3 bg-primary text-primary-foreground rounded-lg text-[12px] font-medium">
-                Registrar matrícula
-              </button>
+            {!registro?.matricula && (cartorioIdx === 3 || !!registro?.dataPrenotacao) && (
+              <div className="self-start flex flex-wrap gap-2">
+                {cartorioIdx === 3 && (
+                  <button onClick={() => setMatriculaOpen(true)} className="h-8 px-3 bg-primary text-primary-foreground rounded-lg text-[12px] font-medium">
+                    Registrar matrícula
+                  </button>
+                )}
+                {registro?.dataPrenotacao && (
+                  <button onClick={() => abrirProrrogacao({ tipo: 'prenotacao' })} className="h-8 px-3 border-2 rounded-lg text-[12px] font-medium hover:border-hover transition-colors">
+                    Prorrogar prenotação
+                  </button>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -987,6 +1048,41 @@ export default function TrabalhoDetailPage() {
           <div className="flex justify-end gap-2 pt-1">
             <button onClick={() => setExigenciaOpen(false)} className="h-9 px-3.5 rounded-lg text-[12.5px] font-medium text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
             <button onClick={adicionarExigencia} className="h-9 px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] font-medium hover:bg-primary-hover transition-colors">Registrar</button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!prorrogar} onOpenChange={v => !v && setProrrogar(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{prorrogar?.tipo === 'exigencia' ? 'Prorrogar prazo da exigência' : 'Prorrogar prenotação'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2.5">
+            <div className="text-[12px] text-muted-foreground">
+              {limiteProrrogacao
+                ? <>Prazo atual: <strong className="text-foreground font-medium font-mono-hbs">{dataBR(limiteProrrogacao)}</strong>{limiteProrrogacao < hoje && <span className="text-destructive"> · já vencido</span>}</>
+                : 'Esta exigência está sem prazo definido.'}
+            </div>
+            <div>
+              <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Novo prazo</label>
+              <div className="flex flex-wrap items-center gap-2 mt-1">
+                <Input type="date" value={prorrogarData} onChange={e => setProrrogarData(e.target.value)} className="h-9 text-[12.5px] w-[160px] font-mono-hbs" />
+                {sugestoesProrrogacao(limiteProrrogacao, hoje).map(s => (
+                  <button key={s.dias} type="button" onClick={() => setProrrogarData(s.data)} className={cn('h-8 px-2.5 rounded-lg border-2 text-[11.5px] font-medium transition-colors', prorrogarData === s.data ? 'border-primary text-primary' : 'hover:border-hover')}>
+                    +{s.dias} dias
+                  </button>
+                ))}
+              </div>
+              <div className="text-[10.5px] text-mute-2 mt-1">{limiteProrrogacao && limiteProrrogacao > hoje ? 'Os atalhos contam a partir do prazo atual.' : 'Os atalhos contam a partir de hoje.'}</div>
+            </div>
+            <div>
+              <label className="text-[11px] text-mute-2 uppercase tracking-[.06em]">Motivo / observação (opcional)</label>
+              <Input value={prorrogarMotivo} onChange={e => setProrrogarMotivo(e.target.value)} placeholder="Ex: prorrogação concedida pelo Oficial" className="h-9 text-[12.5px] mt-1" />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={() => setProrrogar(null)} className="h-9 px-3.5 rounded-lg text-[12.5px] font-medium text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
+            <button onClick={confirmarProrrogacao} className="h-9 px-3.5 bg-primary text-primary-foreground rounded-lg text-[12.5px] font-medium hover:bg-primary-hover transition-colors">Prorrogar</button>
           </div>
         </DialogContent>
       </Dialog>
