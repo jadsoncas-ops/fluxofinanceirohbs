@@ -49,7 +49,7 @@ export function DocumentoContrato({ dados }: { dados: ContratoDoc }) {
         <div className="documento-sign-grid documento-sign-grid--compacto">
           <div>
             <div className="linha">{dados.contratada.nome}</div>
-            <div className="papel">CONTRATADA — {dados.contratada.responsavel}{dados.contratada.crea ? ` · CREA nº ${dados.contratada.crea}` : ''}</div>
+            <div className="papel">CONTRATADA — {dados.contratada.responsavel}{dados.contratada.crea ? ` · ${dados.contratada.crea}` : ''}</div>
           </div>
           {dados.contratantes.map((c, i) => (
             <div key={i}>

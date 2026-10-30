@@ -29,16 +29,25 @@ export interface ContratoDoc {
   data: string;
 }
 
+/** "CREA-BA 051598661-5" já vem com o prefixo no cadastro; "0512345678-BA" não — só acrescenta "CREA nº" quando falta. */
+export function creaTexto(crea: string | undefined): string {
+  const c = (crea || '').trim();
+  if (!c) return '';
+  return /^crea/i.test(c) ? c : `CREA nº ${c}`;
+}
+
 function enderecoCliente(cliente: Client): string | undefined {
   const e = cliente.endereco;
-  if (!e) return undefined;
-  const texto = [e.rua, e.numero, e.complemento, e.bairro, e.cidade, e.estado].filter(Boolean).join(', ');
+  // O formulário de cliente já nasce com UF "BA": sem rua não há endereço de verdade — evita "residente em BA".
+  if (!e || !(e.rua || '').trim()) return undefined;
+  // O cadastro às vezes guarda espaço sobrando no fim ("Santo Antonio ") — limpa pra não sair "Antonio , Itabuna".
+  const texto = [e.rua, e.numero, e.complemento, e.bairro, e.cidade, e.estado].map(x => (x || '').trim()).filter(Boolean).join(', ');
   return texto || undefined;
 }
 
 function contratantePrincipal(cliente: Client): ContratanteDoc {
-  const nome = cliente.nome;
-  const documento = cliente.documento || PLACEHOLDER;
+  const nome = cliente.nome.trim();
+  const documento = cliente.documento?.trim() || PLACEHOLDER;
   const endereco = enderecoCliente(cliente);
 
   if (cliente.tipo === 'Pessoa jurídica' || cliente.tipo === 'Condomínio') {
@@ -70,13 +79,13 @@ function contratanteAdicional(r: RequerenteAdicional): ContratanteDoc {
 function contratadaDoc(config: CompanyConfig): ContratoDoc['contratada'] {
   const nome = config.razaoSocial?.trim() || '(razão social — configure em Configurações)';
   const responsavel = config.responsavelNome?.trim() || '(responsável — configure em Configurações)';
-  const crea = config.responsavelCrea?.trim() || '';
+  const crea = creaTexto(config.responsavelCrea);
   const partes = [
     nome.toUpperCase(),
     'pessoa jurídica de direito privado',
     `inscrita no CNPJ nº ${config.cnpj?.trim() || PLACEHOLDER}`,
     ...(config.endereco?.trim() ? [`com sede em ${config.endereco.trim()}`] : []),
-    `neste ato representada por ${responsavel}${crea ? `, CREA nº ${crea}` : ''}`,
+    `neste ato representada por ${responsavel}${crea ? `, ${crea}` : ''}`,
   ];
   return { qualificacao: `${partes.join(', ')}.`, nome, responsavel, crea };
 }
@@ -147,6 +156,7 @@ export function pendenciasDoContrato(contrato: Contrato, cliente: Client, config
   if (!config.endereco?.trim()) p.push('Endereço da HBS (Configurações)');
   if (!config.responsavelNome?.trim()) p.push('Responsável técnico da HBS (Configurações)');
   if (!cliente.documento?.trim()) p.push(`CPF/CNPJ de ${cliente.nome} (cadastro do cliente)`);
+  if (!enderecoCliente(cliente)) p.push(`Endereço de ${cliente.nome} (cadastro do cliente)`);
   if (cliente.tipo === 'Pessoa física' && !cliente.qualificacao?.estadoCivil) p.push(`Estado civil e profissão de ${cliente.nome} (cadastro do cliente)`);
   for (const r of contrato.contratantesAdicionais || []) {
     if (r.nome?.trim() && !r.documento?.trim()) p.push(`CPF de ${r.nome.trim()}`);

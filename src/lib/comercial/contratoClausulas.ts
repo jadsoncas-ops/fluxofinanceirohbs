@@ -37,6 +37,7 @@ export interface ContextoClausulas {
   parcelas: ParcelaContrato[];
   notaParceiro?: string;
   responsavelNome: string;
+  /** Já formatado ("CREA nº 123-BA" ou "CREA-BA 123"). */
   responsavelCrea?: string;
   foro: string;
 }
@@ -52,14 +53,17 @@ export function montarClausulas(c: ContextoClausulas): Clausula[] {
   const oContratante = P ? 'os CONTRATANTES' : 'o CONTRATANTE';
   const doContratante = P ? 'dos CONTRATANTES' : 'do CONTRATANTE';
   const peloContratante = P ? 'pelos CONTRATANTES' : 'pelo CONTRATANTE';
-  const resp = c.responsavelCrea ? `${c.responsavelNome} (CREA nº ${c.responsavelCrea})` : c.responsavelNome;
+  const resp = c.responsavelCrea ? `${c.responsavelNome} (${c.responsavelCrea})` : c.responsavelNome;
+
+  // Itens de lista terminam em ";" e o último em ".".
+  const fimDeItem = (idx: number, total: number) => (idx === total - 1 ? '.' : ';');
 
   const escopo = c.itens.length
-    ? c.itens.map((i, idx) => `${String.fromCharCode(97 + idx)}) ${i.nome}${i.descricao ? ` — ${i.descricao.replace(/\.$/, '')}` : ''};`)
+    ? c.itens.map((i, idx) => `${String.fromCharCode(97 + idx)}) ${i.nome}${i.descricao ? ` — ${i.descricao.replace(/\.$/, '')}` : ''}${fimDeItem(idx, c.itens.length)}`)
     : ['(escopo a definir)'];
 
   const parcelas = c.parcelas.length
-    ? c.parcelas.map((p, idx) => `${String.fromCharCode(97 + idx)}) ${p.descricao}: ${p.valor}${p.vencimento ? `, com vencimento em ${p.vencimento}` : ''};`)
+    ? c.parcelas.map((p, idx) => `${String.fromCharCode(97 + idx)}) ${p.descricao}: ${p.valor}${p.vencimento ? `, com vencimento em ${p.vencimento}` : ''}${fimDeItem(idx, c.parcelas.length)}`)
     : [];
 
   const quinta: string[] = [

@@ -165,6 +165,42 @@ describe('outras situações', () => {
     expect(d.contratada.qualificacao).toContain('CNPJ nº (a preencher)');
   });
 
+  it('CREA que já vem com prefixo no cadastro não ganha "CREA nº" duplicado', () => {
+    const d = montarContrato(contrato(), proposta(), jose, { ...config, responsavelCrea: 'CREA-BA 051598661-5' }, HOJE);
+    expect(d.contratada.qualificacao).toContain('representada por Jádson Castro, CREA-BA 051598661-5');
+    expect(d.contratada.qualificacao).not.toContain('CREA nº CREA');
+    expect(textoDe(d)).toContain('Jádson Castro (CREA-BA 051598661-5)');
+    expect(d.contratada.crea).toBe('CREA-BA 051598661-5');
+  });
+
+  it('nome e endereço com espaço sobrando no cadastro saem limpos', () => {
+    const sujo = { ...jose, nome: 'Adriana Reis dos Santos ', endereco: { rua: 'Travessa Valquiria Oliveira ', numero: '50', bairro: 'Santo Antonio ', cidade: 'Itabuna', estado: 'BA' } } as Client;
+    const d = montarContrato(contrato(), proposta(), sujo, config, HOJE);
+    expect(d.contratantes[0].qualificacao).toContain('ADRIANA REIS DOS SANTOS, brasileiro, maior');
+    expect(d.contratantes[0].qualificacao).toContain('Travessa Valquiria Oliveira, 50, Santo Antonio, Itabuna, BA');
+    expect(d.contratantes[0].nome).toBe('Adriana Reis dos Santos');
+  });
+
+  it('itens de lista terminam em ";" e o último em "."', () => {
+    const p = proposta({ itens: [
+      { etapaId: 'levantamento', nome: 'Levantamento Cadastral', grupo: 'Módulo Projeto', visitas: 1, horas: 0 },
+      { etapaId: 'situacao', nome: 'Planta de Situação', grupo: 'Módulo Projeto', visitas: 0, horas: 2 },
+    ] });
+    const escopo = clausula(montarContrato(contrato(), p, jose, config, HOJE), 'CLÁUSULA PRIMEIRA').paragrafos.filter(x => /^[a-z]\) /.test(x));
+    expect(escopo).toHaveLength(2);
+    expect(escopo[0].endsWith(';')).toBe(true);
+    expect(escopo[1].endsWith('.')).toBe(true);
+    const unica = clausula(montarContrato(contrato({ parcelas: [{ id: 'a', descricao: 'Pagamento único', valor: 4000, vencimento: '2026-11-29' }] }), p, jose, config, HOJE), 'CLÁUSULA QUINTA').paragrafos.find(x => x.startsWith('a) '))!;
+    expect(unica.endsWith('29/11/2026.')).toBe(true);
+  });
+
+  it('cliente só com a UF padrão do formulário não vira "residente em BA"', () => {
+    const semEndereco = { ...jose, endereco: { rua: '', numero: '', bairro: '', cidade: '', estado: 'BA' } } as Client;
+    const d = montarContrato(contrato(), proposta(), semEndereco, config, HOJE);
+    expect(d.contratantes[0].qualificacao).not.toContain('residente');
+    expect(pendenciasDoContrato(contrato(), semEndereco, config)).toContain('Endereço de José Almeida dos Santos (cadastro do cliente)');
+  });
+
   it('prazo ausente não quebra o texto', () => {
     const d = montarContrato(contrato(), proposta({ prazoDias: undefined }), jose, config, HOJE);
     expect(textoDe(d)).toContain('será o ajustado entre as partes por escrito');
