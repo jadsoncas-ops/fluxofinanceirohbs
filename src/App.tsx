@@ -21,6 +21,7 @@ import ProducaoPage from "./pages/ProducaoPage";
 import DocumentoGeradorPage from "./pages/producao/DocumentoGeradorPage";
 import ComercialPage from "./pages/ComercialPage";
 import PropostaImpressaoPage from "./pages/comercial/PropostaImpressaoPage";
+import ContratoImpressaoPage from "./pages/comercial/ContratoImpressaoPage";
 import RelatoriosPage from "./pages/RelatoriosPage";
 import AvaliacoesPage from "./pages/AvaliacoesPage";
 import AvaliacaoDetailPage from "./pages/AvaliacaoDetailPage";
@@ -61,6 +62,7 @@ const App = () => (
             <Route path="/documentos" element={<Navigate to="/producao" replace />} />
             <Route path="/comercial" element={<ComercialPage />} />
             <Route path="/comercial/propostas/:propostaId/imprimir" element={<PropostaImpressaoPage />} />
+            <Route path="/comercial/contratos/:contratoId/imprimir" element={<ContratoImpressaoPage />} />
             <Route path="/relatorios" element={<RelatoriosPage />} />
             <Route path="/avaliacoes" element={<AvaliacoesPage />} />
             <Route path="/avaliacoes/:avaliacaoId" element={<AvaliacaoDetailPage />} />

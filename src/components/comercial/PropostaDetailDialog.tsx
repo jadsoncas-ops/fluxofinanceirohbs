@@ -196,6 +196,14 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
                   <div className="text-[12px] text-muted-foreground">Valor: <span className="font-mono-hbs text-foreground">{formatBRL(contrato.valor)}</span></div>
                   <button onClick={() => setEditContratoOpen(true)} className="text-[11.5px] font-medium text-accent flex items-center gap-1"><Pencil className="w-3 h-3" /> Editar</button>
                 </div>
+                {(contrato.contratantesAdicionais?.length ?? 0) > 0 && (
+                  <div className="text-[11.5px] text-muted-foreground">
+                    Contratantes: <span className="text-foreground">{[nome, ...contrato.contratantesAdicionais!.map(a => a.nome)].join(', ')}</span>
+                  </div>
+                )}
+                <Button size="sm" variant="outline" className="w-full gap-1.5" onClick={() => { onClose(); navigate(`/comercial/contratos/${contrato.id}/imprimir`); }}>
+                  <Printer className="w-3.5 h-3.5" /> Imprimir contrato
+                </Button>
                 {contrato.trabalhoId ? (
                   <Button size="sm" variant="outline" className="w-full" onClick={() => { onClose(); navigate(`/trabalhos/${contrato.trabalhoId}`); }}>Ver trabalho <ArrowRight className="w-3.5 h-3.5 ml-1.5" /></Button>
                 ) : (

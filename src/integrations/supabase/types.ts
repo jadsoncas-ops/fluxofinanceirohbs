@@ -413,6 +413,7 @@ export type Database = {
           trabalho_id: string | null
           valor: number
           parcelas: Json
+          contratantes_adicionais: Json | null
           status: string
           assinado_em: string | null
           created_at: string
@@ -427,6 +428,7 @@ export type Database = {
           trabalho_id?: string | null
           valor: number
           parcelas?: Json
+          contratantes_adicionais?: Json | null
           status?: string
           assinado_em?: string | null
           created_at?: string
@@ -441,6 +443,7 @@ export type Database = {
           trabalho_id?: string | null
           valor?: number
           parcelas?: Json
+          contratantes_adicionais?: Json | null
           status?: string
           assinado_em?: string | null
           created_at?: string

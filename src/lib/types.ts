@@ -533,6 +533,10 @@ export interface Contrato {
   trabalhoId?: string | null;
   valor: number;
   parcelas: ContratoParcela[];
+  /** Outros contratantes além do cliente principal (`clienteId`) — pessoas do cadastro ou digitadas, guardadas como
+   *  foto da qualificação no momento do contrato. Entram no documento do contrato (responsabilidade solidária);
+   *  financeiro e cobrança continuam no cliente principal. */
+  contratantesAdicionais?: RequerenteAdicional[];
   status: ContratoStatus;
   assinadoEm?: number;
   createdAt: number;
