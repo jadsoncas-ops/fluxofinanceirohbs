@@ -245,6 +245,7 @@ function rowToContrato(r: Row<'hbs_contratos'>): Contrato {
     id: r.id, codigo: r.codigo, propostaId: r.proposta_id, clienteId: r.cliente_id, trabalhoId: r.trabalho_id,
     valor: Number(r.valor), parcelas: (r.parcelas as Contrato['parcelas']) ?? [],
     contratantesAdicionais: (r.contratantes_adicionais as Contrato['contratantesAdicionais']) ?? undefined,
+    textoPersonalizado: (r.texto_personalizado as Contrato['textoPersonalizado']) ?? undefined,
     status: r.status as Contrato['status'],
     assinadoEm: r.assinado_em ? new Date(r.assinado_em).getTime() : undefined,
     createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime(),
@@ -257,6 +258,7 @@ function contratoToRow(c: Contrato): Database['public']['Tables']['hbs_contratos
     // Só envia a coluna quando o contrato tem (ou acabou de limpar) contratantes adicionais — os demais contratos
     // seguem gravando exatamente como antes.
     ...(c.contratantesAdicionais !== undefined ? { contratantes_adicionais: (c.contratantesAdicionais.length ? c.contratantesAdicionais : null) as Database['public']['Tables']['hbs_contratos']['Insert']['contratantes_adicionais'] } : {}),
+    ...(c.textoPersonalizado !== undefined ? { texto_personalizado: c.textoPersonalizado as Database['public']['Tables']['hbs_contratos']['Insert']['texto_personalizado'] } : {}),
     status: c.status, assinado_em: c.assinadoEm ? new Date(c.assinadoEm).toISOString() : null,
     created_at: c.createdAt ? new Date(c.createdAt).toISOString() : undefined,
     updated_at: c.updatedAt ? new Date(c.updatedAt).toISOString() : undefined,

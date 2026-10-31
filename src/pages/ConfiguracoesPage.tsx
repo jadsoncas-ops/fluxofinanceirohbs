@@ -7,6 +7,7 @@ import { importarDadosLocaisParaSupabase } from '@/lib/localImport';
 import { calcularCustoOperacionalTotal, calcularHorasProdutivas, calcularCustoHora, formatBRL } from '@/lib/comercial/precificacao';
 import { CustoItem } from '@/lib/comercial/precificacao';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 
@@ -217,6 +218,17 @@ export default function ConfiguracoesPage() {
           <Field label="Responsável técnico — nome"><Input value={config.responsavelNome || ''} onChange={e => salvarConfig({ responsavelNome: e.target.value })} placeholder="Nome completo" className="h-9 text-xs" /></Field>
           <Field label="CREA/CAU"><Input value={config.responsavelCrea || ''} onChange={e => salvarConfig({ responsavelCrea: e.target.value })} placeholder="CREA-BA 000000" className="h-9 text-xs" /></Field>
           <Field label="Título profissional"><Input value={config.responsavelTitulo || ''} onChange={e => salvarConfig({ responsavelTitulo: e.target.value })} placeholder="Engenheiro Civil" className="h-9 text-xs" /></Field>
+          <div className="col-span-full">
+            <Field label="Qualificação do contratado (abertura do contrato)">
+              <Textarea
+                value={config.contratadoQualificacao || ''}
+                onChange={e => salvarConfig({ contratadoQualificacao: e.target.value })}
+                placeholder="Nome completo, nacionalidade, estado civil, profissão, registro no CREA, CPF, RG, endereço, telefone e e-mail — como deve abrir o contrato."
+                className="min-h-[84px] text-xs"
+              />
+              <p className="text-[11px] text-mute-2 mt-1">Aparece só no contrato, depois de "e do outro lado". Fica guardado no banco, nunca no código do site.</p>
+            </Field>
+          </div>
           <Field label="Validade padrão de proposta (dias)"><Input type="number" value={config.validadePropostaDias ?? ''} onChange={e => salvarConfig({ validadePropostaDias: parseInt(e.target.value) || undefined })} placeholder="15" className="h-9 text-xs" /></Field>
         </div>
       </section>

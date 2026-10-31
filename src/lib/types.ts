@@ -300,6 +300,8 @@ export type TipoAtoAverbacao = 'averbacao_construcao' | 'averbacao_ampliacao' | 
  *  `requerente*` de AverbacaoData; estes entram além dele, no texto e nas assinaturas. */
 export interface RequerenteAdicional {
   nome: string;
+  nacionalidade?: string;
+  rg?: string;
   documento?: string;
   estadoCivil?: EstadoCivil;
   profissao?: string;
@@ -427,6 +429,9 @@ export interface CompanyConfig {
   responsavelNome?: string;
   responsavelCrea?: string;
   responsavelTitulo?: string;
+  /** Qualificação completa do contratado, como abre o contrato (começando pelo nome: "Fulano, brasileiro, casado,
+   *  engenheiro civil, CREA…, CPF…, RG…, endereço…, telefone, e-mail"). Fica só aqui, no banco — nunca no código. */
+  contratadoQualificacao?: string;
   /** Validade padrão de uma proposta comercial, em dias. */
   validadePropostaDias?: number;
   /** Id da Account (ver src/pages/financeiro/ContasPage.tsx) marcada como "conta reserva da
@@ -524,6 +529,20 @@ export interface ContratoParcela {
   transactionId?: string;
 }
 
+/** Partes do contrato que o profissional costuma ajustar por serviço (objeto, fases, prazo e limite de responsabilidade). */
+export interface TextoContrato {
+  /** Parágrafo inteiro da cláusula I (Objeto). */
+  objeto?: string;
+  /** Itens da cláusula II (Fases), um por linha. */
+  fases?: string[];
+  /** Alínea (c) da cláusula III — prazo de entrega. */
+  prazoEntrega?: string;
+  /** Parágrafo único da cláusula III — limite de responsabilidade. Vazio = não aparece. */
+  paragrafoUnico?: string;
+  /** Acrescenta duas linhas de testemunha ao final (dão força de título executivo ao contrato). */
+  testemunhas?: boolean;
+}
+
 /** Um contrato — nasce sempre de uma Proposta aprovada. */
 export interface Contrato {
   id: string;
@@ -537,6 +556,9 @@ export interface Contrato {
    *  foto da qualificação no momento do contrato. Entram no documento do contrato (responsabilidade solidária);
    *  financeiro e cobrança continuam no cliente principal. */
   contratantesAdicionais?: RequerenteAdicional[];
+  /** Trechos do contrato que mudam de serviço para serviço; o resto do texto é fixo. Campo vazio = usa o padrão
+   *  gerado a partir da proposta. */
+  textoPersonalizado?: TextoContrato;
   status: ContratoStatus;
   assinadoEm?: number;
   createdAt: number;

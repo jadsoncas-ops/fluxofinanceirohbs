@@ -414,6 +414,7 @@ export type Database = {
           valor: number
           parcelas: Json
           contratantes_adicionais: Json | null
+          texto_personalizado: Json | null
           status: string
           assinado_em: string | null
           created_at: string
@@ -429,6 +430,7 @@ export type Database = {
           valor: number
           parcelas?: Json
           contratantes_adicionais?: Json | null
+          texto_personalizado?: Json | null
           status?: string
           assinado_em?: string | null
           created_at?: string
@@ -444,6 +446,7 @@ export type Database = {
           valor?: number
           parcelas?: Json
           contratantes_adicionais?: Json | null
+          texto_personalizado?: Json | null
           status?: string
           assinado_em?: string | null
           created_at?: string

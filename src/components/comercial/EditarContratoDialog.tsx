@@ -18,6 +18,8 @@ function contratanteDoCliente(c: Client): RequerenteAdicional {
   const e = c.endereco;
   return {
     nome: c.nome,
+    nacionalidade: c.qualificacao?.nacionalidade,
+    rg: c.qualificacao?.rg,
     documento: c.documento || undefined,
     estadoCivil: c.qualificacao?.estadoCivil,
     profissao: c.qualificacao?.profissao,
@@ -177,6 +179,10 @@ export function EditarContratoDialog({ open, onClose, onSaved, contrato }: Props
                 <Input value={a.documento || ''} onChange={e => updateAdicional(i, { documento: e.target.value })} placeholder="CPF/CNPJ" className="h-8 text-xs" />
               </div>
               <div className="grid grid-cols-2 gap-2">
+                <Input value={a.nacionalidade || ''} onChange={e => updateAdicional(i, { nacionalidade: e.target.value })} placeholder="Nacionalidade (ex.: brasileiro)" className="h-8 text-xs" />
+                <Input value={a.rg || ''} onChange={e => updateAdicional(i, { rg: e.target.value })} placeholder="RG (opcional)" className="h-8 text-xs" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
                 <Select value={a.estadoCivil || ''} onValueChange={v => updateAdicional(i, { estadoCivil: v as EstadoCivil })}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Estado civil" /></SelectTrigger>
                   <SelectContent>{ESTADOS_CIVIS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
@@ -186,7 +192,6 @@ export function EditarContratoDialog({ open, onClose, onSaved, contrato }: Props
               {precisaQualificarConjuge(a.estadoCivil) && (
                 <Input value={a.conjugeNome || ''} onChange={e => updateAdicional(i, { conjugeNome: e.target.value })} placeholder="Nome do cônjuge" className="h-8 text-xs" />
               )}
-              <Input value={a.endereco || ''} onChange={e => updateAdicional(i, { endereco: e.target.value })} placeholder="Endereço completo" className="h-8 text-xs" />
             </div>
           ))}
         </div>
