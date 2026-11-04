@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, ArrowRight, Pencil } from 'lucide-react';
+import { Plus, ArrowRight, Pencil, Printer, Trash2 } from 'lucide-react';
 import { getPropostas, getContratos, getClients } from '@/lib/storage';
 import { formatBRL } from '@/lib/comercial/precificacao';
 import { nomeDaProposta } from '@/lib/comercial/fluxo';
-import { Proposta, PropostaStatus, ContratoStatus } from '@/lib/types';
+import { Contrato, Proposta, PropostaStatus, ContratoStatus } from '@/lib/types';
 import { NovaPropostaDialog } from '@/components/comercial/NovaPropostaDialog';
 import { PropostaDetailDialog } from '@/components/comercial/PropostaDetailDialog';
+import { EditarContratoDialog } from '@/components/comercial/EditarContratoDialog';
+import { ExcluirContratoDialog } from '@/components/comercial/ExcluirContratoDialog';
 import { ValorMonetario } from '@/components/ValorMonetario';
 import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
 import { cn } from '@/lib/utils';
@@ -33,6 +35,8 @@ export default function ComercialPage() {
   const [key, setKey] = useState(0);
   const [open, setOpen] = useState(false);
   const [propostaAberta, setPropostaAberta] = useState<string | null>(null);
+  const [contratoEditando, setContratoEditando] = useState<Contrato | null>(null);
+  const [contratoExcluindo, setContratoExcluindo] = useState<Contrato | null>(null);
   const navigate = useNavigate();
 
   const { propostas, contratos, clients, funil, propostasAbertas, totalAberto, conversao } = useMemo(() => {
@@ -160,28 +164,41 @@ export default function ComercialPage() {
         {contratos.length === 0 ? (
           <div className="px-[18px] py-8 text-center text-xs text-muted-foreground">Nenhum contrato ainda. Aprove uma proposta para gerar o primeiro.</div>
         ) : (
-          contratos.map(c => (
-            <div key={c.id} className="flex items-center gap-3 px-[18px] py-[12px] border-b border-3 last:border-b-0">
-              <div className="flex-1 min-w-0">
-                <div className="text-[12.5px] font-medium truncate">{c.codigo} · {clienteNome(c.clienteId)}</div>
-                <div className="text-[11px] text-mute-2 mt-0.5 font-mono-hbs"><ValorMonetario value={formatBRL(c.valor)} /> · {new Date(c.createdAt).toLocaleDateString('pt-BR')}</div>
+          contratos.map(c => {
+            const extras = c.contratantesAdicionais?.length || 0;
+            return (
+              <div key={c.id} className="flex items-center gap-x-3 gap-y-2 flex-wrap px-[18px] py-[12px] border-b border-3 last:border-b-0">
+                <div className="flex-1 min-w-[200px]">
+                  <div className="text-[12.5px] font-medium truncate">{c.codigo} · {clienteNome(c.clienteId)}{extras > 0 && <span className="text-mute-2 font-normal"> +{extras} contratante{extras > 1 ? 's' : ''}</span>}</div>
+                  <div className="text-[11px] text-mute-2 mt-0.5 font-mono-hbs"><ValorMonetario value={formatBRL(c.valor)} /> · {new Date(c.createdAt).toLocaleDateString('pt-BR')}</div>
+                </div>
+                <StatusBadge tone={CONTRATO_TONE[c.status]} className="flex-none">{c.status}</StatusBadge>
+                <div className="flex items-center gap-3 flex-none">
+                  <button onClick={() => navigate(`/comercial/contratos/${c.id}/imprimir`)} className="text-[11.5px] font-medium text-muted-foreground hover:text-accent transition-colors flex items-center gap-1">
+                    <Printer className="w-3 h-3" /> Imprimir
+                  </button>
+                  <button onClick={() => setContratoEditando(c)} className="text-[11.5px] font-medium text-muted-foreground hover:text-accent transition-colors flex items-center gap-1" title="Valor, parcelas e contratantes">
+                    <Pencil className="w-3 h-3" /> Editar
+                  </button>
+                  {c.trabalhoId ? (
+                    <button onClick={() => navigate(`/trabalhos/${c.trabalhoId}`)} className="text-[11.5px] font-medium text-accent flex items-center gap-1">Ver trabalho <ArrowRight className="w-3 h-3" /></button>
+                  ) : (
+                    <button onClick={() => setPropostaAberta(c.propostaId)} className="text-[11.5px] font-medium text-accent">Criar trabalho</button>
+                  )}
+                  <button onClick={() => setContratoExcluindo(c)} className="text-mute-3 hover:text-destructive transition-colors" title="Excluir contrato">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
-              <StatusBadge tone={CONTRATO_TONE[c.status]} className="flex-none">{c.status}</StatusBadge>
-              <button onClick={() => setPropostaAberta(c.propostaId)} className="flex-none text-[11.5px] font-medium text-muted-foreground hover:text-accent transition-colors flex items-center gap-1">
-                <Pencil className="w-3 h-3" /> Editar
-              </button>
-              {c.trabalhoId ? (
-                <button onClick={() => navigate(`/trabalhos/${c.trabalhoId}`)} className="flex-none text-[11.5px] font-medium text-accent flex items-center gap-1">Ver trabalho <ArrowRight className="w-3 h-3" /></button>
-              ) : (
-                <button onClick={() => setPropostaAberta(c.propostaId)} className="flex-none text-[11.5px] font-medium text-accent">Criar trabalho</button>
-              )}
-            </div>
-          ))
+            );
+          })
         )}
       </section>
 
       <NovaPropostaDialog open={open} onClose={() => setOpen(false)} onSaved={() => setKey(k => k + 1)} />
       <PropostaDetailDialog propostaId={propostaAberta} onClose={() => setPropostaAberta(null)} onChanged={() => setKey(k => k + 1)} />
+      <EditarContratoDialog open={!!contratoEditando} onClose={() => setContratoEditando(null)} onSaved={() => setKey(k => k + 1)} contrato={contratoEditando} />
+      <ExcluirContratoDialog contrato={contratoExcluindo} onClose={() => setContratoExcluindo(null)} onDeleted={() => setKey(k => k + 1)} />
     </div>
   );
 }

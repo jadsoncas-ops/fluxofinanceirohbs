@@ -6,12 +6,13 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle2, XCircle, Send, ArrowRight, Printer, Pencil, Trash2, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Client, Proposta, PropostaStatus, Contrato } from '@/lib/types';
-import { getClients, getContratos, getPropostas, updateProposta, deleteProposta, deleteContrato, registrarEvento } from '@/lib/storage';
+import { getClients, getContratos, getPropostas, updateProposta, deleteProposta, registrarEvento } from '@/lib/storage';
 import { aprovarPropostaEGerarContrato, nomeDaProposta } from '@/lib/comercial/fluxo';
 import { formatBRL } from '@/lib/comercial/precificacao';
 import { NovoTrabalhoDialog } from './NovoTrabalhoDialog';
 import { NovaPropostaDialog } from './NovaPropostaDialog';
 import { EditarContratoDialog } from './EditarContratoDialog';
+import { ExcluirContratoDialog } from './ExcluirContratoDialog';
 import { ClientForm } from '@/components/ClientForm';
 import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
 
@@ -35,7 +36,8 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
   const [novoTrabalhoOpen, setNovoTrabalhoOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editContratoOpen, setEditContratoOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<'proposta' | 'contrato' | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<'proposta' | null>(null);
+  const [excluirContratoOpen, setExcluirContratoOpen] = useState(false);
   const [confirmarAprovar, setConfirmarAprovar] = useState(false);
   const [clienteFormOpen, setClienteFormOpen] = useState(false);
   // Aprovar uma proposta sem cadastro passa pelo cadastro do cliente; depois dele, segue pra confirmação de aprovar.
@@ -97,16 +99,6 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
     setDeleteConfirm(null);
     onChanged();
     onClose();
-  }
-
-  function handleDeleteContrato() {
-    if (!contrato) return;
-    registrarEvento({ modulo: 'Comercial', texto: `Contrato ${contrato.codigo} excluído`, clienteId: proposta!.clienteId, propostaId: proposta!.id });
-    deleteContrato(contrato.id);
-    toast.success('Contrato excluído.');
-    setDeleteConfirm(null);
-    setKey(k => k + 1);
-    onChanged();
   }
 
   return (
@@ -207,11 +199,9 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
                 {contrato.trabalhoId ? (
                   <Button size="sm" variant="outline" className="w-full" onClick={() => { onClose(); navigate(`/trabalhos/${contrato.trabalhoId}`); }}>Ver trabalho <ArrowRight className="w-3.5 h-3.5 ml-1.5" /></Button>
                 ) : (
-                  <>
-                    <Button size="sm" className="w-full" onClick={() => setNovoTrabalhoOpen(true)}>Criar Trabalho</Button>
-                    <Button size="sm" variant="ghost" className="w-full gap-1.5 text-destructive hover:text-destructive" onClick={() => setDeleteConfirm('contrato')}><Trash2 className="w-3.5 h-3.5" /> Excluir contrato</Button>
-                  </>
+                  <Button size="sm" className="w-full" onClick={() => setNovoTrabalhoOpen(true)}>Criar Trabalho</Button>
                 )}
+                <Button size="sm" variant="ghost" className="w-full gap-1.5 text-destructive hover:text-destructive" onClick={() => setExcluirContratoOpen(true)}><Trash2 className="w-3.5 h-3.5" /> Excluir contrato</Button>
               </div>
             ) : (
               <div className="flex flex-col gap-2">
@@ -262,21 +252,25 @@ export function PropostaDetailDialog({ propostaId, onClose, onChanged }: Props) 
       <AlertDialog open={!!deleteConfirm} onOpenChange={v => !v && setDeleteConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{deleteConfirm === 'contrato' ? 'Excluir contrato' : 'Excluir proposta'}</AlertDialogTitle>
+            <AlertDialogTitle>Excluir proposta</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteConfirm === 'contrato'
-                ? `Tem certeza que deseja excluir o contrato ${contrato?.codigo}? A proposta continua existindo, mas volta a ficar sem contrato.`
-                : `Tem certeza que deseja excluir a proposta ${proposta.codigo}? Esta ação não pode ser desfeita.`}
+              Tem certeza que deseja excluir a proposta {proposta.codigo}? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={deleteConfirm === 'contrato' ? handleDeleteContrato : handleDeleteProposta} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction onClick={handleDeleteProposta} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ExcluirContratoDialog
+        contrato={excluirContratoOpen ? contrato : null}
+        onClose={() => setExcluirContratoOpen(false)}
+        onDeleted={() => { setKey(k => k + 1); onChanged(); }}
+      />
 
       <AlertDialog open={confirmarAprovar} onOpenChange={setConfirmarAprovar}>
         <AlertDialogContent>

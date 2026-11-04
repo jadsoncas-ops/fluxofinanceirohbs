@@ -1079,7 +1079,15 @@ export function updateContrato(updated: Contrato): void {
   cache.contratos = cache.contratos.map(c => c.id === updated.id ? withTs : c);
   notify();
   void (async () => {
-    const { error } = await supabase.from('hbs_contratos').update(contratoToRow(withTs)).eq('id', updated.id);
+    // "Criar trabalho" grava o trabalho e, logo em seguida, o contrato apontando pra ele (trabalho_id tem FK). As duas
+    // escritas saem juntas (updateProcess não espera o banco); se a do contrato chegar antes, a FK (23503) falha só
+    // por corrida e o contrato ficava sem trabalho — a tela voltava a oferecer "Criar trabalho". Espera e tenta de novo.
+    let error: { code?: string } | null = null;
+    for (const espera of [0, 400, 1200]) {
+      if (espera) await new Promise(r => setTimeout(r, espera));
+      ({ error } = await supabase.from('hbs_contratos').update(contratoToRow(withTs)).eq('id', updated.id));
+      if (!error || error.code !== '23503') break;
+    }
     if (error) { reportError(error, 'Não foi possível salvar. Sincronizando novamente…'); await resyncTable('hbs_contratos', rowToContrato, v => cache.contratos = v); }
   })();
 }

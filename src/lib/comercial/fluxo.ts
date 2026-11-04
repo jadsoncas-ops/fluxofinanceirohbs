@@ -1,6 +1,6 @@
 import { Client, Proposta, Contrato, ContratoParcela, Process, Transaction, TrabalhoEtapa } from '@/lib/types';
 import {
-  updateProposta, addContrato, getNextContratoCodigo, getContrato, updateContrato,
+  updateProposta, addContrato, getNextContratoCodigo, getContrato, updateContrato, deleteContrato,
   updateProcess, getProcesses, addTransaction, registrarEvento,
 } from '@/lib/storage';
 
@@ -138,6 +138,33 @@ export function criarTrabalhoDoContrato(contratoId: string, proposta: Proposta, 
   }
 
   return trabalho;
+}
+
+/**
+ * Exclui o contrato. O trabalho e os lançamentos financeiros já criados a partir dele NÃO são apagados — o trabalho só
+ * deixa de apontar para o contrato (os lançamentos são independentes). A proposta que estava "Aprovada" volta para
+ * "Em aprovação", e então dá para gerar outro contrato (ou marcá-la como perdida).
+ */
+export function excluirContrato(contrato: Contrato, proposta?: Proposta): void {
+  deleteContrato(contrato.id);
+
+  if (contrato.trabalhoId) {
+    const trabalho = getProcesses().find(p => p.id === contrato.trabalhoId);
+    if (trabalho && trabalho.contratoId === contrato.id) updateProcess({ ...trabalho, contratoId: undefined });
+  }
+
+  if (proposta && proposta.status === 'Aprovada') {
+    updateProposta({ ...proposta, status: 'Em aprovação', updatedAt: Date.now() });
+  }
+
+  // Sem contratoId no evento: o contrato acabou de ser apagado e o histórico tem FK para ele.
+  registrarEvento({
+    modulo: 'Comercial',
+    texto: `Contrato ${contrato.codigo} excluído`,
+    clienteId: contrato.clienteId,
+    propostaId: contrato.propostaId,
+    trabalhoId: contrato.trabalhoId || undefined,
+  });
 }
 
 /** Trabalhos que ainda não existem — usado pra saber se um contrato já pode oferecer "Criar Trabalho". */
